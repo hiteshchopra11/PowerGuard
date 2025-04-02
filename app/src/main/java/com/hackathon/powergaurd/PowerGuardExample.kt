@@ -20,7 +20,7 @@ class PowerGuardExample {
             17, 0, // 5:00 PM
             listOf(Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY)
         )
-        optimizer.restrictBackgroundData("com.example.videoapp", true, listOf(workHours))
+        optimizer.restrictBackgroundData("com.example.videoapp", true)
 
         // 4. Optimize charging to 80% maximum
         optimizer.optimizeCharging(80)

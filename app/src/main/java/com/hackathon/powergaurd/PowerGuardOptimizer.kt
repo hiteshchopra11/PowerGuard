@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.Uri
-import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
 import android.os.Process
@@ -24,12 +23,15 @@ import com.hackathon.powergaurd.workers.SyncScheduleWorker
 import com.hackathon.powergaurd.workers.WakeLockTimeoutWorker
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Main class for AI-PowerGuard optimization actions
  * Compatible with API level 24+
  */
-class PowerGuardOptimizer(private val context: Context) {
+@Singleton
+class PowerGuardOptimizer @Inject constructor(private val context: Context) {
     private val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val packageManager = context.packageManager

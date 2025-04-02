@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.hackathon.PowerGuard"
+    namespace = "com.hackathon.powergaurd"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.hackathon.PowerGuard"
+        applicationId = "com.hackathon.powergaurd"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -31,6 +31,12 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+    buildFeatures {
+        compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.11"
     }
     kotlinOptions {
         jvmTarget = "11"

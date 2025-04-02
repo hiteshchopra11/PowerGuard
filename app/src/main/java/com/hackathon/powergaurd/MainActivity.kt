@@ -17,12 +17,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.core.app.ActivityCompat
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -32,6 +31,8 @@ import com.hackathon.powergaurd.theme.PowerGuardTheme
 import com.hackathon.powergaurd.ui.AppNavHost
 import com.hackathon.powergaurd.ui.BottomNavBar
 import com.hackathon.powergaurd.workers.DataCollectionWorker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
@@ -148,19 +149,23 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun PowerGuardAppUI() {
-    val navController = rememberNavController()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
+    // Use direct initialization instead of remember functions
+    val navController = NavController(LocalContext.current)
+    val navHostController = NavHostController(LocalContext.current)
+    val snackbarHostState = SnackbarHostState()
+
+    // Create a CoroutineScope manually
+    val coroutineScope = CoroutineScope(Dispatchers.Main)
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        bottomBar = { BottomNavBar(navController = navController) }
+        bottomBar = { BottomNavBar(navController = navHostController) }
     ) { innerPadding ->
         AppNavHost(
-            navController = navController,
+            navController = navHostController,
             modifier = Modifier.padding(innerPadding),
             showSnackbar = { message ->
-                scope.launch {
+                coroutineScope.launch {
                     snackbarHostState.showSnackbar(message)
                 }
             }

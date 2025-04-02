@@ -7,7 +7,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.hackathon.PowerGuard.R
+import com.hackathon.powergaurd.R
 import com.hackathon.powergaurd.data.AppRepository
 import com.hackathon.powergaurd.data.BackendService
 import com.hackathon.powergaurd.data.DeviceStatsCollector

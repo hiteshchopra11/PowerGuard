@@ -1,6 +1,7 @@
 package com.hackathon.powergaurd.di
 
 import android.content.Context
+import com.hackathon.powergaurd.PowerGuardOptimizer
 import com.hackathon.powergaurd.data.AppRepository
 import com.hackathon.powergaurd.data.BackendService
 import com.hackathon.powergaurd.data.DeviceStatsCollector
@@ -31,5 +32,11 @@ object AppModule {
     @Singleton
     fun provideAppRepository(): AppRepository {
         return AppRepository()
+    }
+
+    @Provides
+    @Singleton
+    fun providePowerGuardOptimizer(@ApplicationContext context: Context): PowerGuardOptimizer {
+        return PowerGuardOptimizer(context)
     }
 }

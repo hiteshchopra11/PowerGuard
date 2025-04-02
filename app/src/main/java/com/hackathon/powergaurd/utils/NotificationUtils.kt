@@ -7,8 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import com.hackathon.PowerGuard.R
 import com.hackathon.powergaurd.MainActivity
+import com.hackathon.powergaurd.R
 
 object NotificationUtils {
 

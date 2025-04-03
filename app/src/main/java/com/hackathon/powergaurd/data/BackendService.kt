@@ -18,8 +18,7 @@ import javax.inject.Singleton
 class BackendService @Inject constructor() {
 
     companion object {
-        // Replace with your actual backend URL
-        private const val BACKEND_URL = "https://powerguard-ai-backend.example.com/analyze"
+        private const val BACKEND_URL = "https://powerguardbackend.onrender.com/api/analyze"
         private const val TAG = "BackendService"
     }
 
@@ -48,58 +47,58 @@ class BackendService @Inject constructor() {
         Log.d(TAG, "Wake Locks Count: ${deviceData.wakeLocks.size}")
 
         val jsonObject = JSONObject().apply {
-            put("deviceId", deviceData.deviceId)
+            put("device_id", deviceData.deviceId)
             put("timestamp", deviceData.timestamp)
 
             // App Usage Data
             val appUsageArray = JSONArray()
             deviceData.appUsage.forEach { app ->
                 appUsageArray.put(JSONObject().apply {
-                    put("packageName", app.packageName)
-                    put("appName", app.appName)
-                    put("foregroundTimeMs", app.foregroundTimeMs)
-                    put("backgroundTimeMs", app.backgroundTimeMs)
-                    put("lastUsed", app.lastUsed)
-                    put("launchCount", app.launchCount)
+                    put("package_name", app.packageName)
+                    put("app_name", app.appName)
+                    put("foreground_time_ms", app.foregroundTimeMs)
+                    put("background_time_ms", app.backgroundTimeMs)
+                    put("last_used", app.lastUsed)
+                    put("launch_count", app.launchCount)
                 })
             }
-            put("appUsage", appUsageArray)
+            put("app_usage", appUsageArray)
 
             // Battery Stats
-            put("batteryStats", JSONObject().apply {
+            put("battery_stats", JSONObject().apply {
                 put("level", deviceData.batteryStats.level)
                 put("temperature", deviceData.batteryStats.temperature)
-                put("isCharging", deviceData.batteryStats.isCharging)
-                put("chargingType", deviceData.batteryStats.chargingType)
+                put("is_charging", deviceData.batteryStats.isCharging)
+                put("charging_type", deviceData.batteryStats.chargingType)
                 put("voltage", deviceData.batteryStats.voltage)
                 put("health", deviceData.batteryStats.health)
-                put("estimatedRemainingTime", deviceData.batteryStats.estimatedRemainingTime)
+                put("estimated_remaining_time", deviceData.batteryStats.estimatedRemainingTime)
             })
 
             // Network Usage
             val networkUsageArray = JSONArray()
             deviceData.networkUsage.appNetworkUsage.forEach { networkApp ->
                 networkUsageArray.put(JSONObject().apply {
-                    put("packageName", networkApp.packageName)
-                    put("dataUsageBytes", networkApp.dataUsageBytes)
-                    put("wifiUsageBytes", networkApp.wifiUsageBytes)
+                    put("package_name", networkApp.packageName)
+                    put("data_usage_bytes", networkApp.dataUsageBytes)
+                    put("wifi_usage_bytes", networkApp.wifiUsageBytes)
                 })
             }
-            put("networkUsage", networkUsageArray)
-            put("wifiConnected", deviceData.networkUsage.wifiConnected)
-            put("mobileDataConnected", deviceData.networkUsage.mobileDataConnected)
-            put("networkType", deviceData.networkUsage.networkType)
+            put("network_usage", networkUsageArray)
+            put("wifi_connected", deviceData.networkUsage.wifiConnected)
+            put("mobile_data_connected", deviceData.networkUsage.mobileDataConnected)
+            put("network_type", deviceData.networkUsage.networkType)
 
             // Wake Locks
             val wakeLockArray = JSONArray()
             deviceData.wakeLocks.forEach { wakeLock ->
                 wakeLockArray.put(JSONObject().apply {
-                    put("packageName", wakeLock.packageName)
-                    put("wakeLockName", wakeLock.wakeLockName)
-                    put("timeHeldMs", wakeLock.timeHeldMs)
+                    put("package_name", wakeLock.packageName)
+                    put("wake_lock_name", wakeLock.wakeLockName)
+                    put("time_held_ms", wakeLock.timeHeldMs)
                 })
             }
-            put("wakeLocks", wakeLockArray)
+            put("wake_locks", wakeLockArray)
         }
 
         return jsonObject.toString()
@@ -179,14 +178,14 @@ class BackendService @Inject constructor() {
             ActionResponse.Actionable(
                 type = actionableObj.getString("type"),
                 app = actionableObj.optString("app", null),
-                newMode = actionableObj.optString("newMode", null),
+                newMode = actionableObj.optString("new_mode", null),
                 reason = actionableObj.optString("reason", null),
                 enabled = actionableObj.optBoolean("enabled", false)
             )
         }
 
         // Parse usage patterns
-        val usagePatternsObj = jsonObject.getJSONObject("usagePatterns")
+        val usagePatternsObj = jsonObject.getJSONObject("usage_patterns")
         val usagePatterns = mutableMapOf<String, String>()
         usagePatternsObj.keys().forEach { key ->
             usagePatterns[key] = usagePatternsObj.getString(key)
@@ -202,7 +201,6 @@ class BackendService @Inject constructor() {
 
     // Fallback method to simulate backend response if network call fails
     private fun simulateBackendResponse(deviceData: DeviceData): ActionResponse {
-        // Similar to the previous simulated response logic
         val actionables = mutableListOf<ActionResponse.Actionable>()
         val usagePatterns = mutableMapOf<String, String>()
 
@@ -250,7 +248,7 @@ class BackendService @Inject constructor() {
 
         return ActionResponse(
             actionables = actionables,
-            summary = "Simulated offline optimization recommendations based on device data.",
+            summary = "Simulated response due to network error",
             usagePatterns = usagePatterns,
             timestamp = System.currentTimeMillis()
         )

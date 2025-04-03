@@ -30,7 +30,7 @@ class BootReceiver : BroadcastReceiver() {
             WorkManager.getInstance(context)
                 .enqueueUniquePeriodicWork(
                     "data_collection_work",
-                    ExistingPeriodicWorkPolicy.REPLACE,
+                    ExistingPeriodicWorkPolicy.UPDATE,
                     dataCollectionRequest
                 )
         }

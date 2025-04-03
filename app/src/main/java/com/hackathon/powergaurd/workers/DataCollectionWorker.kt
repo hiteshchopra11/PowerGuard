@@ -1,24 +1,22 @@
 package com.hackathon.powergaurd.workers
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.Context
-import android.os.Build
-import androidx.core.app.NotificationCompat
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.hackathon.powergaurd.R
 import com.hackathon.powergaurd.data.AppRepository
 import com.hackathon.powergaurd.data.BackendService
 import com.hackathon.powergaurd.data.DeviceStatsCollector
 import com.hackathon.powergaurd.models.ActionResponse
 import com.hackathon.powergaurd.models.DeviceData
+import com.hackathon.powergaurd.utils.NotificationUtils
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class DataCollectionWorker(
-    private val context: Context,
+    @ApplicationContext private val context: Context,
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
 
@@ -31,13 +29,19 @@ class DataCollectionWorker(
     @Inject
     lateinit var appRepository: AppRepository
 
+    companion object {
+        private const val TAG = "DataCollectionWorker"
+    }
+
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
             // 1. Collect device data
             val deviceData = collectDeviceData()
+            Log.d(TAG, "Device data collected successfully")
 
-            // 2. Send data to backend
+            // 2. Send data to backend and get action response
             val actionResponse = sendDataToBackend(deviceData)
+            Log.d(TAG, "Backend response received")
 
             // 3. Store the response
             storeResponse(actionResponse)
@@ -50,13 +54,12 @@ class DataCollectionWorker(
 
             return@withContext Result.success()
         } catch (e: Exception) {
-            // Log error and retry
+            Log.e(TAG, "Error in data collection worker", e)
             return@withContext Result.retry()
         }
     }
 
     private suspend fun collectDeviceData(): DeviceData {
-        // This is a simulation - in a real app, we would collect actual device statistics
         return DeviceData(
             appUsage = deviceStatsCollector.collectAppUsage(),
             batteryStats = deviceStatsCollector.collectBatteryStats(),
@@ -68,156 +71,36 @@ class DataCollectionWorker(
     }
 
     private suspend fun sendDataToBackend(deviceData: DeviceData): ActionResponse {
-        // In a real app, this would make an actual API call
-        // For the hackathon, we'll simulate a response
-        return simulateBackendResponse(deviceData)
-    }
-
-    private fun simulateBackendResponse(deviceData: DeviceData): ActionResponse {
-        // This simulates what would come from the LLM-powered backend
-        val actionables = mutableListOf<ActionResponse.Actionable>()
-        val usagePatterns = mutableMapOf<String, String>()
-
-        // Find battery-draining apps
-        deviceData.appUsage.sortedByDescending { it.foregroundTimeMs + it.backgroundTimeMs }.take(3).forEach { appUsage ->
-            // Add actionables based on usage
-            if (appUsage.backgroundTimeMs > 3_600_000) { // More than 1 hour in background
-                actionables.add(
-                    ActionResponse.Actionable(
-                        type = "app_mode_change",
-                        app = appUsage.packageName,
-                        newMode = "strict"
-                    )
-                )
-                usagePatterns[appUsage.packageName] = "Uses significant background resources"
-            }
+        Log.d(TAG, "Sending data to backend")
+        return try {
+            // This is where we call the new sendDataForAnalysis method
+            backendService.sendDataForAnalysis(deviceData)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending data to backend", e)
+            // Fallback to simulated response
+            backendService.sendDataForAnalysis(deviceData)
         }
-
-        // Check for wake locks
-        deviceData.wakeLocks.filter { it.timeHeldMs > 1_800_000 }.forEach { wakeLock ->
-            actionables.add(
-                ActionResponse.Actionable(
-                    type = "disable_wakelock",
-                    app = wakeLock.packageName
-                )
-            )
-            usagePatterns[wakeLock.packageName] = "Keeps wake locks for extended periods"
-        }
-
-        // Check network usage
-        deviceData.networkUsage.appNetworkUsage
-            .filter { it.dataUsageBytes > 50_000_000 } // 50MB
-            .forEach { networkUsage ->
-                actionables.add(
-                    ActionResponse.Actionable(
-                        type = "restrict_background_data",
-                        app = networkUsage.packageName,
-                        enabled = true
-                    )
-                )
-                usagePatterns[networkUsage.packageName] = "Uses significant network data in background"
-            }
-
-        // Check battery temperature
-        if (deviceData.batteryStats.temperature > 40) {
-            actionables.add(
-                ActionResponse.Actionable(
-                    type = "cut_charging",
-                    reason = "Battery overheating"
-                )
-            )
-        }
-
-        // Generate summary
-        val summary = generateSummary(actionables)
-
-        return ActionResponse(
-            actionables = actionables,
-            summary = summary,
-            usagePatterns = usagePatterns,
-            timestamp = System.currentTimeMillis()
-        )
-    }
-
-    private fun generateSummary(actionables: List<ActionResponse.Actionable>): String {
-        if (actionables.isEmpty()) {
-            return "No optimizations needed at this time."
-        }
-
-        val appModeChanges = actionables.filter { it.type == "app_mode_change" }
-        val wakeLockDisables = actionables.filter { it.type == "disable_wakelock" }
-        val dataRestrictions = actionables.filter { it.type == "restrict_background_data" }
-        val chargingCuts = actionables.filter { it.type == "cut_charging" }
-
-        val summary = StringBuilder("PowerGuard AI recommended the following optimizations: ")
-
-        if (appModeChanges.isNotEmpty()) {
-            summary.append("Restricted background activity for ${appModeChanges.size} apps. ")
-        }
-
-        if (wakeLockDisables.isNotEmpty()) {
-            summary.append("Disabled wake locks for ${wakeLockDisables.size} apps. ")
-        }
-
-        if (dataRestrictions.isNotEmpty()) {
-            summary.append("Limited background data usage for ${dataRestrictions.size} apps. ")
-        }
-
-        if (chargingCuts.isNotEmpty()) {
-            summary.append("Recommended to pause charging due to ${chargingCuts.first().reason}. ")
-        }
-
-        summary.append("These changes could improve your battery life by up to 30%.")
-
-        return summary.toString()
     }
 
     private suspend fun storeResponse(response: ActionResponse) {
-        // Store in local database for UI access
         appRepository.saveActionResponse(response)
     }
 
     private fun isAutoOptimizeEnabled(): Boolean {
-        // Check user preferences
-        // For hackathon purposes, we'll default to true
+        // For now, always return true. In a real app, this would check user preferences
         return true
     }
 
     private fun applyActions(response: ActionResponse) {
-        // In a real app, this would apply the actions using the PowerGuardOptimizer
-        // For the hackathon, this is just a stub
+        // TODO: Implement actual action application
+        Log.d(TAG, "Applying actions: ${response.actionables}")
     }
 
     private fun showOptimizationNotification(response: ActionResponse) {
-        createNotificationChannel()
-
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("PowerGuard Optimization")
-            .setContentText(response.summary)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setAutoCancel(true)
-            .build()
-
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(NOTIFICATION_ID, notification)
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "PowerGuard Notifications"
-            val descriptionText = "Notifications for PowerGuard optimization events"
-            val importance = NotificationManager.IMPORTANCE_DEFAULT
-            val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
-                description = descriptionText
-            }
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-        }
-    }
-
-    companion object {
-        private const val CHANNEL_ID = "powerguard_channel"
-        private const val NOTIFICATION_ID = 1
+        NotificationUtils.showOptimizationNotification(
+            context,
+            "PowerGuard Optimization",
+            response.summary
+        )
     }
 }

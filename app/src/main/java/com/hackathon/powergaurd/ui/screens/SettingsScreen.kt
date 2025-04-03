@@ -121,7 +121,7 @@ fun SettingsScreen() {
 
                 workManager.enqueueUniquePeriodicWork(
                     "data_collection_work",
-                    ExistingPeriodicWorkPolicy.REPLACE,
+                    ExistingPeriodicWorkPolicy.UPDATE,
                     dataCollectionRequest
                 )
             },

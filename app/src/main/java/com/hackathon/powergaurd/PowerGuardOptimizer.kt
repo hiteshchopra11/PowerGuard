@@ -160,7 +160,7 @@ class PowerGuardOptimizer @Inject constructor(private val context: Context) {
 
                     workManager.enqueueUniquePeriodicWork(
                         "wakelock_timeout_$packageName",
-                        ExistingPeriodicWorkPolicy.REPLACE,
+                        ExistingPeriodicWorkPolicy.UPDATE,
                         workRequest
                     )
                     return true
@@ -245,7 +245,7 @@ class PowerGuardOptimizer @Inject constructor(private val context: Context) {
 
             workManager.enqueueUniquePeriodicWork(
                 "battery_monitor",
-                ExistingPeriodicWorkPolicy.REPLACE,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 workRequest
             )
 
@@ -308,7 +308,7 @@ class PowerGuardOptimizer @Inject constructor(private val context: Context) {
 
             workManager.enqueueUniquePeriodicWork(
                 "sync_optimizer_$accountType",
-                ExistingPeriodicWorkPolicy.REPLACE,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 workRequest
             )
 

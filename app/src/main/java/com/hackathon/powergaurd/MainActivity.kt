@@ -66,13 +66,21 @@ class MainActivity : ComponentActivity() {
 
         // Check for runtime permissions
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.FOREGROUND_SERVICE) != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.FOREGROUND_SERVICE
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
                 permissionsToRequest.add(Manifest.permission.FOREGROUND_SERVICE)
             }
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
                 permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
             }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -125,7 +133,7 @@ class MainActivity : ComponentActivity() {
         startActivity(intent)
     }
 
-    private fun scheduleDataCollection() {
+    fun scheduleDataCollection() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .setRequiresBatteryNotLow(true)
@@ -141,7 +149,7 @@ class MainActivity : ComponentActivity() {
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork(
                 "data_collection_work",
-                ExistingPeriodicWorkPolicy.REPLACE,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 dataCollectionRequest
             )
     }

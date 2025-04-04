@@ -27,6 +27,52 @@ Current solutions follow a rigid, one-size-fits-all approach that fails to accou
 - Granular user control over resource allocation
 - Smart trade-offs based on learned behavior
 
+## System App Requirements
+
+**Important Note:** PowerGuard is designed to run as a system app to access the necessary permissions for deep optimization. This requires:
+
+1. A rooted device, or
+2. An Android emulator with system privileges, or
+3. Integration into a custom ROM
+
+For installation instructions, please see [SYSTEM_APP_INSTALLATION.md](SYSTEM_APP_INSTALLATION.md).
+
+### Installation Location
+
+PowerGuard is installed as a privileged system app in `/system/priv-app` to maximize permission access. This location grants the app more automatic permissions compared to the standard `/system/app` location.
+
+After installation, you must run the provided permissions script to handle permissions that require special granting:
+
+```bash
+# Make the script executable
+chmod +x grant_permissions.sh
+
+# Run the script to grant permissions
+./grant_permissions.sh
+```
+
+### Permission Handling
+
+When installed in `/system/priv-app`, most system permissions are granted automatically, but some still require special handling:
+
+1. **Automatic Permissions** (granted by `priv-app` status):
+   - `BATTERY_STATS`
+   - `WRITE_SECURE_SETTINGS`
+   - `READ_LOGS`
+
+2. **Special Permissions** (handled by `grant_permissions.sh`):
+   - `PACKAGE_USAGE_STATS`: Granted via AppOps using `appops set`
+
+3. **Manual Permissions** (require user interaction):
+   - `WRITE_SETTINGS`: Must be enabled in Settings → Apps → Special app access → Modify system settings
+
+4. **Restricted Permissions** (non-changeable):
+   - `MANAGE_NETWORK_POLICY`: Reserved for platform components and cannot be granted via normal means
+   - `FORCE_STOP_PACKAGES`: Reserved for platform components and cannot be granted via normal means
+   - `DEVICE_POWER`: Managed by role and cannot be granted via normal means
+
+PowerGuard includes adaptive logic to handle cases where certain permissions aren't available, providing fallback behaviors and recommendations when direct system actions cannot be performed.
+
 ## Technical Architecture
 
 ### System Components
@@ -86,6 +132,19 @@ graph LR
 - Customizable power saving modes
 - Network optimization toggles
 
+## System-level Capabilities
+
+As a privileged system app, PowerGuard can perform the following optimizations:
+
+1. **Force stop battery-draining apps** - When battery is critically low, automatically identify and stop non-essential apps
+2. **Restrict background data** - Limit network usage for apps that consume excessive data in the background
+3. **Manage wakelocks** - Prevent apps from keeping the device awake unnecessarily
+4. **Control sync frequency** - Optimize how often apps sync with servers
+5. **Smart charging control** - Notify users when to stop charging to preserve battery health
+6. **App background restrictions** - Apply different restriction levels based on usage patterns
+
+The app includes fallback behaviors for cases where specific permissions aren't available, ensuring it remains useful even with limited access.
+
 ## Technical Implementation
 
 ### Database Schema
@@ -133,6 +192,23 @@ CREATE TABLE usage_patterns (
 Interactive API documentation available at:
 - Swagger UI: `/docs`
 - ReDoc: `/redoc`
+
+- **[SYSTEM_APP_INSTALLATION.md](SYSTEM_APP_INSTALLATION.md)**: Detailed instructions for installing PowerGuard as a system app.
+- **[PERMISSION_STATUS.md](PERMISSION_STATUS.md)**: Current status of system permissions and implementation details.
+- **[SYSTEM_APP_CHANGES.md](SYSTEM_APP_CHANGES.md)**: Changes made to adapt PowerGuard for installation in `/system/app` instead of `/system/priv-app`.
+- **[NEXT_STEPS.md](NEXT_STEPS.md)**: Planned enhancements and next steps for PowerGuard.
+- **[DATA_SAVER_INSTRUCTIONS.md](DATA_SAVER_INSTRUCTIONS.md)**: Guide for configuring Data Saver to work optimally with PowerGuard's network optimization features in API 35
+- **[SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)**: Comprehensive high-level and low-level design documentation of PowerGuard's architecture and functionality
+
+## API Compatibility
+
+PowerGuard is designed to work with Android API 24 and above, with adaptive optimization strategies:
+
+- Core functionality works consistently across all supported API levels
+- Optimization strategies intelligently adapt to the permissions and features available
+- User guidance is provided when manual configuration steps are needed
+
+See [DATA_SAVER_INSTRUCTIONS.md](DATA_SAVER_INSTRUCTIONS.md) for information on configuring network optimization features.
 
 ## License
 

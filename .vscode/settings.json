@@ -1,3 +1,31 @@
 {
-    "java.configuration.updateBuildConfiguration": "interactive"
+  "java.configuration.updateBuildConfiguration": "interactive",
+  "java.compile.nullAnalysis.mode": "automatic",
+  "tasksbutton.buttons": [
+    {
+      "text": "🚀 Run App",
+      "command": "bash",
+      "args": [
+        "/Users/hitesh.chopra/AndroidStudioProjects/PowerGaurd/run_android.sh"
+      ]
+    }
+  ],
+  "editor.formatOnSave": true,
+  "customTitleBarButtons.buttons": [
+    {
+      "text": "▶️ Run",
+      "command": "workbench.action.tasks.runTask",
+      "args": "Run Android App",
+      "tooltip": "Run Android App"
+    }
+  ],
+  "floatingbuttons.buttons": [
+    {
+      "text": "▶️",
+      "command": "workbench.action.tasks.runTask",
+      "args": "Run Android App",
+      "tooltip": "Run Android App",
+      "alignment": "top-right"
+    }
+  ]
 }

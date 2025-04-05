@@ -11,10 +11,12 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.hackathon.powergaurd.ui.navigation.Screen
 
 @Composable
@@ -60,4 +62,12 @@ fun BottomNavBar(navController: NavController) {
             )
         }
     }
+}
+
+@Preview
+@Composable
+fun PreviewBottomNavBar() {
+    // We need to create a fake NavController for the preview
+    val navController = rememberNavController()
+    BottomNavBar(navController = navController)
 }

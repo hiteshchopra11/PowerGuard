@@ -2,9 +2,11 @@ package com.hackathon.powergaurd.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.hackathon.powergaurd.ui.navigation.Screen
 import com.hackathon.powergaurd.ui.screens.BatteryScreen
 import com.hackathon.powergaurd.ui.screens.DashboardScreen
@@ -27,4 +29,14 @@ fun AppNavHost(
         composable(Screen.History.route) { HistoryScreen() }
         composable(Screen.Settings.route) { SettingsScreen() }
     }
+}
+
+@Preview
+@Composable
+fun PreviewAppNavHost() {
+    val navController = rememberNavController()
+    AppNavHost(
+        navController = navController,
+        showSnackbar = {}
+    )
 }

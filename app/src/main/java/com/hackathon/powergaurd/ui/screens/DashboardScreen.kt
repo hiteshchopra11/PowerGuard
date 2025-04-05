@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.hackathon.powergaurd.PowerGuardOptimizer
 import kotlinx.coroutines.delay
@@ -201,4 +202,10 @@ fun DashboardScreen(showSnackbar: (String) -> Unit) {
             }
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewDashboardScreen() {
+    DashboardScreen(showSnackbar = {})
 }

@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hackathon.powergaurd.data.repository.ActionHistoryItem
@@ -189,4 +190,25 @@ fun HistoryItemCard(historyItem: ActionHistoryItem) {
 fun formatTimestamp(timestamp: Long, pattern: String): String {
     val dateFormat = SimpleDateFormat(pattern, Locale.getDefault())
     return dateFormat.format(Date(timestamp))
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewHistoryScreen() {
+    HistoryScreen()
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewHistoryItemCard() {
+    HistoryItemCard(
+        ActionHistoryItem(
+            id = 1,
+            timestamp = System.currentTimeMillis(),
+            actionType = "BATTERY_OPTIMIZATION",
+            summary = "Battery saver mode enabled",
+            succeeded = true,
+            appPackage = "com.example.app"
+        )
+    )
 }

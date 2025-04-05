@@ -38,6 +38,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.hackathon.powergaurd.PowerGuardOptimizer
 import com.hackathon.powergaurd.models.BatteryAppUsage
@@ -302,4 +303,10 @@ fun BatteryScreen() {
             }
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewBatteryScreen() {
+    BatteryScreen()
 }

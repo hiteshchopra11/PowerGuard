@@ -65,22 +65,22 @@ When installed in `/system/priv-app`, most system permissions are granted automa
 still require special handling:
 
 1. **Automatic Permissions** (granted by `priv-app` status):
-   - `BATTERY_STATS`
-   - `WRITE_SECURE_SETTINGS`
-   - `READ_LOGS`
+    - `BATTERY_STATS`
+    - `WRITE_SECURE_SETTINGS`
+    - `READ_LOGS`
 
 2. **Special Permissions** (handled by `grant_permissions.sh`):
-   - `PACKAGE_USAGE_STATS`: Granted via AppOps using `appops set`
+    - `PACKAGE_USAGE_STATS`: Granted via AppOps using `appops set`
 
 3. **Manual Permissions** (require user interaction):
-   - `WRITE_SETTINGS`: Must be enabled in Settings → Apps → Special app access → Modify system
-     settings
+    - `WRITE_SETTINGS`: Must be enabled in Settings → Apps → Special app access → Modify system
+      settings
 
 4. **Restricted Permissions** (non-changeable):
-   - `MANAGE_NETWORK_POLICY`: Reserved for platform components and cannot be granted via normal
-     means
-   - `FORCE_STOP_PACKAGES`: Reserved for platform components and cannot be granted via normal means
-   - `DEVICE_POWER`: Managed by role and cannot be granted via normal means
+    - `MANAGE_NETWORK_POLICY`: Reserved for platform components and cannot be granted via normal
+      means
+    - `FORCE_STOP_PACKAGES`: Reserved for platform components and cannot be granted via normal means
+    - `DEVICE_POWER`: Managed by role and cannot be granted via normal means
 
 PowerGuard includes adaptive logic to handle cases where certain permissions aren't available,
 providing fallback behaviors and recommendations when direct system actions cannot be performed.

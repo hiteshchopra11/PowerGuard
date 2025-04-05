@@ -12,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.NetworkCheck
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -145,50 +144,6 @@ fun DashboardScreen(showSnackbar: (String) -> Unit) {
                     modifier = Modifier.align(Alignment.End)
                 ) {
                     Text("Restrict Background Data")
-                }
-            }
-        }
-
-        // System Performance Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Speed,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        "System Performance",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text("Wake locks detected: Spotify, Gmail")
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = {
-                        optimizer.manageWakeLock("com.spotify.music", "timeout", 30 * 60 * 1000)
-                        showSnackbar("Wake lock timeouts applied")
-                    },
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Manage Wake Locks")
                 }
             }
         }

@@ -42,9 +42,7 @@ fun SettingsScreen() {
 
     var autoOptimize by remember { mutableStateOf(true) }
     var updateFrequency by remember { mutableFloatStateOf(30f) }
-    var notifyOnOptimize by remember { mutableStateOf(true) }
     var autoApplyAI by remember { mutableStateOf(false) }
-    var darkTheme by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -132,41 +130,6 @@ fun SettingsScreen() {
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Notifications",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "Notify on Optimize",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Text(
-                    text = "Show notifications when optimizations are applied",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            Switch(
-                checked = notifyOnOptimize,
-                onCheckedChange = { notifyOnOptimize = it }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
             text = "AI Optimization",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary
@@ -196,41 +159,6 @@ fun SettingsScreen() {
             Switch(
                 checked = autoApplyAI,
                 onCheckedChange = { autoApplyAI = it }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "Appearance",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "Dark Theme",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Text(
-                    text = "Use dark theme for the app",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            Switch(
-                checked = darkTheme,
-                onCheckedChange = { darkTheme = it }
             )
         }
 

@@ -34,7 +34,9 @@ POST /api/v1/analyze-device-data
   "cpu": {
     "usage": "float",
     "temperature": "float",
-    "frequencies": ["long"]
+    "frequencies": [
+      "long"
+    ]
   },
   "network": {
     "type": "string",
@@ -145,7 +147,12 @@ POST /api/v1/analyze-device-data
   "cpu": {
     "usage": 12.5,
     "temperature": 38.2,
-    "frequencies": [1800000, 2000000, 1950000, 1800000]
+    "frequencies": [
+      1800000,
+      2000000,
+      1950000,
+      1800000
+    ]
   },
   "network": {
     "type": "WIFI",

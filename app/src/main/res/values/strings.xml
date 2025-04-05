@@ -39,4 +39,6 @@
     <string name="app_version">AI PowerGuard v1.0</string>
     <string name="copyright">© 2025 PowerGuard Team</string>
     <string name="hackathon">Created for Hackathon 2025</string>
+    <string name="widget_loading">Loading...</string>
+    <string name="widget_summary">PowerGuard is optimizing your device</string>
 </resources>

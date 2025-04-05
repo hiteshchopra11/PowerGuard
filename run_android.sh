@@ -7,9 +7,8 @@ set -e
 PACKAGE_NAME="com.hackathon.powergaurd"
 MAIN_ACTIVITY="com.hackathon.powergaurd.MainActivity"
 
-# Define the module and variant
+# Define the module (lowercase for directory path)
 MODULE="app"
-FLAVOR="Debug"
 
 # Go to your project directory
 cd /Users/hitesh.chopra/AndroidStudioProjects/PowerGaurd || exit
@@ -21,9 +20,9 @@ else
     GRADLE_CMD="gradle"
 fi
 
-# Build and install the app
-echo "🔄 Building and installing $MODULE:$FLAVOR..."
-$GRADLE_CMD ":app:assembleDebug"
+# Clean and build the app
+echo "🔄 Cleaning and building $MODULE..."
+$GRADLE_CMD clean ":$MODULE:assembleDebug"
 
 # Check if adb is available
 ADB_CMD="adb"
@@ -39,50 +38,26 @@ if [ -z "$DEVICE" ]; then
     exit 1
 fi
 
-# Check if the device is rooted or an emulator
-IS_EMULATOR=$($ADB_CMD -s $DEVICE shell getprop ro.boot.qemu 2>/dev/null)
-IS_ROOTED=$($ADB_CMD -s $DEVICE shell "su -c 'echo rooted'" 2>/dev/null | grep -q "rooted" && echo "true" || echo "false")
+# Location of the built APK (notice lowercase 'debug')
+APK_PATH="$MODULE/build/outputs/apk/debug/$MODULE-debug.apk"
 
-# Location of the built APK
-APK_PATH="$MODULE/build/outputs/apk/$FLAVOR/debug/$MODULE-debug.apk"
-
-# Install as system app if device is rooted or emulator
-if [ "$IS_EMULATOR" == "1" ] || [ "$IS_ROOTED" == "true" ]; then
-    echo "🔒 Detected rooted device or emulator. Installing as privileged system app..."
-    
-    # Remount system partition as read-write
-    $ADB_CMD -s $DEVICE shell "su -c 'mount -o rw,remount /system'"
-    
-    # Push APK to system/priv-app directory instead of system/app
-    SYSTEM_APP_DIR="/system/priv-app/PowerGuard"
-    $ADB_CMD -s $DEVICE shell "su -c 'mkdir -p $SYSTEM_APP_DIR'"
-    $ADB_CMD -s $DEVICE push $APK_PATH $SYSTEM_APP_DIR/PowerGuard.apk
-    
-    # Set correct permissions
-    $ADB_CMD -s $DEVICE shell "su -c 'chmod 644 $SYSTEM_APP_DIR/PowerGuard.apk'"
-    $ADB_CMD -s $DEVICE shell "su -c 'chown root:root $SYSTEM_APP_DIR/PowerGuard.apk'"
-    
-    # Remount system as read-only
-    $ADB_CMD -s $DEVICE shell "su -c 'mount -o ro,remount /system'"
-    
-    # Reboot device to apply changes
-    echo "🔄 Rebooting device to apply system app installation..."
-    $ADB_CMD -s $DEVICE reboot
-    
-    echo "⏱️ Waiting for device to reboot..."
-    $ADB_CMD wait-for-device
-    
-    echo "✅ Privileged system app installation complete!"
-    echo "ℹ️ After reboot, run the grant_permissions.sh script to ensure all necessary permissions are granted."
-else
-    # Regular installation for non-rooted devices
-    echo "📱 Installing as regular app (non-rooted device)..."
-    $ADB_CMD -s $DEVICE install -r $APK_PATH
-    
-    # Launch the app
-    echo "🚀 Launching the app on device: $DEVICE"
-    $ADB_CMD -s $DEVICE shell am start -n "$PACKAGE_NAME/$MAIN_ACTIVITY"
-    
-    echo "⚠️ NOTE: Most system features will not work as this is not installed as a system app."
-    echo "✅ App successfully installed and launched!"
+# Verify APK exists
+if [ ! -f "$APK_PATH" ]; then
+    echo "❌ APK not found at: $APK_PATH"
+    echo "Check build output for errors."
+    exit 1
 fi
+
+# Uninstall existing app first
+echo "🗑️ Uninstalling existing app..."
+$ADB_CMD -s $DEVICE uninstall $PACKAGE_NAME || true
+
+# Install the app
+echo "📱 Installing app from $APK_PATH..."
+$ADB_CMD -s $DEVICE install -d -r $APK_PATH
+
+# Launch the app
+echo "🚀 Launching the app on device: $DEVICE"
+$ADB_CMD -s $DEVICE shell am start -n "$PACKAGE_NAME/$MAIN_ACTIVITY"
+
+echo "✅ App successfully installed and launched!"

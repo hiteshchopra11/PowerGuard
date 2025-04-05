@@ -210,6 +210,60 @@ PowerGuard is designed to work with Android API 24 and above, with adaptive opti
 
 See [DATA_SAVER_INSTRUCTIONS.md](DATA_SAVER_INSTRUCTIONS.md) for information on configuring network optimization features.
 
+## API Integration
+
+The app integrates with a backend API that provides intelligent analysis of device data and
+actionable recommendations. The API contract is documented in
+`app/src/main/java/com/hackathon/powergaurd/docs/APIContract.md`.
+
+### Key Integration Points
+
+1. **Data Collection**: The app collects device metrics at regular intervals and during significant
+   events.
+2. **Data Analysis**: Collected data is sent to the backend for AI-powered analysis.
+3. **Actionable Insights**: The backend returns actionable recommendations that can be automatically
+   implemented.
+4. **Performance Metrics**: The API provides scoring for battery life, data usage, and device
+   performance.
+
+## Architecture
+
+PowerGuard follows a modern Android architecture:
+
+- **MVVM Pattern**: Clear separation of UI, business logic, and data.
+- **Dependency Injection**: Uses Hilt for dependency management.
+- **Coroutines**: Handles asynchronous operations efficiently.
+- **WorkManager**: Manages background tasks for data collection and optimization.
+- **Room Database**: Stores history of optimizations and actions.
+- **Jetpack Compose**: Powers the modern UI components.
+
+## Getting Started
+
+1. Clone the repository
+2. Open the project in Android Studio
+3. Configure your backend API endpoint in `network/ApiConfig.kt`
+4. Build and run on your device or emulator
+
+## Project Structure
+
+- **ui**: UI components and screens
+- **worker**: Background processing components
+- **data**: Data models and repositories
+- **network**: API client and network helpers
+- **actionable**: Actionable handlers and executors
+- **collector**: Device data collectors
+- **di**: Dependency injection modules
+- **widget**: Home screen widget implementation
+- **docs**: API and implementation documentation
+
+## Backend Integration
+
+To connect to your own backend:
+
+1. Implement the API contract defined in `docs/APIContract.md`
+2. Replace the `MockApiService` with a real implementation in `di/NetworkModule.kt`
+3. Configure your endpoint URL in `network/ApiConfig.kt`
+
 ## License
 
 MIT License 

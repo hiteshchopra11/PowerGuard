@@ -34,9 +34,11 @@ import com.hackathon.powergaurd.theme.PowerGuardTheme
 import com.hackathon.powergaurd.ui.AppNavHost
 import com.hackathon.powergaurd.ui.BottomNavBar
 import com.hackathon.powergaurd.workers.DataCollectionWorker
-import java.util.concurrent.TimeUnit
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher =
             registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {

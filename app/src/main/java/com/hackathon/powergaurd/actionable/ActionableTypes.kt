@@ -19,14 +19,14 @@ object ActionableTypes {
 
     /** List of all supported actionable types. */
     val ALL_TYPES =
-            listOf(
-                    KILL_APP,
-                    RESTRICT_BACKGROUND,
-                    OPTIMIZE_BATTERY,
-                    MARK_APP_INACTIVE,
-                    ENABLE_BATTERY_SAVER,
-                    ENABLE_DATA_SAVER,
-                    ADJUST_SYNC_SETTINGS,
-                    CATEGORIZE_APP
-            )
+        listOf(
+            KILL_APP,
+            RESTRICT_BACKGROUND,
+            OPTIMIZE_BATTERY,
+            MARK_APP_INACTIVE,
+            ENABLE_BATTERY_SAVER,
+            ENABLE_DATA_SAVER,
+            ADJUST_SYNC_SETTINGS,
+            CATEGORIZE_APP
+        )
 }

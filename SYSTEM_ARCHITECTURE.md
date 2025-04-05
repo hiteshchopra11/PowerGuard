@@ -4,7 +4,10 @@
 
 ### Overview
 
-PowerGuard is an AI-powered system app designed to optimize battery and network usage on Android devices through intelligent usage pattern analysis. Installed as a privileged system app, it analyzes app behavior, resource consumption patterns, and user habits to implement targeted optimizations that extend battery life and reduce data usage.
+PowerGuard is an AI-powered system app designed to optimize battery and network usage on Android
+devices through intelligent usage pattern analysis. Installed as a privileged system app, it
+analyzes app behavior, resource consumption patterns, and user habits to implement targeted
+optimizations that extend battery life and reduce data usage.
 
 ### Core Capabilities
 
@@ -69,9 +72,9 @@ PowerGuard is an AI-powered system app designed to optimize battery and network 
 
 4. **Optimization Engine**
    - Implements multiple optimization strategies:
-     - Force stopping high battery-consuming apps when battery is low
-     - Using Data Saver integration for network optimization
-     - Battery optimization requests for background activity reduction
+      - Force stopping high battery-consuming apps when battery is low
+      - Using Data Saver integration for network optimization
+      - Battery optimization requests for background activity reduction
    - Adapts strategies based on available permissions
 
 ### Implementation Details
@@ -87,11 +90,11 @@ PowerGuard implements a multi-tiered approach to battery optimization:
 
 2. **Optimization Actions**
    - For critical situations:
-     - Force stops high-draining apps when appropriate permissions are available
+      - Force stops high-draining apps when appropriate permissions are available
    - For preventive management:
-     - Applies battery optimization flags to reduce background activity
+      - Applies battery optimization flags to reduce background activity
    - When permissions are limited:
-     - Provides user notifications with recommended actions
+      - Provides user notifications with recommended actions
 
 #### Network Optimization
 
@@ -103,14 +106,14 @@ PowerGuard implements a comprehensive approach to network management:
 
 2. **Multi-layered Control Strategy**
    - **Data Saver Integration**:
-     - Leverages Android's built-in Data Saver feature
-     - Guides users to configure optimal Data Saver settings
+      - Leverages Android's built-in Data Saver feature
+      - Guides users to configure optimal Data Saver settings
    - **App Inactivity Management**:
-     - Marks high data-consuming apps as inactive when not in use
-     - Targets apps with high background data usage
+      - Marks high data-consuming apps as inactive when not in use
+      - Targets apps with high background data usage
    - **Last Resort Control**:
-     - Force stops apps with extreme data usage (>50MB)
-     - Only applied in critical situations
+      - Force stops apps with extreme data usage (>50MB)
+      - Only applied in critical situations
 
 ### Permission Management
 
@@ -123,11 +126,11 @@ PowerGuard implements adaptive behavior based on available permissions:
 
 2. **Permission Utilization**
    - With full permissions:
-     - Direct system control for resource optimization
-     - Complete battery and network statistics access
+      - Direct system control for resource optimization
+      - Complete battery and network statistics access
    - With limited permissions:
-     - Fallback to user-guided optimization
-     - Leverages standard Android features
+      - Fallback to user-guided optimization
+      - Leverages standard Android features
 
 ### API Compatibility
 
@@ -152,4 +155,5 @@ PowerGuard delivers custom usage pattern-based battery and network optimization 
 3. **Multi-layered optimization** strategies adapted to available permissions
 4. **Intelligent decision making** based on device state and usage history
 
-This architecture enables PowerGuard to provide effective resource optimization across different Android versions and permission levels, balancing system-level control with user-guided strategies. 
+This architecture enables PowerGuard to provide effective resource optimization across different
+Android versions and permission levels, balancing system-level control with user-guided strategies. 

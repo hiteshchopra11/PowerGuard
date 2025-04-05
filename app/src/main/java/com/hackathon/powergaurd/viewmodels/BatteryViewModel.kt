@@ -48,7 +48,8 @@ class BatteryViewModel @Inject constructor(
             val totalUsage = appUsage.sumOf { it.foregroundTimeMs + it.backgroundTimeMs }.toFloat()
 
             val batteryAppUsage = appUsage.map { app ->
-                val usagePercentage = (app.foregroundTimeMs + app.backgroundTimeMs) / totalUsage * 100
+                val usagePercentage =
+                    (app.foregroundTimeMs + app.backgroundTimeMs) / totalUsage * 100
                 BatteryAppUsage(
                     packageName = app.packageName,
                     appName = app.appName,

@@ -1,7 +1,8 @@
 package com.hackathon.powergaurd.util
 
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 /**
  * Formats a timestamp into a readable date/time string.

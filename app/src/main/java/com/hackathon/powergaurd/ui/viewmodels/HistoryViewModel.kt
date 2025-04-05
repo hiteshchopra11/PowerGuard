@@ -5,18 +5,18 @@ import androidx.lifecycle.viewModelScope
 import com.hackathon.powergaurd.data.repository.ActionHistoryItem
 import com.hackathon.powergaurd.data.repository.ActionHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /** Data class representing the state of the history screen. */
 data class HistoryState(
-        val items: List<ActionHistoryItem> = emptyList(),
-        val isLoading: Boolean = true,
-        val error: String? = null
+    val items: List<ActionHistoryItem> = emptyList(),
+    val isLoading: Boolean = true,
+    val error: String? = null
 )
 
 /** ViewModel for the history screen. */

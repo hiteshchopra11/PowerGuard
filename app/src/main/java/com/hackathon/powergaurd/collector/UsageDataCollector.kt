@@ -6,9 +6,14 @@ import android.net.ConnectivityManager
 import android.os.BatteryManager
 import android.os.Build
 import android.util.Log
-import com.hackathon.powergaurd.models.*
+import com.hackathon.powergaurd.models.AppNetworkInfo
+import com.hackathon.powergaurd.models.AppUsageInfo
+import com.hackathon.powergaurd.models.BatteryStats
+import com.hackathon.powergaurd.models.DeviceData
+import com.hackathon.powergaurd.models.NetworkUsage
+import com.hackathon.powergaurd.models.WakeLockInfo
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.util.*
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,12 +53,12 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
         val wakeLocks = collectWakeLockData()
 
         return DeviceData(
-                appUsage = appUsage,
-                batteryStats = batteryStats,
-                networkUsage = networkUsage,
-                wakeLocks = wakeLocks,
-                deviceId = deviceId,
-                timestamp = timestamp
+            appUsage = appUsage,
+            batteryStats = batteryStats,
+            networkUsage = networkUsage,
+            wakeLocks = wakeLocks,
+            deviceId = deviceId,
+            timestamp = timestamp
         )
     }
 
@@ -73,11 +78,11 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             val startTime = endTime - 24 * 60 * 60 * 1000 // 24 hours in milliseconds
 
             val usageStatsList =
-                    statsManager.queryUsageStats(
-                            UsageStatsManager.INTERVAL_DAILY,
-                            startTime,
-                            endTime
-                    )
+                statsManager.queryUsageStats(
+                    UsageStatsManager.INTERVAL_DAILY,
+                    startTime,
+                    endTime
+                )
 
             if (usageStatsList.isNullOrEmpty()) {
                 Log.w(TAG, "No usage stats available")
@@ -94,13 +99,13 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
                     }
 
                     val appName =
-                            try {
-                                val appInfo = packageManager.getApplicationInfo(packageName, 0)
-                                packageManager.getApplicationLabel(appInfo).toString()
-                            } catch (e: Exception) {
-                                packageName // Fallback to package name if app label can't be
-                                // retrieved
-                            }
+                        try {
+                            val appInfo = packageManager.getApplicationInfo(packageName, 0)
+                            packageManager.getApplicationLabel(appInfo).toString()
+                        } catch (e: Exception) {
+                            packageName // Fallback to package name if app label can't be
+                            // retrieved
+                        }
 
                     val foregroundTimeMs = usageStats.totalTimeInForeground
                     val lastTimeUsed = usageStats.lastTimeUsed
@@ -108,25 +113,25 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
                     // Background time is estimated as total time minus foreground time
                     // This is a rough approximation
                     val backgroundTimeMs =
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                (usageStats.totalTimeVisible - usageStats.totalTimeInForeground)
-                                        .coerceAtLeast(0)
-                            } else {
-                                0 // Not available for older Android versions
-                            }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            (usageStats.totalTimeVisible - usageStats.totalTimeInForeground)
+                                .coerceAtLeast(0)
+                        } else {
+                            0 // Not available for older Android versions
+                        }
 
                     val launchCount =
-                            usageStats.totalTimeInForeground / (60 * 1000) // Estimate based on time
+                        usageStats.totalTimeInForeground / (60 * 1000) // Estimate based on time
 
                     appUsageList.add(
-                            AppUsageInfo(
-                                    packageName = packageName,
-                                    appName = appName,
-                                    foregroundTimeMs = foregroundTimeMs,
-                                    backgroundTimeMs = backgroundTimeMs,
-                                    lastUsed = lastTimeUsed,
-                                    launchCount = launchCount.toInt().coerceAtLeast(1)
-                            )
+                        AppUsageInfo(
+                            packageName = packageName,
+                            appName = appName,
+                            foregroundTimeMs = foregroundTimeMs,
+                            backgroundTimeMs = backgroundTimeMs,
+                            lastUsed = lastTimeUsed,
+                            launchCount = launchCount.toInt().coerceAtLeast(1)
+                        )
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Error processing usage stats for package", e)
@@ -148,124 +153,6 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             if (battery == null) {
                 Log.e(TAG, "BatteryManager is not available")
                 return BatteryStats(
-                        level = 0,
-                        temperature = 0f,
-                        isCharging = false,
-                        chargingType = "unknown",
-                        voltage = 0,
-                        health = "unknown",
-                        estimatedRemainingTime = null
-                )
-            }
-
-            val level = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-
-            // Handle potential errors with specific battery properties
-            val temperatureRaw =
-                    try {
-                        // BATTERY_PROPERTY_TEMPERATURE is not available in all API levels
-                        // Using a different approach for temperature
-                        val intent =
-                                context.registerReceiver(
-                                        null,
-                                        android.content.IntentFilter(
-                                                android.content.Intent.ACTION_BATTERY_CHANGED
-                                        )
-                                )
-                        intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error getting battery temperature", e)
-                        0
-                    }
-            val temperature = temperatureRaw / 10f // Convert to celsius
-
-            val voltage =
-                    try {
-                        // BATTERY_PROPERTY_VOLTAGE is not available in all API levels
-                        // Using a different approach for voltage
-                        val intent =
-                                context.registerReceiver(
-                                        null,
-                                        android.content.IntentFilter(
-                                                android.content.Intent.ACTION_BATTERY_CHANGED
-                                        )
-                                )
-                        intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error getting battery voltage", e)
-                        0
-                    }
-
-            val isCharging = battery.isCharging
-
-            val status =
-                    try {
-                        battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error getting battery status", e)
-                        BatteryManager.BATTERY_STATUS_UNKNOWN
-                    }
-
-            val chargingType =
-                    when {
-                        !isCharging -> "not_charging"
-                        status == BatteryManager.BATTERY_STATUS_FULL -> "full"
-                        else -> "charging"
-                    }
-
-            val healthValue =
-                    try {
-                        // BATTERY_HEALTH_PROPERTY is not available
-                        // Using a different approach for health
-                        val intent =
-                                context.registerReceiver(
-                                        null,
-                                        android.content.IntentFilter(
-                                                android.content.Intent.ACTION_BATTERY_CHANGED
-                                        )
-                                )
-                        intent?.getIntExtra(
-                                BatteryManager.EXTRA_HEALTH,
-                                BatteryManager.BATTERY_HEALTH_UNKNOWN
-                        )
-                                ?: BatteryManager.BATTERY_HEALTH_UNKNOWN
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error getting battery health", e)
-                        BatteryManager.BATTERY_HEALTH_UNKNOWN
-                    }
-
-            val health =
-                    when (healthValue) {
-                        BatteryManager.BATTERY_HEALTH_GOOD -> "good"
-                        BatteryManager.BATTERY_HEALTH_OVERHEAT -> "overheat"
-                        BatteryManager.BATTERY_HEALTH_DEAD -> "dead"
-                        BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "over_voltage"
-                        BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "unspecified_failure"
-                        BatteryManager.BATTERY_HEALTH_COLD -> "cold"
-                        else -> "unknown"
-                    }
-
-            // Calculate estimated remaining time (rough estimate)
-            val estimatedRemainingTime =
-                    if (!isCharging && level > 0) {
-                        // Rough estimate: assuming 24 hours for 100% battery
-                        (level / 100.0 * 24 * 60 * 60 * 1000).toLong()
-                    } else {
-                        null
-                    }
-
-            return BatteryStats(
-                    level = level,
-                    temperature = temperature,
-                    isCharging = isCharging,
-                    chargingType = chargingType,
-                    voltage = voltage,
-                    health = health,
-                    estimatedRemainingTime = estimatedRemainingTime
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Error collecting battery stats", e)
-            return BatteryStats(
                     level = 0,
                     temperature = 0f,
                     isCharging = false,
@@ -273,6 +160,124 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
                     voltage = 0,
                     health = "unknown",
                     estimatedRemainingTime = null
+                )
+            }
+
+            val level = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+
+            // Handle potential errors with specific battery properties
+            val temperatureRaw =
+                try {
+                    // BATTERY_PROPERTY_TEMPERATURE is not available in all API levels
+                    // Using a different approach for temperature
+                    val intent =
+                        context.registerReceiver(
+                            null,
+                            android.content.IntentFilter(
+                                android.content.Intent.ACTION_BATTERY_CHANGED
+                            )
+                        )
+                    intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error getting battery temperature", e)
+                    0
+                }
+            val temperature = temperatureRaw / 10f // Convert to celsius
+
+            val voltage =
+                try {
+                    // BATTERY_PROPERTY_VOLTAGE is not available in all API levels
+                    // Using a different approach for voltage
+                    val intent =
+                        context.registerReceiver(
+                            null,
+                            android.content.IntentFilter(
+                                android.content.Intent.ACTION_BATTERY_CHANGED
+                            )
+                        )
+                    intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error getting battery voltage", e)
+                    0
+                }
+
+            val isCharging = battery.isCharging
+
+            val status =
+                try {
+                    battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error getting battery status", e)
+                    BatteryManager.BATTERY_STATUS_UNKNOWN
+                }
+
+            val chargingType =
+                when {
+                    !isCharging -> "not_charging"
+                    status == BatteryManager.BATTERY_STATUS_FULL -> "full"
+                    else -> "charging"
+                }
+
+            val healthValue =
+                try {
+                    // BATTERY_HEALTH_PROPERTY is not available
+                    // Using a different approach for health
+                    val intent =
+                        context.registerReceiver(
+                            null,
+                            android.content.IntentFilter(
+                                android.content.Intent.ACTION_BATTERY_CHANGED
+                            )
+                        )
+                    intent?.getIntExtra(
+                        BatteryManager.EXTRA_HEALTH,
+                        BatteryManager.BATTERY_HEALTH_UNKNOWN
+                    )
+                        ?: BatteryManager.BATTERY_HEALTH_UNKNOWN
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error getting battery health", e)
+                    BatteryManager.BATTERY_HEALTH_UNKNOWN
+                }
+
+            val health =
+                when (healthValue) {
+                    BatteryManager.BATTERY_HEALTH_GOOD -> "good"
+                    BatteryManager.BATTERY_HEALTH_OVERHEAT -> "overheat"
+                    BatteryManager.BATTERY_HEALTH_DEAD -> "dead"
+                    BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "over_voltage"
+                    BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "unspecified_failure"
+                    BatteryManager.BATTERY_HEALTH_COLD -> "cold"
+                    else -> "unknown"
+                }
+
+            // Calculate estimated remaining time (rough estimate)
+            val estimatedRemainingTime =
+                if (!isCharging && level > 0) {
+                    // Rough estimate: assuming 24 hours for 100% battery
+                    (level / 100.0 * 24 * 60 * 60 * 1000).toLong()
+                } else {
+                    null
+                }
+
+            return BatteryStats(
+                level = level,
+                temperature = temperature,
+                isCharging = isCharging,
+                chargingType = chargingType,
+                voltage = voltage,
+                health = health,
+                estimatedRemainingTime = estimatedRemainingTime
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error collecting battery stats", e)
+            return BatteryStats(
+                level = 0,
+                temperature = 0f,
+                isCharging = false,
+                chargingType = "unknown",
+                voltage = 0,
+                health = "unknown",
+                estimatedRemainingTime = null
             )
         }
     }
@@ -286,28 +291,28 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             if (connectivity == null) {
                 Log.e(TAG, "ConnectivityManager is not available")
                 return NetworkUsage(
-                        appNetworkUsage = appNetworkUsageList,
-                        wifiConnected = false,
-                        mobileDataConnected = false,
-                        networkType = "unknown"
+                    appNetworkUsage = appNetworkUsageList,
+                    wifiConnected = false,
+                    mobileDataConnected = false,
+                    networkType = "unknown"
                 )
             }
 
             // Check network connectivity
             val activeNetwork = connectivity.activeNetworkInfo
             val wifiConnected =
-                    activeNetwork?.type == ConnectivityManager.TYPE_WIFI &&
-                            activeNetwork.isConnected
+                activeNetwork?.type == ConnectivityManager.TYPE_WIFI &&
+                        activeNetwork.isConnected
             val mobileDataConnected =
-                    activeNetwork?.type == ConnectivityManager.TYPE_MOBILE &&
-                            activeNetwork.isConnected
+                activeNetwork?.type == ConnectivityManager.TYPE_MOBILE &&
+                        activeNetwork.isConnected
 
             val networkType =
-                    when {
-                        wifiConnected -> "wifi"
-                        mobileDataConnected -> "mobile"
-                        else -> "none"
-                    }
+                when {
+                    wifiConnected -> "wifi"
+                    mobileDataConnected -> "mobile"
+                    else -> "none"
+                }
 
             // App network usage collection would require the READ_NETWORK_USAGE_HISTORY permission
             // which is not available to third-party apps. We'll use dummy data for the prototype.
@@ -319,32 +324,32 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
                 // Simple heuristic: estimate data usage based on app usage time
                 // This is just a placeholder for demonstration purposes
                 val estimatedDataUsage =
-                        app.foregroundTimeMs / 1000 * 10 * 1024 // 10KB per second as example
+                    app.foregroundTimeMs / 1000 * 10 * 1024 // 10KB per second as example
                 val estimatedWifiUsage = if (wifiConnected) estimatedDataUsage else 0L
                 val estimatedMobileUsage = if (mobileDataConnected) estimatedDataUsage else 0L
 
                 appNetworkUsageList.add(
-                        AppNetworkInfo(
-                                packageName = app.packageName,
-                                dataUsageBytes = estimatedMobileUsage,
-                                wifiUsageBytes = estimatedWifiUsage
-                        )
+                    AppNetworkInfo(
+                        packageName = app.packageName,
+                        dataUsageBytes = estimatedMobileUsage,
+                        wifiUsageBytes = estimatedWifiUsage
+                    )
                 )
             }
 
             return NetworkUsage(
-                    appNetworkUsage = appNetworkUsageList,
-                    wifiConnected = wifiConnected,
-                    mobileDataConnected = mobileDataConnected,
-                    networkType = networkType
+                appNetworkUsage = appNetworkUsageList,
+                wifiConnected = wifiConnected,
+                mobileDataConnected = mobileDataConnected,
+                networkType = networkType
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error collecting network usage data", e)
             return NetworkUsage(
-                    appNetworkUsage = appNetworkUsageList,
-                    wifiConnected = false,
-                    mobileDataConnected = false,
-                    networkType = "unknown"
+                appNetworkUsage = appNetworkUsageList,
+                wifiConnected = false,
+                mobileDataConnected = false,
+                networkType = "unknown"
             )
         }
     }
@@ -370,10 +375,10 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
     /** Generates a unique device identifier. */
     private fun getDeviceId(): String {
         val androidId =
-                android.provider.Settings.Secure.getString(
-                        context.contentResolver,
-                        android.provider.Settings.Secure.ANDROID_ID
-                )
+            android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID
+            )
 
         return androidId ?: UUID.randomUUID().toString()
     }

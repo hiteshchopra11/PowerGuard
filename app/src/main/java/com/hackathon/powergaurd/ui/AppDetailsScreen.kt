@@ -247,7 +247,8 @@ fun AppDetailScreen(packageName: String, navController: NavController) {
                                 1 -> "timeout"
                                 else -> "disable"
                             }
-                            val timeout = if (selectedWakeLockOptionIndex == 1) 30 * 60 * 1000L else 0
+                            val timeout =
+                                if (selectedWakeLockOptionIndex == 1) 30 * 60 * 1000L else 0
                             optimizer.manageWakeLock(packageName, action, timeout)
                         },
                         modifier = Modifier.align(Alignment.End)
@@ -359,13 +360,16 @@ fun AppDetailScreen(packageName: String, navController: NavController) {
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    val recommendation = when(packageName) {
+                    val recommendation = when (packageName) {
                         "com.google.android.youtube" ->
                             "YouTube consumes significant battery and network resources. We recommend setting strict background restrictions and limiting network access."
+
                         "com.spotify.music" ->
                             "Spotify keeps wake locks active even when music is paused. Setting a 30-minute timeout for wake locks can save approximately 15% battery."
+
                         "com.instagram.android" ->
                             "Instagram has high background network usage. Restricting background data can save your mobile data and improve battery life."
+
                         else ->
                             "Based on usage patterns, we recommend moderate background restrictions and network scheduling for this app."
                     }
@@ -380,19 +384,22 @@ fun AppDetailScreen(packageName: String, navController: NavController) {
                     Button(
                         onClick = {
                             // Apply optimal settings based on AI recommendation
-                            when(packageName) {
+                            when (packageName) {
                                 "com.google.android.youtube" -> {
                                     optimizer.setAppBackgroundRestriction(packageName, "strict")
                                     optimizer.restrictBackgroundData(packageName, true)
                                 }
+
                                 "com.spotify.music" -> {
                                     optimizer.manageWakeLock(packageName, "timeout", 30 * 60 * 1000)
                                     optimizer.setAppBackgroundRestriction(packageName, "moderate")
                                 }
+
                                 "com.instagram.android" -> {
                                     optimizer.restrictBackgroundData(packageName, true)
                                     optimizer.setAppBackgroundRestriction(packageName, "moderate")
                                 }
+
                                 else -> {
                                     optimizer.setAppBackgroundRestriction(packageName, "moderate")
                                 }

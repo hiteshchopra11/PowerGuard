@@ -5,10 +5,10 @@ package com.hackathon.powergaurd.models
  * well as background data consumption.
  */
 data class NetworkUsageData(
-        val packageName: String,
-        val appName: String,
-        val mobileDataUsageBytes: Long,
-        val wifiDataUsageBytes: Long,
-        val backgroundDataUsageBytes: Long,
-        val timestamp: Long
+    val packageName: String,
+    val appName: String,
+    val mobileDataUsageBytes: Long,
+    val wifiDataUsageBytes: Long,
+    val backgroundDataUsageBytes: Long,
+    val timestamp: Long
 )

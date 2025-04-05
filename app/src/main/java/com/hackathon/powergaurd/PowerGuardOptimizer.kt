@@ -33,7 +33,8 @@ import javax.inject.Singleton
 @Singleton
 class PowerGuardOptimizer @Inject constructor(private val context: Context) {
     private val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-    private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    private val connectivityManager =
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val packageManager = context.packageManager
     private val workManager = WorkManager.getInstance(context)
 
@@ -57,6 +58,7 @@ class PowerGuardOptimizer @Inject constructor(private val context: Context) {
                     context.startActivity(intent)
                     return true
                 }
+
                 "moderate" -> {
                     // Apply moderate restrictions - using battery optimization
                     val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
@@ -65,6 +67,7 @@ class PowerGuardOptimizer @Inject constructor(private val context: Context) {
                     context.startActivity(intent)
                     return true
                 }
+
                 "strict" -> {
                     // Apply strict restrictions
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -130,11 +133,13 @@ class PowerGuardOptimizer @Inject constructor(private val context: Context) {
 
                     return true
                 }
+
                 "enable" -> {
                     // Exclude the app from Doze mode optimization
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                         if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                            val intent =
+                                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
                             intent.data = Uri.parse("package:$packageName")
                             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                             context.startActivity(intent)
@@ -148,6 +153,7 @@ class PowerGuardOptimizer @Inject constructor(private val context: Context) {
                     }
                     return true
                 }
+
                 "timeout" -> {
                     // Schedule a task to check and force stop the app after timeout
                     val workRequest = PeriodicWorkRequestBuilder<WakeLockTimeoutWorker>(
@@ -165,6 +171,7 @@ class PowerGuardOptimizer @Inject constructor(private val context: Context) {
                     )
                     return true
                 }
+
                 else -> return false
             }
         } catch (e: Exception) {
@@ -344,7 +351,10 @@ class PowerGuardOptimizer @Inject constructor(private val context: Context) {
         context.startActivity(intent)
     }
 
-    private fun setupScheduledNetworkRestrictions(packageName: String, timeRanges: List<TimeRange>) {
+    private fun setupScheduledNetworkRestrictions(
+        packageName: String,
+        timeRanges: List<TimeRange>
+    ) {
         // Implementation to schedule network restrictions based on time ranges
         // Using Calendar instead of LocalTime for API 24 compatibility
 

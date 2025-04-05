@@ -1,7 +1,10 @@
 package com.hackathon.powergaurd.di
 
 import android.content.Context
-import com.hackathon.powergaurd.actionable.*
+import com.hackathon.powergaurd.actionable.ActionableExecutor
+import com.hackathon.powergaurd.actionable.EnableBatterySaverHandler
+import com.hackathon.powergaurd.actionable.EnableDataSaverHandler
+import com.hackathon.powergaurd.actionable.KillAppHandler
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -25,7 +28,7 @@ object ActionableModule {
     @Provides
     @Singleton
     fun provideEnableBatterySaverHandler(
-            @ApplicationContext context: Context
+        @ApplicationContext context: Context
     ): EnableBatterySaverHandler {
         return EnableBatterySaverHandler(context)
     }
@@ -34,7 +37,7 @@ object ActionableModule {
     @Provides
     @Singleton
     fun provideEnableDataSaverHandler(
-            @ApplicationContext context: Context
+        @ApplicationContext context: Context
     ): EnableDataSaverHandler {
         return EnableDataSaverHandler(context)
     }
@@ -43,9 +46,9 @@ object ActionableModule {
     @Provides
     @Singleton
     fun provideActionableExecutor(
-            killAppHandler: KillAppHandler,
-            enableBatterySaverHandler: EnableBatterySaverHandler,
-            enableDataSaverHandler: EnableDataSaverHandler
+        killAppHandler: KillAppHandler,
+        enableBatterySaverHandler: EnableBatterySaverHandler,
+        enableDataSaverHandler: EnableDataSaverHandler
     ): ActionableExecutor {
         return ActionableExecutor(killAppHandler, enableBatterySaverHandler, enableDataSaverHandler)
     }

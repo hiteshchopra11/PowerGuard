@@ -1,6 +1,5 @@
 package com.hackathon.powergaurd.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hackathon.powergaurd.PowerGuardOptimizer
 import kotlinx.coroutines.delay
@@ -45,7 +43,7 @@ fun DashboardScreen(showSnackbar: (String) -> Unit) {
 
     // Simulating data updates
     LaunchedEffect(Unit) {
-        while(true) {
+        while (true) {
             batteryLevel = (30..95).random()
             isCharging = (0..1).random() == 1
             delay(10000) // Refresh every 10 seconds
@@ -224,7 +222,10 @@ fun DashboardScreen(showSnackbar: (String) -> Unit) {
                 Button(
                     onClick = {
                         // Apply all optimizations
-                        optimizer.setAppBackgroundRestriction("com.google.android.youtube", "strict")
+                        optimizer.setAppBackgroundRestriction(
+                            "com.google.android.youtube",
+                            "strict"
+                        )
                         optimizer.manageWakeLock("com.spotify.music", "disable")
                         showSnackbar("All optimizations applied")
                     },

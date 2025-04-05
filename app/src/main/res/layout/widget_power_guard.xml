@@ -2,18 +2,18 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:background="@drawable/widget_background">
+    android:padding="16dp">
 
     <TextView
         android:id="@+id/widget_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="PowerGuard"
+        android:textColor="#FFFFFF"
         android:textSize="18sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF" />
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/widget_status"
@@ -21,8 +21,8 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="Status: Monitoring"
-        android:textSize="14sp"
-        android:textColor="#E0E0E0" />
+        android:textColor="#E0E0E0"
+        android:textSize="14sp" />
 
     <TextView
         android:id="@+id/widget_loading_text"
@@ -30,8 +30,8 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="@string/widget_loading"
-        android:textSize="14sp"
         android:textColor="#E0E0E0"
+        android:textSize="14sp"
         android:visibility="gone" />
 
     <TextView
@@ -40,8 +40,8 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="@string/widget_summary"
-        android:textSize="14sp"
-        android:textColor="#E0E0E0" />
+        android:textColor="#E0E0E0"
+        android:textSize="14sp" />
 
     <Button
         android:id="@+id/widget_optimize_button"

@@ -18,7 +18,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class EnableDataSaverHandler @Inject constructor(@ApplicationContext private val context: Context) :
-        ActionableHandler {
+    ActionableHandler {
 
     private val TAG = "DataSaverHandler"
 
@@ -35,18 +35,18 @@ class EnableDataSaverHandler @Inject constructor(@ApplicationContext private val
             }
 
             val connectivityManager =
-                    context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
             // Check current Data Saver status
             val isDataSaverEnabled =
-                    try {
-                        // RESTRICT_BACKGROUND_STATUS_DISABLED = 1
-                        // Any other value indicates that Data Saver is enabled
-                        connectivityManager.getRestrictBackgroundStatus() != 1
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to get Data Saver status", e)
-                        false
-                    }
+                try {
+                    // RESTRICT_BACKGROUND_STATUS_DISABLED = 1
+                    // Any other value indicates that Data Saver is enabled
+                    connectivityManager.getRestrictBackgroundStatus() != 1
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to get Data Saver status", e)
+                    false
+                }
 
             // If Data Saver is already in the desired state, we're done
             if (isDataSaverEnabled == enabled) {
@@ -62,9 +62,9 @@ class EnableDataSaverHandler @Inject constructor(@ApplicationContext private val
 
             // For now, we'll just log this
             Log.i(
-                    TAG,
-                    "ACTION NEEDED: User should ${if (enabled) "enable" else "disable"} Data Saver mode manually" +
-                            " in Settings > Network & Internet > Data Saver"
+                TAG,
+                "ACTION NEEDED: User should ${if (enabled) "enable" else "disable"} Data Saver mode manually" +
+                        " in Settings > Network & Internet > Data Saver"
             )
 
             // Return false to indicate we couldn't directly perform the action
@@ -83,11 +83,11 @@ class EnableDataSaverHandler @Inject constructor(@ApplicationContext private val
     fun openDataSaverSettings() {
         try {
             val intent =
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        Intent(Settings.ACTION_DATA_USAGE_SETTINGS)
-                    } else {
-                        Intent(Settings.ACTION_WIRELESS_SETTINGS)
-                    }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    Intent(Settings.ACTION_DATA_USAGE_SETTINGS)
+                } else {
+                    Intent(Settings.ACTION_WIRELESS_SETTINGS)
+                }
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             context.startActivity(intent)
         } catch (e: Exception) {

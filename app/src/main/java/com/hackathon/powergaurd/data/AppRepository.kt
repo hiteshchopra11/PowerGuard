@@ -4,11 +4,11 @@ import com.hackathon.powergaurd.models.ActionResponse
 import com.hackathon.powergaurd.models.AppUsageData
 import com.hackathon.powergaurd.models.BatteryOptimizationData
 import com.hackathon.powergaurd.models.NetworkUsageData
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 @Singleton
 class AppRepository @Inject constructor() {
@@ -44,9 +44,9 @@ class AppRepository @Inject constructor() {
     }
 
     suspend fun saveUsageData(
-            appUsage: List<AppUsageData>,
-            batteryInfo: BatteryOptimizationData,
-            networkUsage: List<NetworkUsageData>
+        appUsage: List<AppUsageData>,
+        batteryInfo: BatteryOptimizationData,
+        networkUsage: List<NetworkUsageData>
     ) {
         // Update app usage data
         val currentAppUsage = _appUsageData.value.toMutableList()
@@ -66,18 +66,18 @@ class AppRepository @Inject constructor() {
 
     suspend fun getTopBatteryConsumers(count: Int = 5): List<AppUsageData> {
         return _appUsageData
-                .value
-                .sortedByDescending { it.batteryUsagePercent }
-                .distinctBy { it.packageName }
-                .take(count)
+            .value
+            .sortedByDescending { it.batteryUsagePercent }
+            .distinctBy { it.packageName }
+            .take(count)
     }
 
     suspend fun getTopNetworkUsers(count: Int = 5): List<NetworkUsageData> {
         return _networkData
-                .value
-                .sortedByDescending { it.mobileDataUsageBytes + it.wifiDataUsageBytes }
-                .distinctBy { it.packageName }
-                .take(count)
+            .value
+            .sortedByDescending { it.mobileDataUsageBytes + it.wifiDataUsageBytes }
+            .distinctBy { it.packageName }
+            .take(count)
     }
 
     suspend fun getAppUsagePattern(packageName: String): List<AppUsageData> {

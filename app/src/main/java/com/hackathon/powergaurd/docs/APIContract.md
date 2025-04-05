@@ -1,10 +1,12 @@
 # PowerGuard API Contract
 
-This document outlines the API contract between the PowerGuard Android application and the backend server.
+This document outlines the API contract between the PowerGuard Android application and the backend
+server.
 
 ## Device Data Collection API
 
 ### Endpoint
+
 ```
 POST /api/v1/analyze-device-data
 ```

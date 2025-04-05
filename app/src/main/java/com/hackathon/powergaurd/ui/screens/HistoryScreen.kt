@@ -27,12 +27,18 @@ import java.util.*
 fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
     val historyState by viewModel.historyState.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
         // Title row with clear button
         Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(text = "Optimization History", style = MaterialTheme.typography.headlineMedium)
 
@@ -50,30 +56,30 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
             // Empty state
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                        text = "No optimization history yet",
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "No optimization history yet",
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         } else {
             // Group history items by date
             val groupedItems =
-                    historyState.items.groupBy { item ->
-                        formatTimestamp(item.timestamp, "MMMM d, yyyy")
-                    }
+                historyState.items.groupBy { item ->
+                    formatTimestamp(item.timestamp, "MMMM d, yyyy")
+                }
 
             LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 groupedItems.forEach { (date, items) ->
                     item {
                         // Date header
                         Text(
-                                text = date,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(vertical = 8.dp)
+                            text = date,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
 
@@ -89,45 +95,52 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
 @Composable
 fun HistoryItemCard(historyItem: ActionHistoryItem) {
     Card(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
             // Status indicator and time
             Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 // Status indicator
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                            modifier =
-                                    Modifier.size(12.dp)
-                                            .background(
-                                                    color =
-                                                            if (historyItem.succeeded) {
-                                                                MaterialTheme.colorScheme.primary
-                                                            } else {
-                                                                MaterialTheme.colorScheme.error
-                                                            },
-                                                    shape = MaterialTheme.shapes.small
-                                            )
+                        modifier =
+                        Modifier
+                            .size(12.dp)
+                            .background(
+                                color =
+                                if (historyItem.succeeded) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
+                                shape = MaterialTheme.shapes.small
+                            )
                     )
 
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Text(
-                            text = if (historyItem.succeeded) "Success" else "Failed",
-                            style = MaterialTheme.typography.labelMedium
+                        text = if (historyItem.succeeded) "Success" else "Failed",
+                        style = MaterialTheme.typography.labelMedium
                     )
                 }
 
                 // Time
                 Text(
-                        text = formatTimestamp(historyItem.timestamp, "h:mm a"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = formatTimestamp(historyItem.timestamp, "h:mm a"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -140,9 +153,9 @@ fun HistoryItemCard(historyItem: ActionHistoryItem) {
             if (historyItem.appPackage != null) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                        text = "App: ${historyItem.appPackage}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "App: ${historyItem.appPackage}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

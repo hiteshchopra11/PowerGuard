@@ -1,21 +1,21 @@
 package com.hackathon.powergaurd.data.repository
 
 import android.util.Log
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /** Data class representing an action history item */
 data class ActionHistoryItem(
-        val id: Long = System.currentTimeMillis(),
-        val timestamp: Long = System.currentTimeMillis(),
-        val actionType: String,
-        val summary: String,
-        val succeeded: Boolean,
-        val appPackage: String? = null,
-        val details: String? = null
+    val id: Long = System.currentTimeMillis(),
+    val timestamp: Long = System.currentTimeMillis(),
+    val actionType: String,
+    val summary: String,
+    val succeeded: Boolean,
+    val appPackage: String? = null,
+    val details: String? = null
 )
 
 /** Repository for managing action history */

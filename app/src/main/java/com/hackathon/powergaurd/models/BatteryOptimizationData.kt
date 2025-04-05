@@ -5,10 +5,10 @@ package com.hackathon.powergaurd.models
  * temperature, and other metrics.
  */
 data class BatteryOptimizationData(
-        val batteryLevel: Int,
-        val isCharging: Boolean,
-        val temperature: Double,
-        val voltage: Int,
-        val currentAverage: Long,
-        val timestamp: Long
+    val batteryLevel: Int,
+    val isCharging: Boolean,
+    val temperature: Double,
+    val voltage: Int,
+    val currentAverage: Long,
+    val timestamp: Long
 )

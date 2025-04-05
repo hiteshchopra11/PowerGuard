@@ -27,13 +27,13 @@ import com.hackathon.powergaurd.models.AppUsageData
 import com.hackathon.powergaurd.models.BatteryOptimizationData
 import com.hackathon.powergaurd.models.NetworkUsageData
 import dagger.hilt.android.AndroidEntryPoint
-import java.util.concurrent.TimeUnit
-import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class PowerGuardService : Service() {
@@ -45,7 +45,8 @@ class PowerGuardService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
     private var isCollectingData = false
 
-    @Inject lateinit var appRepository: AppRepository
+    @Inject
+    lateinit var appRepository: AppRepository
 
     private lateinit var powerManager: PowerManager
     private lateinit var batteryManager: BatteryManager
@@ -112,63 +113,63 @@ class PowerGuardService : Service() {
         try {
             // Check if we have permission to force stop packages
             hasForceStopPermission =
-                    try {
-                        // Now we know this permission is available in priv-app
-                        // and we've confirmed we have it
-                        isPermissionGrantedViaPackageManager(
-                                "android.permission.FORCE_STOP_PACKAGES"
-                        )
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error checking FORCE_STOP_PACKAGES permission: ${e.message}")
-                        false
-                    }
+                try {
+                    // Now we know this permission is available in priv-app
+                    // and we've confirmed we have it
+                    isPermissionGrantedViaPackageManager(
+                        "android.permission.FORCE_STOP_PACKAGES"
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error checking FORCE_STOP_PACKAGES permission: ${e.message}")
+                    false
+                }
 
             // Check for battery stats permission
             hasBatteryStatsPermission =
-                    try {
-                        // Attempt to use a method that requires this permission
-                        batteryManager.getIntProperty(BATTERY_PROPERTY_CURRENT_NOW)
-                        true
-                    } catch (e: Exception) {
-                        Log.w(TAG, "No BATTERY_STATS permission: ${e.message}")
-                        false
-                    }
+                try {
+                    // Attempt to use a method that requires this permission
+                    batteryManager.getIntProperty(BATTERY_PROPERTY_CURRENT_NOW)
+                    true
+                } catch (e: Exception) {
+                    Log.w(TAG, "No BATTERY_STATS permission: ${e.message}")
+                    false
+                }
 
             // Check for device power permission - we know we don't have this
             hasDevicePowerPermission = false
 
             // Check for network policy permission - we've confirmed we have this
             hasNetworkPolicyPermission =
-                    try {
-                        isPermissionGrantedViaPackageManager(
-                                "android.permission.MANAGE_NETWORK_POLICY"
-                        )
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error checking MANAGE_NETWORK_POLICY permission: ${e.message}")
-                        false
-                    }
+                try {
+                    isPermissionGrantedViaPackageManager(
+                        "android.permission.MANAGE_NETWORK_POLICY"
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error checking MANAGE_NETWORK_POLICY permission: ${e.message}")
+                    false
+                }
 
             // Check for WRITE_SETTINGS permission
             hasWriteSettingsPermission =
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        Settings.System.canWrite(applicationContext)
-                    } else {
-                        isPermissionGrantedViaPackageManager("android.permission.WRITE_SETTINGS")
-                    }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    Settings.System.canWrite(applicationContext)
+                } else {
+                    isPermissionGrantedViaPackageManager("android.permission.WRITE_SETTINGS")
+                }
 
             // Check for WRITE_SECURE_SETTINGS permission
             hasWriteSecureSettingsPermission =
-                    isPermissionGrantedViaPackageManager("android.permission.WRITE_SECURE_SETTINGS")
+                isPermissionGrantedViaPackageManager("android.permission.WRITE_SECURE_SETTINGS")
 
             // Check for READ_LOGS permission
             hasReadLogsPermission =
-                    isPermissionGrantedViaPackageManager("android.permission.READ_LOGS")
+                isPermissionGrantedViaPackageManager("android.permission.READ_LOGS")
 
             // Check for PACKAGE_USAGE_STATS permission using AppOps
             hasUsageStatsPermission = checkUsageStatsPermission()
 
             val permissionStatus =
-                    """
+                """
                 System permissions status:
                 - Force Stop Packages: $hasForceStopPermission
                 - Battery Stats: $hasBatteryStatsPermission
@@ -211,16 +212,16 @@ class PowerGuardService : Service() {
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             appOpsManager.unsafeCheckOpNoThrow(
-                    AppOpsManager.OPSTR_GET_USAGE_STATS,
-                    Process.myUid(),
-                    packageName
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                packageName
             ) == AppOpsManager.MODE_ALLOWED
         } else {
             @Suppress("DEPRECATION")
             appOpsManager.checkOpNoThrow(
-                    AppOpsManager.OPSTR_GET_USAGE_STATS,
-                    Process.myUid(),
-                    packageName
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                packageName
             ) == AppOpsManager.MODE_ALLOWED
         }
     }
@@ -231,32 +232,32 @@ class PowerGuardService : Service() {
             val descriptionText = "Monitoring battery and network usage"
             val importance = NotificationManager.IMPORTANCE_LOW
             val channel =
-                    NotificationChannel(CHANNEL_ID, name, importance).apply {
-                        description = descriptionText
-                    }
+                NotificationChannel(CHANNEL_ID, name, importance).apply {
+                    description = descriptionText
+                }
 
             val notificationManager =
-                    getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
         }
     }
 
     private fun createForegroundNotification(): Notification {
         val pendingIntent =
-                PendingIntent.getActivity(
-                        this,
-                        0,
-                        Intent(this, MainActivity::class.java),
-                        PendingIntent.FLAG_IMMUTABLE
-                )
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_IMMUTABLE
+            )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("PowerGuard Active")
-                .setContentText("Optimizing battery and network usage")
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setContentIntent(pendingIntent)
-                .setOngoing(true)
-                .build()
+            .setContentTitle("PowerGuard Active")
+            .setContentText("Optimizing battery and network usage")
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .build()
     }
 
     private fun startDataCollection() {
@@ -307,74 +308,74 @@ class PowerGuardService : Service() {
 
         // These might need additional permissions
         val temperature =
-                try {
-                    if (hasBatteryStatsPermission) {
-                        batteryManager.getIntProperty(BATTERY_PROPERTY_TEMPERATURE) / 10.0
-                    } else {
-                        Log.w(TAG, "Cannot access battery temperature - permission not available")
-                        0.0 // Default if permission not available
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error getting battery temperature: ${e.message}")
-                    0.0
+            try {
+                if (hasBatteryStatsPermission) {
+                    batteryManager.getIntProperty(BATTERY_PROPERTY_TEMPERATURE) / 10.0
+                } else {
+                    Log.w(TAG, "Cannot access battery temperature - permission not available")
+                    0.0 // Default if permission not available
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting battery temperature: ${e.message}")
+                0.0
+            }
 
         val voltage =
-                try {
-                    if (hasBatteryStatsPermission) {
-                        batteryManager.getIntProperty(BATTERY_PROPERTY_VOLTAGE)
-                    } else {
-                        Log.w(TAG, "Cannot access battery voltage - permission not available")
-                        0 // Default if permission not available
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error getting battery voltage: ${e.message}")
-                    0
+            try {
+                if (hasBatteryStatsPermission) {
+                    batteryManager.getIntProperty(BATTERY_PROPERTY_VOLTAGE)
+                } else {
+                    Log.w(TAG, "Cannot access battery voltage - permission not available")
+                    0 // Default if permission not available
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting battery voltage: ${e.message}")
+                0
+            }
 
         val currentAverage =
-                if (hasBatteryStatsPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    try {
-                        batteryManager.getLongProperty(
-                                BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE
-                        )
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error getting battery current: ${e.message}")
-                        0L
-                    }
-                } else {
-                    if (!hasBatteryStatsPermission) {
-                        Log.w(TAG, "Cannot access battery current - permission not available")
-                    }
+            if (hasBatteryStatsPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                try {
+                    batteryManager.getLongProperty(
+                        BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error getting battery current: ${e.message}")
                     0L
                 }
+            } else {
+                if (!hasBatteryStatsPermission) {
+                    Log.w(TAG, "Cannot access battery current - permission not available")
+                }
+                0L
+            }
 
         return BatteryOptimizationData(
-                batteryLevel = batteryLevel,
-                isCharging = isCharging,
-                temperature = temperature,
-                voltage = voltage,
-                currentAverage = currentAverage,
-                timestamp = System.currentTimeMillis()
+            batteryLevel = batteryLevel,
+            isCharging = isCharging,
+            temperature = temperature,
+            voltage = voltage,
+            currentAverage = currentAverage,
+            timestamp = System.currentTimeMillis()
         )
     }
 
     private fun collectAppUsageData(installedApps: List<ApplicationInfo>): List<AppUsageData> {
         if (!hasUsageStatsPermission) {
             Log.w(
-                    TAG,
-                    "Cannot collect detailed app usage data - PACKAGE_USAGE_STATS permission not granted"
+                TAG,
+                "Cannot collect detailed app usage data - PACKAGE_USAGE_STATS permission not granted"
             )
             // Return placeholder data with warning log
             return installedApps.map { app ->
                 AppUsageData(
-                        packageName = app.packageName,
-                        appName = packageManager.getApplicationLabel(app).toString(),
-                        foregroundTimeMinutes = 0L,
-                        backgroundTimeMinutes = 0L,
-                        wakelockTimeMinutes = 0L,
-                        batteryUsagePercent = 0.0,
-                        timestamp = System.currentTimeMillis()
+                    packageName = app.packageName,
+                    appName = packageManager.getApplicationLabel(app).toString(),
+                    foregroundTimeMinutes = 0L,
+                    backgroundTimeMinutes = 0L,
+                    wakelockTimeMinutes = 0L,
+                    batteryUsagePercent = 0.0,
+                    timestamp = System.currentTimeMillis()
                 )
             }
         }
@@ -396,36 +397,36 @@ class PowerGuardService : Service() {
             val batteryUsagePercent = 0.0
 
             AppUsageData(
-                    packageName = packageName,
-                    appName = appName,
-                    foregroundTimeMinutes = foregroundTimeMinutes,
-                    backgroundTimeMinutes = backgroundTimeMinutes,
-                    wakelockTimeMinutes = wakelockTimeMinutes,
-                    batteryUsagePercent = batteryUsagePercent,
-                    timestamp = System.currentTimeMillis()
+                packageName = packageName,
+                appName = appName,
+                foregroundTimeMinutes = foregroundTimeMinutes,
+                backgroundTimeMinutes = backgroundTimeMinutes,
+                wakelockTimeMinutes = wakelockTimeMinutes,
+                batteryUsagePercent = batteryUsagePercent,
+                timestamp = System.currentTimeMillis()
             )
         }
     }
 
     private fun collectNetworkUsageData(
-            installedApps: List<ApplicationInfo>
+        installedApps: List<ApplicationInfo>
     ): List<NetworkUsageData> {
         val hasNetworkStatsAccess = hasNetworkPolicyPermission || hasWriteSecureSettingsPermission
 
         if (!hasNetworkStatsAccess) {
             Log.w(
-                    TAG,
-                    "Cannot collect detailed network usage data - required permissions not granted"
+                TAG,
+                "Cannot collect detailed network usage data - required permissions not granted"
             )
             // Return placeholder data with warning log
             return installedApps.map { app ->
                 NetworkUsageData(
-                        packageName = app.packageName,
-                        appName = packageManager.getApplicationLabel(app).toString(),
-                        mobileDataUsageBytes = 0L,
-                        wifiDataUsageBytes = 0L,
-                        backgroundDataUsageBytes = 0L,
-                        timestamp = System.currentTimeMillis()
+                    packageName = app.packageName,
+                    appName = packageManager.getApplicationLabel(app).toString(),
+                    mobileDataUsageBytes = 0L,
+                    wifiDataUsageBytes = 0L,
+                    backgroundDataUsageBytes = 0L,
+                    timestamp = System.currentTimeMillis()
                 )
             }
         }
@@ -445,29 +446,29 @@ class PowerGuardService : Service() {
             val backgroundDataUsageBytes = 0L
 
             NetworkUsageData(
-                    packageName = packageName,
-                    appName = appName,
-                    mobileDataUsageBytes = mobileDataUsageBytes,
-                    wifiDataUsageBytes = wifiDataUsageBytes,
-                    backgroundDataUsageBytes = backgroundDataUsageBytes,
-                    timestamp = System.currentTimeMillis()
+                packageName = packageName,
+                appName = appName,
+                mobileDataUsageBytes = mobileDataUsageBytes,
+                wifiDataUsageBytes = wifiDataUsageBytes,
+                backgroundDataUsageBytes = backgroundDataUsageBytes,
+                timestamp = System.currentTimeMillis()
             )
         }
     }
 
     private fun optimizeBatteryUsage(
-            appUsageData: List<AppUsageData>,
-            batteryInfo: BatteryOptimizationData
+        appUsageData: List<AppUsageData>,
+        batteryInfo: BatteryOptimizationData
     ) {
         // For system app, we can implement direct optimization here
         // Example: Force stop apps with high battery usage when battery is low
         if (batteryInfo.batteryLevel < 20 && !batteryInfo.isCharging) {
             // Find top battery-consuming apps
             val highBatteryApps =
-                    appUsageData
-                            .filter { it.batteryUsagePercent > 5.0 }
-                            .sortedByDescending { it.batteryUsagePercent }
-                            .take(3)
+                appUsageData
+                    .filter { it.batteryUsagePercent > 5.0 }
+                    .sortedByDescending { it.batteryUsagePercent }
+                    .take(3)
 
             if (highBatteryApps.isEmpty()) {
                 Log.d(TAG, "No high battery consuming apps found for optimization")
@@ -482,10 +483,10 @@ class PowerGuardService : Service() {
                         Log.d(TAG, "Force stopping high battery usage app: ${app.appName}")
                         // Direct method call to force stop the package
                         val method =
-                                ActivityManager::class.java.getMethod(
-                                        "forceStopPackage",
-                                        String::class.java
-                                )
+                            ActivityManager::class.java.getMethod(
+                                "forceStopPackage",
+                                String::class.java
+                            )
                         method.invoke(activityManager, app.packageName)
 
                         // Log success
@@ -508,10 +509,10 @@ class PowerGuardService : Service() {
     private fun optimizeNetworkUsage(networkUsageData: List<NetworkUsageData>) {
         // Find high data usage apps
         val highDataApps =
-                networkUsageData
-                        .filter { it.backgroundDataUsageBytes > 10 * 1024 * 1024 } // More than 10MB
-                        .sortedByDescending { it.backgroundDataUsageBytes }
-                        .take(3)
+            networkUsageData
+                .filter { it.backgroundDataUsageBytes > 10 * 1024 * 1024 } // More than 10MB
+                .sortedByDescending { it.backgroundDataUsageBytes }
+                .take(3)
 
         if (highDataApps.isEmpty()) {
             Log.d(TAG, "No high data usage apps found for optimization")
@@ -530,8 +531,8 @@ class PowerGuardService : Service() {
                         // 1. Use Data Saver mode if available (Android N+)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                             val connectivityManager =
-                                    getSystemService(Context.CONNECTIVITY_SERVICE) as
-                                            ConnectivityManager
+                                getSystemService(Context.CONNECTIVITY_SERVICE) as
+                                        ConnectivityManager
                             val status = connectivityManager.getRestrictBackgroundStatus()
 
                             // ConnectivityManager.RESTRICT_BACKGROUND_STATUS_DISABLED = 1
@@ -539,16 +540,16 @@ class PowerGuardService : Service() {
                                 // Data Saver is disabled, but we can't enable it programmatically
                                 // We would need to prompt the user to enable it
                                 Log.d(
-                                        TAG,
-                                        "Data Saver is disabled. We need user action to enable it."
+                                    TAG,
+                                    "Data Saver is disabled. We need user action to enable it."
                                 )
 
                                 // In a real app, show a notification to the user
                                 // notifyUserToEnableDataSaver()
                             } else {
                                 Log.d(
-                                        TAG,
-                                        "Data Saver is already enabled. Apps will have restricted background data."
+                                    TAG,
+                                    "Data Saver is already enabled. Apps will have restricted background data."
                                 )
                             }
                         }
@@ -564,19 +565,19 @@ class PowerGuardService : Service() {
                                 try {
                                     // Use reflection to call setAppInactive method
                                     val usageStatsManagerClass =
-                                            Class.forName("android.app.usage.UsageStatsManager")
+                                        Class.forName("android.app.usage.UsageStatsManager")
                                     val usageStatsManager =
-                                            getSystemService(Context.USAGE_STATS_SERVICE)
+                                        getSystemService(Context.USAGE_STATS_SERVICE)
                                     val setAppInactiveMethod =
-                                            usageStatsManagerClass.getMethod(
-                                                    "setAppInactive",
-                                                    String::class.java,
-                                                    Boolean::class.java
-                                            )
+                                        usageStatsManagerClass.getMethod(
+                                            "setAppInactive",
+                                            String::class.java,
+                                            Boolean::class.java
+                                        )
                                     setAppInactiveMethod.invoke(
-                                            usageStatsManager,
-                                            app.packageName,
-                                            true
+                                        usageStatsManager,
+                                        app.packageName,
+                                        true
                                     )
                                     Log.d(TAG, "Marked app as inactive: ${app.appName}")
                                 } catch (e: Exception) {
@@ -588,19 +589,19 @@ class PowerGuardService : Service() {
                         // 3. As a last resort, for apps with excessive data usage,
                         // we could force stop them using our FORCE_STOP_PACKAGES permission
                         if (hasForceStopPermission &&
-                                        app.backgroundDataUsageBytes > 50 * 1024 * 1024
+                            app.backgroundDataUsageBytes > 50 * 1024 * 1024
                         ) { // > 50MB
                             try {
                                 Log.d(TAG, "Force stopping high data usage app: ${app.appName}")
                                 val method =
-                                        ActivityManager::class.java.getMethod(
-                                                "forceStopPackage",
-                                                String::class.java
-                                        )
+                                    ActivityManager::class.java.getMethod(
+                                        "forceStopPackage",
+                                        String::class.java
+                                    )
                                 method.invoke(activityManager, app.packageName)
                                 Log.d(
-                                        TAG,
-                                        "Successfully force stopped high data usage app: ${app.appName}"
+                                    TAG,
+                                    "Successfully force stopped high data usage app: ${app.appName}"
                                 )
                             } catch (e: Exception) {
                                 Log.e(TAG, "Failed to force stop app: ${e.message}")
@@ -617,8 +618,8 @@ class PowerGuardService : Service() {
                 // Fall back to recommendations
                 highDataApps.forEach { app ->
                     Log.d(
-                            TAG,
-                            "Recommendation: User should manually restrict background data for: ${app.appName}"
+                        TAG,
+                        "Recommendation: User should manually restrict background data for: ${app.appName}"
                     )
                     // Show notification to the user
                 }
@@ -628,8 +629,8 @@ class PowerGuardService : Service() {
             Log.w(TAG, "Network policy permissions not available, using fallback")
             highDataApps.forEach { app ->
                 Log.d(
-                        TAG,
-                        "Recommendation: User should manually restrict background data for: ${app.appName}"
+                    TAG,
+                    "Recommendation: User should manually restrict background data for: ${app.appName}"
                 )
                 // Show notification to the user
             }

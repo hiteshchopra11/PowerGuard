@@ -29,27 +29,27 @@ class BootReceiver : BroadcastReceiver() {
 
     private fun scheduleDataCollection(context: Context) {
         val constraints =
-                Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.CONNECTED)
-                        .setRequiresBatteryNotLow(true)
-                        .build()
+            Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiresBatteryNotLow(true)
+                .build()
 
         val dataCollectionRequest =
-                PeriodicWorkRequestBuilder<DataCollectionWorker>(
-                                30,
-                                TimeUnit.MINUTES,
-                                5,
-                                TimeUnit.MINUTES // Flex period for battery optimization
-                        )
-                        .setConstraints(constraints)
-                        .build()
+            PeriodicWorkRequestBuilder<DataCollectionWorker>(
+                30,
+                TimeUnit.MINUTES,
+                5,
+                TimeUnit.MINUTES // Flex period for battery optimization
+            )
+                .setConstraints(constraints)
+                .build()
 
         WorkManager.getInstance(context)
-                .enqueueUniquePeriodicWork(
-                        "data_collection_work",
-                        ExistingPeriodicWorkPolicy.UPDATE,
-                        dataCollectionRequest
-                )
+            .enqueueUniquePeriodicWork(
+                "data_collection_work",
+                ExistingPeriodicWorkPolicy.UPDATE,
+                dataCollectionRequest
+            )
     }
 
     private fun startPowerGuardService(context: Context) {

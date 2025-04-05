@@ -12,24 +12,25 @@ import com.hackathon.powergaurd.R
 import com.hackathon.powergaurd.data.repository.ActionHistoryItem
 import com.hackathon.powergaurd.data.repository.ActionHistoryRepository
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /** Widget provider for PowerGuard home screen widget. */
 @AndroidEntryPoint
 class PowerGuardWidget : AppWidgetProvider() {
 
-    @Inject lateinit var actionHistoryRepository: ActionHistoryRepository
+    @Inject
+    lateinit var actionHistoryRepository: ActionHistoryRepository
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
     override fun onUpdate(
-            context: Context,
-            appWidgetManager: AppWidgetManager,
-            appWidgetIds: IntArray
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray
     ) {
         // Update each widget
         for (appWidgetId in appWidgetIds) {
@@ -46,10 +47,10 @@ class PowerGuardWidget : AppWidgetProvider() {
      * @param loadingText Optional loading text to display
      */
     fun updateWidget(
-            context: Context,
-            appWidgetManager: AppWidgetManager,
-            appWidgetId: Int,
-            loadingText: String?
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        loadingText: String?
     ) {
         // Create remote views
         val views = RemoteViews(context.packageName, R.layout.widget_power_guard)
@@ -57,12 +58,12 @@ class PowerGuardWidget : AppWidgetProvider() {
         // Set up click intent to open the app
         val intent = Intent(context, MainActivity::class.java)
         val pendingIntent =
-                PendingIntent.getActivity(
-                        context,
-                        0,
-                        intent,
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                )
+            PendingIntent.getActivity(
+                context,
+                0,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
         views.setOnClickPendingIntent(R.id.widget_title, pendingIntent)
 
         // Show loading state if requested
@@ -133,9 +134,9 @@ class PowerGuardWidget : AppWidgetProvider() {
 
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val appWidgetIds =
-                    appWidgetManager.getAppWidgetIds(
-                            android.content.ComponentName(context, PowerGuardWidget::class.java)
-                    )
+                appWidgetManager.getAppWidgetIds(
+                    android.content.ComponentName(context, PowerGuardWidget::class.java)
+                )
 
             intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds)
             context.sendBroadcast(intent)

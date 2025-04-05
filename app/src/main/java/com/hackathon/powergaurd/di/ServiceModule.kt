@@ -23,8 +23,8 @@ object ServiceModule {
     @Provides
     @Singleton
     fun provideActionableExecutor(
-            @ApplicationContext context: Context,
-            powerManager: PowerManager
+        @ApplicationContext context: Context,
+        powerManager: PowerManager
     ): ActionableExecutor {
         return ActionableExecutor(context, powerManager)
     }

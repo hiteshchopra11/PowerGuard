@@ -26,7 +26,9 @@ fun StatsRow(
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = if (isHighlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+            color = if (isHighlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(
+                alpha = 0.8f
+            )
         )
 
         Text(

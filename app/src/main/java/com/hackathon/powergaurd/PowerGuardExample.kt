@@ -18,7 +18,13 @@ class PowerGuardExample {
         val workHours = TimeRange(
             9, 0, // 9:00 AM
             17, 0, // 5:00 PM
-            listOf(Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY)
+            listOf(
+                Calendar.MONDAY,
+                Calendar.TUESDAY,
+                Calendar.WEDNESDAY,
+                Calendar.THURSDAY,
+                Calendar.FRIDAY
+            )
         )
         optimizer.restrictBackgroundData("com.example.videoapp", true)
 

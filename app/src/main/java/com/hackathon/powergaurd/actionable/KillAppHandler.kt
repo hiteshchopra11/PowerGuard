@@ -15,7 +15,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class KillAppHandler @Inject constructor(@ApplicationContext private val context: Context) :
-        ActionableHandler {
+    ActionableHandler {
 
     private val TAG = "KillAppHandler"
 
@@ -25,9 +25,9 @@ class KillAppHandler @Inject constructor(@ApplicationContext private val context
     private val forceStopMethod: Method? by lazy {
         try {
             val activityManager =
-                    context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
             val method =
-                    ActivityManager::class.java.getMethod("forceStopPackage", String::class.java)
+                ActivityManager::class.java.getMethod("forceStopPackage", String::class.java)
             method
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get forceStopPackage method", e)
@@ -47,7 +47,7 @@ class KillAppHandler @Inject constructor(@ApplicationContext private val context
             Log.d(TAG, "Attempting to force stop app: $packageName")
 
             val activityManager =
-                    context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
 
             val method = forceStopMethod ?: return false
             method.invoke(activityManager, packageName)

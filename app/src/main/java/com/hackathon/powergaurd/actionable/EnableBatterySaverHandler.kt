@@ -49,8 +49,8 @@ constructor(@ApplicationContext private val context: Context) : ActionableHandle
                 try {
                     method.invoke(powerManager, enabled)
                     Log.d(
-                            TAG,
-                            "Successfully ${if (enabled) "enabled" else "disabled"} battery saver mode"
+                        TAG,
+                        "Successfully ${if (enabled) "enabled" else "disabled"} battery saver mode"
                     )
                     return true
                 } catch (e: Exception) {
@@ -66,8 +66,8 @@ constructor(@ApplicationContext private val context: Context) : ActionableHandle
 
                 if (successful) {
                     Log.d(
-                            TAG,
-                            "Successfully ${if (enabled) "enabled" else "disabled"} battery saver mode via settings"
+                        TAG,
+                        "Successfully ${if (enabled) "enabled" else "disabled"} battery saver mode via settings"
                     )
                     return true
                 }
@@ -81,8 +81,8 @@ constructor(@ApplicationContext private val context: Context) : ActionableHandle
             // In a real app, this would show a notification to the user
             // For now, we'll just log this
             Log.i(
-                    TAG,
-                    "ACTION NEEDED: User should ${if (enabled) "enable" else "disable"} battery saver mode manually"
+                TAG,
+                "ACTION NEEDED: User should ${if (enabled) "enable" else "disable"} battery saver mode manually"
             )
 
             // Return false to indicate we couldn't directly perform the action

@@ -1,6 +1,7 @@
 # Next Steps for PowerGuard
 
-This document outlines what we've learned about Android system permissions and how to proceed with running PowerGuard effectively.
+This document outlines what we've learned about Android system permissions and how to proceed with
+running PowerGuard effectively.
 
 ## Updated Permission Findings
 
@@ -25,14 +26,16 @@ After thorough testing with PowerGuard installed in `/system/priv-app`, we have 
 When upgrading to API 35, we encountered the following issues:
 
 1. **NetworkPolicyManager Not Available**: This class is not available in the public SDK for API 35.
-   - **Solution**: Implemented alternative approaches using ConnectivityManager, UsageStatsManager, and strategic app force-stopping.
+   - **Solution**: Implemented alternative approaches using ConnectivityManager, UsageStatsManager,
+     and strategic app force-stopping.
 
-2. **Background Data Restriction**: Direct per-app background data restriction requires NetworkPolicyManager.
+2. **Background Data Restriction**: Direct per-app background data restriction requires
+   NetworkPolicyManager.
    - **Solution**: Implemented a multi-faceted approach:
-     - Monitor Data Saver status and guide users to enable it
-     - Mark high data usage apps as "inactive"
-     - Leverage battery optimization to reduce background activity
-     - Force stop extreme data consumers
+      - Monitor Data Saver status and guide users to enable it
+      - Mark high data usage apps as "inactive"
+      - Leverage battery optimization to reduce background activity
+      - Force stop extreme data consumers
 
 ## Running the App Successfully
 
@@ -48,7 +51,8 @@ Follow these steps to run PowerGuard with optimal permission access:
    ```bash
    ./grant_permissions.sh
    ```
-   This grants all available permissions including the privileged system permissions that are now accessible.
+   This grants all available permissions including the privileged system permissions that are now
+   accessible.
 
 3. **Enable Manual Permissions**:
    - Navigate to Settings → Apps → Special app access → Modify system settings
@@ -87,7 +91,8 @@ We've implemented the following workarounds for API and permission limitations:
 
 ### NetworkPolicyManager Alternative
 
-**Challenge**: `NetworkPolicyManager` is not available in the public SDK (API 35), preventing direct control of background data restrictions.
+**Challenge**: `NetworkPolicyManager` is not available in the public SDK (API 35), preventing direct
+control of background data restrictions.
 
 **Solution**: We've implemented several alternatives:
 
@@ -110,7 +115,8 @@ We've implemented the following workarounds for API and permission limitations:
    - For extreme data consumers (>50MB in background), use `FORCE_STOP_PACKAGES` permission
    - Only for critical cases where other methods are insufficient
 
-This multi-faceted approach provides effective network management even without direct API access to NetworkPolicyManager.
+This multi-faceted approach provides effective network management even without direct API access to
+NetworkPolicyManager.
 
 2. **Battery Management Without DEVICE_POWER**:
    - **Challenge**: Cannot directly modify device power states
@@ -118,12 +124,16 @@ This multi-faceted approach provides effective network management even without d
 
 ## Conclusion
 
-PowerGuard has been adapted to work with API 35 by replacing unavailable APIs with alternative approaches that maintain most of the core functionality. While some features now require a combination of programmatic actions and user guidance, the app can still deliver effective battery and network optimization.
+PowerGuard has been adapted to work with API 35 by replacing unavailable APIs with alternative
+approaches that maintain most of the core functionality. While some features now require a
+combination of programmatic actions and user guidance, the app can still deliver effective battery
+and network optimization.
 
 ## Implementation Priorities
 
 1. ~~Complete NetworkPolicyManager Integration~~: ✅ Replaced with alternative approaches for API 35
 2. **Force Stop Functionality**: ✅ Implemented
-3. **User Notification System**: Next priority - especially important for guiding users on Data Saver
+3. **User Notification System**: Next priority - especially important for guiding users on Data
+   Saver
 4. **Usage Statistics Analytics**: Coming soon
 5. **UI for Manual Settings**: Higher priority now that some actions require user involvement 

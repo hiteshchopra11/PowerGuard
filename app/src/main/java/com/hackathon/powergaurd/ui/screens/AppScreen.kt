@@ -149,7 +149,7 @@ fun AppItem(app: AppInfo, onClick: () -> Unit) {
             Text(
                 text = "Power: ${app.powerUsage}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = when(app.powerUsage) {
+                color = when (app.powerUsage) {
                     "High" -> MaterialTheme.colorScheme.error
                     "Medium" -> MaterialTheme.colorScheme.tertiary
                     else -> MaterialTheme.colorScheme.secondary

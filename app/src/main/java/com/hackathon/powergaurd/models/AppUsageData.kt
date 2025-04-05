@@ -5,11 +5,11 @@ package com.hackathon.powergaurd.models
  * time, as well as wakelock time and battery consumption.
  */
 data class AppUsageData(
-        val packageName: String,
-        val appName: String,
-        val foregroundTimeMinutes: Long,
-        val backgroundTimeMinutes: Long,
-        val wakelockTimeMinutes: Long,
-        val batteryUsagePercent: Double,
-        val timestamp: Long
+    val packageName: String,
+    val appName: String,
+    val foregroundTimeMinutes: Long,
+    val backgroundTimeMinutes: Long,
+    val wakelockTimeMinutes: Long,
+    val batteryUsagePercent: Double,
+    val timestamp: Long
 )

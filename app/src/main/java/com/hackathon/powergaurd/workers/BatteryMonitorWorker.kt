@@ -9,7 +9,8 @@ class BatteryMonitorWorker(context: Context, params: WorkerParameters) : Worker(
     override fun doWork(): Result {
         val maxChargeLevel = inputData.getInt("max_charge_level", 80)
 
-        val batteryManager = applicationContext.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val batteryManager =
+            applicationContext.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         val batteryLevel = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
 
         if (batteryLevel >= maxChargeLevel) {

@@ -41,18 +41,17 @@ import java.util.concurrent.TimeUnit
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher =
-            registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-                    permissions ->
-                val allGranted = permissions.values.all { it }
-                if (!allGranted) {
-                    // Handle permission denial
-                    showAppSettings()
-                } else {
-                    // Permissions granted, schedule data collection and start service
-                    scheduleDataCollection()
-                    startPowerGuardService()
-                }
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val allGranted = permissions.values.all { it }
+            if (!allGranted) {
+                // Handle permission denial
+                showAppSettings()
+            } else {
+                // Permissions granted, schedule data collection and start service
+                scheduleDataCollection()
+                startPowerGuardService()
             }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,7 +67,7 @@ class MainActivity : ComponentActivity() {
         // Check for runtime permissions
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.FOREGROUND_SERVICE) !=
-                            PackageManager.PERMISSION_GRANTED
+                PackageManager.PERMISSION_GRANTED
             ) {
                 permissionsToRequest.add(Manifest.permission.FOREGROUND_SERVICE)
             }
@@ -76,7 +75,7 @@ class MainActivity : ComponentActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-                            PackageManager.PERMISSION_GRANTED
+                PackageManager.PERMISSION_GRANTED
             ) {
                 permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -118,45 +117,45 @@ class MainActivity : ComponentActivity() {
     private fun hasUsageStatsPermission(): Boolean {
         val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
         val mode =
-                appOpsManager.checkOpNoThrow(
-                        AppOpsManager.OPSTR_GET_USAGE_STATS,
-                        android.os.Process.myUid(),
-                        packageName
-                )
+            appOpsManager.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(),
+                packageName
+            )
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
     private fun showAppSettings() {
         val intent =
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.fromParts("package", packageName, null)
-                }
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", packageName, null)
+            }
         startActivity(intent)
     }
 
     fun scheduleDataCollection() {
         val constraints =
-                Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.CONNECTED)
-                        .setRequiresBatteryNotLow(true)
-                        .build()
+            Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiresBatteryNotLow(true)
+                .build()
 
         val dataCollectionRequest =
-                PeriodicWorkRequestBuilder<DataCollectionWorker>(
-                                30,
-                                TimeUnit.MINUTES,
-                                5,
-                                TimeUnit.MINUTES // Flex period for battery optimization
-                        )
-                        .setConstraints(constraints)
-                        .build()
+            PeriodicWorkRequestBuilder<DataCollectionWorker>(
+                30,
+                TimeUnit.MINUTES,
+                5,
+                TimeUnit.MINUTES // Flex period for battery optimization
+            )
+                .setConstraints(constraints)
+                .build()
 
         WorkManager.getInstance(this)
-                .enqueueUniquePeriodicWork(
-                        "data_collection_work",
-                        ExistingPeriodicWorkPolicy.UPDATE,
-                        dataCollectionRequest
-                )
+            .enqueueUniquePeriodicWork(
+                "data_collection_work",
+                ExistingPeriodicWorkPolicy.UPDATE,
+                dataCollectionRequest
+            )
     }
 
     private fun startPowerGuardService() {
@@ -183,15 +182,15 @@ fun PowerGuardAppUI() {
     val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
-            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-            bottomBar = { BottomNavBar(navController = navController) }
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        bottomBar = { BottomNavBar(navController = navController) }
     ) { innerPadding ->
         AppNavHost(
-                navController = navController,
-                modifier = Modifier.padding(innerPadding),
-                showSnackbar = { message ->
-                    coroutineScope.launch { snackbarHostState.showSnackbar(message) }
-                }
+            navController = navController,
+            modifier = Modifier.padding(innerPadding),
+            showSnackbar = { message ->
+                coroutineScope.launch { snackbarHostState.showSnackbar(message) }
+            }
         )
     }
 }

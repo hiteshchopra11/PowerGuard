@@ -7,9 +7,6 @@ import com.hackathon.powergaurd.PowerGuardOptimizer
 import com.hackathon.powergaurd.data.AppRepository
 import com.hackathon.powergaurd.data.DeviceStatsCollector
 import com.hackathon.powergaurd.models.AppDetailState
-import com.hackathon.powergaurd.models.AppNetworkInfo
-import com.hackathon.powergaurd.models.AppUsageInfo
-import com.hackathon.powergaurd.models.WakeLockInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -77,7 +74,10 @@ class AppDetailViewModel @Inject constructor(
         }
     }
 
-    fun restrictBackgroundData(enabled: Boolean, scheduleTimeRanges: List<PowerGuardOptimizer.TimeRange>? = null) {
+    fun restrictBackgroundData(
+        enabled: Boolean,
+        scheduleTimeRanges: List<PowerGuardOptimizer.TimeRange>? = null
+    ) {
         viewModelScope.launch {
             optimizer.restrictBackgroundData(packageName, enabled, scheduleTimeRanges)
             // In a real app, we would update the UI state or show a confirmation

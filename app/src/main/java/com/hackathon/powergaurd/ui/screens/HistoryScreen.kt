@@ -19,10 +19,13 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,69 +43,73 @@ import java.util.Date
 import java.util.Locale
 
 /** Screen that displays the history of actions taken by PowerGuard. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
     val historyState by viewModel.historyState.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Title row with clear button
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(text = "Optimization History", style = MaterialTheme.typography.headlineMedium)
-
-            IconButton(onClick = { viewModel.clearHistory() }) {
-                Icon(imageVector = Icons.Default.Delete, contentDescription = "Clear History")
-            }
-        }
-
-        if (historyState.isLoading) {
-            // Loading state
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else if (historyState.items.isEmpty()) {
-            // Empty state
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "No optimization history yet",
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            // Group history items by date
-            val groupedItems =
-                historyState.items.groupBy { item ->
-                    formatTimestamp(item.timestamp, "MMMM d, yyyy")
-                }
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                groupedItems.forEach { (date, items) ->
-                    item {
-                        // Date header
-                        Text(
-                            text = date,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(vertical = 8.dp)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Optimization History") },
+                actions = {
+                    IconButton(onClick = { viewModel.clearHistory() }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Clear History"
                         )
                     }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            if (historyState.isLoading) {
+                // Loading state
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (historyState.items.isEmpty()) {
+                // Empty state
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "No optimization history yet",
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                // Group history items by date
+                val groupedItems =
+                    historyState.items.groupBy { item ->
+                        formatTimestamp(item.timestamp, "MMMM d, yyyy")
+                    }
 
-                    items(items) { historyItem -> HistoryItemCard(historyItem) }
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    groupedItems.forEach { (date, items) ->
+                        item {
+                            // Date header
+                            Text(
+                                text = date,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
 
-                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                        items(items) { historyItem -> HistoryItemCard(historyItem) }
+
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
+                    }
                 }
             }
         }

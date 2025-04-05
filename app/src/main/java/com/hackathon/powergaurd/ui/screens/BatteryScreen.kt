@@ -16,13 +16,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -88,17 +87,18 @@ fun BatteryScreen() {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        TopAppBar(
-            title = { Text("Battery Optimization") }
-        )
-
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Battery Optimization") }
+            )
+        }
+    ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp)
         ) {
             // Battery Status Card
             item {
@@ -249,89 +249,56 @@ fun BatteryScreen() {
                             text = "Maximum charge: ${maxChargeLevel.roundToInt()}%",
                             style = MaterialTheme.typography.bodyMedium
                         )
-
-                        Slider(
-                            value = maxChargeLevel,
-                            onValueChange = { maxChargeLevel = it },
-                            valueRange = 60f..100f,
-                            steps = 4
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Button(
-                            onClick = {
-                                optimizer.optimizeCharging(maxChargeLevel.roundToInt())
-                            },
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Text("Apply")
-                        }
                     }
                 }
             }
 
-            // Battery Usage by App
+            // App Usage Section
             item {
-                Card(
+                Text(
+                    text = "Battery Usage by App",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(vertical = 16.dp)
+                )
+            }
+
+            // App usage items
+            items(appUsageList) { app ->
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp)
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Battery Usage by App",
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                    Text(
+                        text = app.appName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
 
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
+                    Text(
+                        text = "${app.percentUsage.roundToInt()}%",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    LinearProgressIndicator(
+                        progress = app.percentUsage / 100f,
+                        modifier = Modifier.width(100.dp),
+                        color = when {
+                            app.percentUsage > 20f -> MaterialTheme.colorScheme.error
+                            app.percentUsage > 10f -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.primary
+                        }
+                    )
                 }
             }
 
-            // List of apps with battery usage
-            items(appUsageList) { appUsage ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = appUsage.appName,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        Text(
-                            text = "${appUsage.percentUsage.roundToInt()}%",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-
-                        Spacer(modifier = Modifier.size(8.dp))
-
-                        LinearProgressIndicator(
-                            progress = appUsage.percentUsage / 100f,
-                            modifier = Modifier
-                                .width(100.dp)
-                                .height(8.dp),
-                            color = when {
-                                appUsage.percentUsage > 20f -> MaterialTheme.colorScheme.error
-                                appUsage.percentUsage > 10f -> MaterialTheme.colorScheme.tertiary
-                                else -> MaterialTheme.colorScheme.primary
-                            }
-                        )
-                    }
-                }
+            // Add some space at the bottom for better UX
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }

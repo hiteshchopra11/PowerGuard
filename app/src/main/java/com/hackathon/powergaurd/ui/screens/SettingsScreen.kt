@@ -7,10 +7,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -44,148 +44,154 @@ fun SettingsScreen() {
     var updateFrequency by remember { mutableFloatStateOf(30f) }
     var autoApplyAI by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-        TopAppBar(
-            title = { Text("Settings") }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Data Collection",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") }
+            )
+        }
+    ) { paddingValues ->
+        LazyColumn(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            item {
                 Text(
-                    text = "Auto Optimize",
-                    style = MaterialTheme.typography.bodyLarge
+                    text = "Data Collection",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 16.dp)
                 )
-                Text(
-                    text = "Automatically apply optimizations periodically",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
 
-            Switch(
-                checked = autoOptimize,
-                onCheckedChange = {
-                    autoOptimize = it
-                    // In a real app, this would update app preferences and
-                    // enable/disable the WorkManager tasks
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Auto Optimize",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = "Automatically apply optimizations periodically",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    Switch(
+                        checked = autoOptimize,
+                        onCheckedChange = {
+                            autoOptimize = it
+                            // In a real app, this would update app preferences and
+                            // enable/disable the WorkManager tasks
+                        }
+                    )
                 }
-            )
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = "Update frequency: ${updateFrequency.roundToInt()} minutes",
-            style = MaterialTheme.typography.bodyMedium
-        )
-
-        Slider(
-            value = updateFrequency,
-            onValueChange = {
-                updateFrequency = it
-                // Schedule data collection with new frequency
-                val constraints = Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    .setRequiresBatteryNotLow(true)
-                    .build()
-
-                val dataCollectionRequest = PeriodicWorkRequestBuilder<DataCollectionWorker>(
-                    updateFrequency.roundToInt().toLong(), TimeUnit.MINUTES,
-                    5, TimeUnit.MINUTES // Flex period
-                )
-                    .setConstraints(constraints)
-                    .build()
-
-                workManager.enqueueUniquePeriodicWork(
-                    "data_collection_work",
-                    ExistingPeriodicWorkPolicy.UPDATE,
-                    dataCollectionRequest
-                )
-            },
-            valueRange = 15f..60f,
-            steps = 3
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "AI Optimization",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
                 Text(
-                    text = "Auto-apply AI Recommendations",
+                    text = "Update frequency: ${updateFrequency.roundToInt()} minutes",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Slider(
+                    value = updateFrequency,
+                    onValueChange = {
+                        updateFrequency = it
+                        // Schedule data collection with new frequency
+                        val constraints = Constraints.Builder()
+                            .setRequiredNetworkType(NetworkType.CONNECTED)
+                            .setRequiresBatteryNotLow(true)
+                            .build()
+
+                        val dataCollectionRequest =
+                            PeriodicWorkRequestBuilder<DataCollectionWorker>(
+                                updateFrequency.roundToInt().toLong(), TimeUnit.MINUTES,
+                                5, TimeUnit.MINUTES // Flex period
+                            )
+                                .setConstraints(constraints)
+                                .build()
+
+                        workManager.enqueueUniquePeriodicWork(
+                            "data_collection_work",
+                            ExistingPeriodicWorkPolicy.UPDATE,
+                            dataCollectionRequest
+                        )
+                    },
+                    valueRange = 15f..60f,
+                    steps = 3
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "AI Optimization",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Auto-apply AI Recommendations",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = "Automatically apply AI-recommended optimizations",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    Switch(
+                        checked = autoApplyAI,
+                        onCheckedChange = { autoApplyAI = it }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "About",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "AI PowerGuard v1.0",
                     style = MaterialTheme.typography.bodyLarge
                 )
+
                 Text(
-                    text = "Automatically apply AI-recommended optimizations",
-                    style = MaterialTheme.typography.bodySmall
+                    text = "© 2025 PowerGuard Team",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Text(
+                    text = "Created for Hackathon 2025",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
                 )
             }
-
-            Switch(
-                checked = autoApplyAI,
-                onCheckedChange = { autoApplyAI = it }
-            )
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "About",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "AI PowerGuard v1.0",
-            style = MaterialTheme.typography.bodyLarge
-        )
-
-        Text(
-            text = "© 2025 PowerGuard Team",
-            style = MaterialTheme.typography.bodyMedium
-        )
-
-        Text(
-            text = "Created for Hackathon 2025",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(top = 4.dp)
-        )
     }
 }

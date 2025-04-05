@@ -10,7 +10,7 @@
       ]
     }
   ],
-  "editor.formatOnSave": true,
+  "editor.formatOnSave": false,
   "customTitleBarButtons.buttons": [
     {
       "text": "▶️ Run",

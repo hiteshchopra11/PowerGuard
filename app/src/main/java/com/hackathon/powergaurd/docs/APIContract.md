@@ -91,7 +91,7 @@ POST /api/v1/analyze-device-data
   "success": "boolean",
   "timestamp": "long",
   "message": "string",
-  "actionables": [
+  "actionable": [
     {
       "id": "string",
       "type": "string",
@@ -225,7 +225,7 @@ POST /api/v1/analyze-device-data
   "success": true,
   "timestamp": 1697292351000,
   "message": "Analysis completed successfully",
-  "actionables": [
+  "actionable": [
     {
       "id": "a1b2c3d4",
       "type": "OPTIMIZE_BATTERY",
@@ -286,7 +286,7 @@ POST /api/v1/analyze-device-data
 
 ## Actionable Types
 
-The `type` field in actionables can have the following values:
+The `type` field in actionable can have the following values:
 
 1. `OPTIMIZE_BATTERY`: Apply battery optimization settings for an app
 2. `RESTRICT_BACKGROUND`: Restrict background processes/data for an app

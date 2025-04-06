@@ -3,7 +3,7 @@ package com.hackathon.powergaurd.actionable
 import android.app.ActivityManager
 import android.content.Context
 import android.util.Log
-import com.hackathon.powergaurd.models.ActionResponse
+import com.hackathon.powergaurd.data.model.Actionable
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.lang.reflect.Method
 import javax.inject.Inject
@@ -35,8 +35,8 @@ class KillAppHandler @Inject constructor(@ApplicationContext private val context
         }
     }
 
-    override suspend fun handleActionable(actionable: ActionResponse.Actionable): Boolean {
-        val packageName = actionable.app ?: return false
+    override suspend fun handleActionable(actionable: Actionable): Boolean {
+        val packageName = actionable.packageName
 
         if (packageName.isBlank()) {
             Log.e(TAG, "Cannot kill app: package name is blank")

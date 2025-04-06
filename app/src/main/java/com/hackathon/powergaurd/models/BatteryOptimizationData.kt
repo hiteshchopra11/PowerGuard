@@ -1,8 +1,7 @@
 package com.hackathon.powergaurd.models
 
 /**
- * Data class to represent battery information. This includes current battery status, level,
- * temperature, and other metrics.
+ * Data class to hold battery optimization data
  */
 data class BatteryOptimizationData(
     val batteryLevel: Int,
@@ -11,4 +10,4 @@ data class BatteryOptimizationData(
     val voltage: Int,
     val currentAverage: Long,
     val timestamp: Long
-)
+) 

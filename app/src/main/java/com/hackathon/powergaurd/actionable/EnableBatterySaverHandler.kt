@@ -4,15 +4,14 @@ import android.content.Context
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
-import com.hackathon.powergaurd.models.ActionResponse
+import com.hackathon.powergaurd.data.model.Actionable
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.lang.reflect.Method
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Handler for the enable_battery_saver actionable type. Enables battery saver mode or requests the
- * user to enable it.
+ * Handler for the enable_battery_saver actionable type. Always enables battery saver mode.
  */
 @Singleton
 class EnableBatterySaverHandler
@@ -23,72 +22,49 @@ constructor(@ApplicationContext private val context: Context) : ActionableHandle
 
     override val actionableType: String = ActionableTypes.ENABLE_BATTERY_SAVER
 
-    // Cache the setPowerSaveMode method
+    // Cache the setPowerSaveMode method using reflection
     private val setPowerSaveModeMethod: Method? by lazy {
         try {
-            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            val method = PowerManager::class.java.getMethod("setPowerSaveMode", Boolean::class.java)
-            method
+            PowerManager::class.java.getMethod("setPowerSaveMode", Boolean::class.java)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get setPowerSaveMode method", e)
             null
         }
     }
 
-    override suspend fun handleActionable(actionable: ActionResponse.Actionable): Boolean {
-        val enabled = actionable.enabled ?: true
-
+    override suspend fun handleActionable(actionable: Actionable): Boolean {
         try {
-            Log.d(TAG, "Attempting to ${if (enabled) "enable" else "disable"} battery saver mode")
+            Log.d(TAG, "Attempting to enable battery saver mode")
 
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
 
-            // Try direct method first (requires WRITE_SECURE_SETTINGS permission)
-            val method = setPowerSaveModeMethod
-            if (method != null) {
+            // Try the hidden API method first
+            setPowerSaveModeMethod?.let { method ->
                 try {
-                    method.invoke(powerManager, enabled)
-                    Log.d(
-                        TAG,
-                        "Successfully ${if (enabled) "enabled" else "disabled"} battery saver mode"
-                    )
+                    method.invoke(powerManager, true)
+                    Log.d(TAG, "Successfully enabled battery saver mode via reflection")
                     return true
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to set power save mode directly", e)
-                    // Fall through to alternate methods
+                    Log.e(TAG, "Failed to enable battery saver via reflection", e)
                 }
             }
 
-            // Alternative: Try to write to settings (requires WRITE_SECURE_SETTINGS permission)
+            // Fallback: Write directly to settings (requires WRITE_SECURE_SETTINGS)
             try {
-                val value = if (enabled) 1 else 0
-                val successful = Settings.Global.putInt(context.contentResolver, "low_power", value)
-
-                if (successful) {
-                    Log.d(
-                        TAG,
-                        "Successfully ${if (enabled) "enabled" else "disabled"} battery saver mode via settings"
-                    )
+                val success = Settings.Global.putInt(context.contentResolver, "low_power", 1)
+                if (success) {
+                    Log.d(TAG, "Successfully enabled battery saver mode via settings")
                     return true
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to set power save mode via settings", e)
+                Log.e(TAG, "Failed to enable battery saver via settings", e)
             }
 
-            // If both direct methods failed, we'll need to guide the user
-            Log.d(TAG, "Direct battery saver control not available; user guidance needed")
-
-            // In a real app, this would show a notification to the user
-            // For now, we'll just log this
-            Log.i(
-                TAG,
-                "ACTION NEEDED: User should ${if (enabled) "enable" else "disable"} battery saver mode manually"
-            )
-
-            // Return false to indicate we couldn't directly perform the action
+            // Final fallback: Notify user
+            Log.i(TAG, "ACTION NEEDED: User should manually enable battery saver mode")
             return false
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling battery saver action", e)
+            Log.e(TAG, "Error handling enable battery saver action", e)
             return false
         }
     }

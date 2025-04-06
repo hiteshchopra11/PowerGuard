@@ -41,4 +41,10 @@
     <string name="hackathon">Created for Hackathon 2025</string>
     <string name="widget_loading">Loading...</string>
     <string name="widget_summary">PowerGuard is optimizing your device</string>
+    <string name="widget_save_battery">Save Battery</string>
+    <string name="widget_save_data">Save Data</string>
+    <string name="widget_prompt_hint">Tap to open prompt in app…</string>
+    <string name="widget_send">Send</string>
+    <string name="widget_optimize_now">Optimize Now</string>
+    <string name="widget_prompt_title">Enter prompt for AI analysis</string>
 </resources>

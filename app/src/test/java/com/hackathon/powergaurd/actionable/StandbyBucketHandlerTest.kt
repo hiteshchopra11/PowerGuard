@@ -4,15 +4,18 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.os.Build
 import com.hackathon.powergaurd.models.ActionResponse
-import io.mockk.*
+import io.mockk.MockKAnnotations
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.unmockkAll
+import junit.framework.TestCase.assertEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.lang.reflect.Method
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 class StandbyBucketHandlerTest {
 

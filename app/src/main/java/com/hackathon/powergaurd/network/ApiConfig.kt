@@ -13,10 +13,10 @@ import javax.inject.Inject
 class ApiConfig @Inject constructor(private val mockApiService: MockApiService) {
     companion object {
         /** The base URL for the API. Change this to your actual backend URL. */
-        private const val BASE_URL = "https://api.powergaurd.example.com/"
+        private const val BASE_URL = "https://powerguard-backend.example.com/"
 
         /** Whether to use the mock API service. Set to false to use the real API service. */
-        const val USE_MOCK_API = true
+        const val USE_MOCK_API = false
 
         /** Connection timeout in seconds. */
         private const val CONNECTION_TIMEOUT = 30L

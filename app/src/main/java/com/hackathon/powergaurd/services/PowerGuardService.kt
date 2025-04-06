@@ -151,11 +151,7 @@ class PowerGuardService : Service() {
 
             // Check for WRITE_SETTINGS permission
             hasWriteSettingsPermission =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    Settings.System.canWrite(applicationContext)
-                } else {
-                    isPermissionGrantedViaPackageManager("android.permission.WRITE_SETTINGS")
-                }
+                Settings.System.canWrite(applicationContext)
 
             // Check for WRITE_SECURE_SETTINGS permission
             hasWriteSecureSettingsPermission =
@@ -529,60 +525,56 @@ class PowerGuardService : Service() {
                         Log.d(TAG, "Restricting background data for: ${app.appName}")
 
                         // 1. Use Data Saver mode if available (Android N+)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                            val connectivityManager =
-                                getSystemService(Context.CONNECTIVITY_SERVICE) as
-                                        ConnectivityManager
-                            val status = connectivityManager.getRestrictBackgroundStatus()
+                        val connectivityManager =
+                            getSystemService(Context.CONNECTIVITY_SERVICE) as
+                                    ConnectivityManager
+                        val status = connectivityManager.getRestrictBackgroundStatus()
 
-                            // ConnectivityManager.RESTRICT_BACKGROUND_STATUS_DISABLED = 1
-                            if (status == 1) { // RESTRICT_BACKGROUND_STATUS_DISABLED
-                                // Data Saver is disabled, but we can't enable it programmatically
-                                // We would need to prompt the user to enable it
-                                Log.d(
-                                    TAG,
-                                    "Data Saver is disabled. We need user action to enable it."
-                                )
+                        // ConnectivityManager.RESTRICT_BACKGROUND_STATUS_DISABLED = 1
+                        if (status == 1) { // RESTRICT_BACKGROUND_STATUS_DISABLED
+                            // Data Saver is disabled, but we can't enable it programmatically
+                            // We would need to prompt the user to enable it
+                            Log.d(
+                                TAG,
+                                "Data Saver is disabled. We need user action to enable it."
+                            )
 
-                                // In a real app, show a notification to the user
-                                // notifyUserToEnableDataSaver()
-                            } else {
-                                Log.d(
-                                    TAG,
-                                    "Data Saver is already enabled. Apps will have restricted background data."
-                                )
-                            }
+                            // In a real app, show a notification to the user
+                            // notifyUserToEnableDataSaver()
+                        } else {
+                            Log.d(
+                                TAG,
+                                "Data Saver is already enabled. Apps will have restricted background data."
+                            )
                         }
 
                         // 2. For battery optimization, which can indirectly reduce background data
                         // usage
                         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            if (!powerManager.isIgnoringBatteryOptimizations(app.packageName)) {
-                                // Request the app to be optimized for battery, which can help
-                                // reduce background activity
-                                // Note: This is just a recommendation to the system
-                                try {
-                                    // Use reflection to call setAppInactive method
-                                    val usageStatsManagerClass =
-                                        Class.forName("android.app.usage.UsageStatsManager")
-                                    val usageStatsManager =
-                                        getSystemService(Context.USAGE_STATS_SERVICE)
-                                    val setAppInactiveMethod =
-                                        usageStatsManagerClass.getMethod(
-                                            "setAppInactive",
-                                            String::class.java,
-                                            Boolean::class.java
-                                        )
-                                    setAppInactiveMethod.invoke(
-                                        usageStatsManager,
-                                        app.packageName,
-                                        true
+                        if (!powerManager.isIgnoringBatteryOptimizations(app.packageName)) {
+                            // Request the app to be optimized for battery, which can help
+                            // reduce background activity
+                            // Note: This is just a recommendation to the system
+                            try {
+                                // Use reflection to call setAppInactive method
+                                val usageStatsManagerClass =
+                                    Class.forName("android.app.usage.UsageStatsManager")
+                                val usageStatsManager =
+                                    getSystemService(Context.USAGE_STATS_SERVICE)
+                                val setAppInactiveMethod =
+                                    usageStatsManagerClass.getMethod(
+                                        "setAppInactive",
+                                        String::class.java,
+                                        Boolean::class.java
                                     )
-                                    Log.d(TAG, "Marked app as inactive: ${app.appName}")
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "Could not mark app as inactive: ${e.message}")
-                                }
+                                setAppInactiveMethod.invoke(
+                                    usageStatsManager,
+                                    app.packageName,
+                                    true
+                                )
+                                Log.d(TAG, "Marked app as inactive: ${app.appName}")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Could not mark app as inactive: ${e.message}")
                             }
                         }
 

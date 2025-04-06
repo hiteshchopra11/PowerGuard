@@ -5,200 +5,53 @@ import com.hackathon.powergaurd.actionable.ActionableTypes
 import com.hackathon.powergaurd.models.ActionResponse
 import com.hackathon.powergaurd.models.AppUsageInfo
 import com.hackathon.powergaurd.models.DeviceData
+import com.hackathon.powergaurd.network.ApiService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class BackendService @Inject constructor() {
-
+class BackendService @Inject constructor(
+    private val apiService: ApiService
+) {
     companion object {
-        private const val BACKEND_URL = "https://powerguardbackend.onrender.com/api/analyze"
         private const val TAG = "BackendService"
     }
 
+    /**
+     * Sends device data to the backend for analysis and returns actionable insights.
+     * Falls back to simulated data if there's a network error.
+     */
     suspend fun sendDataForAnalysis(deviceData: DeviceData): ActionResponse {
         return try {
-            withContext(Dispatchers.IO) {
-                val jsonPayload = convertDeviceDataToJson(deviceData)
-                val responseJson = makeHttpRequest(jsonPayload)
-                parseBackendResponse(responseJson)
+            Log.d(TAG, "Sending data to backend for device: ${deviceData.deviceId}")
+            val response = withContext(Dispatchers.IO) {
+                apiService.analyzeDeviceData(deviceData)
             }
+            Log.d(TAG, "Received response with ${response.actionables.size} actionables")
+            response
         } catch (e: Exception) {
-            Log.e(TAG, "Error sending data to backend", e)
+            Log.e(TAG, "Error sending data to backend, using fallback", e)
             // Fallback to simulated response if network call fails
             simulateBackendResponse(deviceData)
         }
     }
 
-    private fun convertDeviceDataToJson(deviceData: DeviceData): String {
-        // Detailed logging of device data before JSON conversion
-        Log.d(TAG, "Converting DeviceData to JSON")
-        Log.d(TAG, "Device ID: ${deviceData.deviceId}")
-        Log.d(TAG, "Timestamp: ${deviceData.timestamp}")
-        Log.d(TAG, "App Usage Count: ${deviceData.appUsage.size}")
-        Log.d(TAG, "Battery Level: ${deviceData.batteryStats.level}")
-        Log.d(TAG, "Network Usage Apps: ${deviceData.networkUsage.appNetworkUsage.size}")
-        Log.d(TAG, "Wake Locks Count: ${deviceData.wakeLocks.size}")
-
-        val jsonObject = JSONObject().apply {
-            put("device_id", deviceData.deviceId)
-            put("timestamp", deviceData.timestamp)
-
-            // App Usage Data
-            val appUsageArray = JSONArray()
-            deviceData.appUsage.forEach { app ->
-                appUsageArray.put(JSONObject().apply {
-                    put("package_name", app.packageName)
-                    put("app_name", app.appName)
-                    put("foreground_time_ms", app.foregroundTimeMs)
-                    put("background_time_ms", app.backgroundTimeMs)
-                    put("last_used", app.lastUsed)
-                    put("launch_count", app.launchCount)
-                })
-            }
-            put("app_usage", appUsageArray)
-
-            // Battery Stats
-            put("battery_stats", JSONObject().apply {
-                put("level", deviceData.batteryStats.level)
-                put("temperature", deviceData.batteryStats.temperature)
-                put("is_charging", deviceData.batteryStats.isCharging)
-                put("charging_type", deviceData.batteryStats.chargingType)
-                put("voltage", deviceData.batteryStats.voltage)
-                put("health", deviceData.batteryStats.health)
-                put("estimated_remaining_time", deviceData.batteryStats.estimatedRemainingTime)
-            })
-
-            // Network Usage
-            val networkUsageArray = JSONArray()
-            deviceData.networkUsage.appNetworkUsage.forEach { networkApp ->
-                networkUsageArray.put(JSONObject().apply {
-                    put("package_name", networkApp.packageName)
-                    put("data_usage_bytes", networkApp.dataUsageBytes)
-                    put("wifi_usage_bytes", networkApp.wifiUsageBytes)
-                })
-            }
-            put("network_usage", networkUsageArray)
-            put("wifi_connected", deviceData.networkUsage.wifiConnected)
-            put("mobile_data_connected", deviceData.networkUsage.mobileDataConnected)
-            put("network_type", deviceData.networkUsage.networkType)
-
-            // Wake Locks
-            val wakeLockArray = JSONArray()
-            deviceData.wakeLocks.forEach { wakeLock ->
-                wakeLockArray.put(JSONObject().apply {
-                    put("package_name", wakeLock.packageName)
-                    put("wake_lock_name", wakeLock.wakeLockName)
-                    put("time_held_ms", wakeLock.timeHeldMs)
-                })
-            }
-            put("wake_locks", wakeLockArray)
-        }
-
-        return jsonObject.toString()
-    }
-
-    private fun makeHttpRequest(payload: String): String {
-        // Log the full JSON payload before sending
-        Log.d(TAG, "Full JSON Payload:")
-        Log.d(TAG, payload)
-
-        val url = URL(BACKEND_URL)
-        val connection = url.openConnection() as HttpURLConnection
-
-        try {
-            connection.requestMethod = "POST"
-            connection.setRequestProperty("Content-Type", "application/json")
-            connection.setRequestProperty("Accept", "application/json")
-            connection.doOutput = true
-            connection.doInput = true
-
-            // Write payload
-            connection.outputStream.use { os ->
-                val input = payload.toByteArray(Charsets.UTF_8)
-                os.write(input, 0, input.size)
-            }
-
-            // Log additional network details
-            Log.d(TAG, "Request URL: $BACKEND_URL")
-            Log.d(TAG, "Request Method: ${connection.requestMethod}")
-            Log.d(TAG, "Content Type: ${connection.getRequestProperty("Content-Type")}")
-
-            // Read response
-            val responseCode = connection.responseCode
-            Log.d(TAG, "Response Code: $responseCode")
-
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                BufferedReader(InputStreamReader(connection.inputStream)).use { reader ->
-                    val response = StringBuilder()
-                    var line: String?
-                    while (reader.readLine().also { line = it } != null) {
-                        response.append(line)
-                    }
-
-                    // Log full response
-                    Log.d(TAG, "Full Response:")
-                    Log.d(TAG, response.toString())
-
-                    return response.toString()
-                }
-            } else {
-                // Log error response
-                BufferedReader(InputStreamReader(connection.errorStream)).use { reader ->
-                    val errorResponse = StringBuilder()
-                    var line: String?
-                    while (reader.readLine().also { line = it } != null) {
-                        errorResponse.append(line)
-                    }
-                    Log.e(TAG, "Error Response: $errorResponse")
-                }
-                throw Exception("HTTP error code: $responseCode")
+    /**
+     * Gets usage patterns for a specific device from the backend.
+     */
+    suspend fun getUsagePatterns(deviceId: String): Map<String, String> {
+        return try {
+            Log.d(TAG, "Fetching usage patterns for device: $deviceId")
+            withContext(Dispatchers.IO) {
+                apiService.getUsagePatterns(deviceId)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Network request error", e)
-            throw e
-        } finally {
-            connection.disconnect()
+            Log.e(TAG, "Error fetching usage patterns, using fallback", e)
+            // Fallback to empty patterns
+            emptyMap()
         }
-    }
-
-    private fun parseBackendResponse(responseJson: String): ActionResponse {
-        val jsonObject = JSONObject(responseJson)
-
-        // Parse actionables
-        val actionablesArray = jsonObject.getJSONArray("actionables")
-        val actionables = (0 until actionablesArray.length()).map { index ->
-            val actionableObj = actionablesArray.getJSONObject(index)
-            ActionResponse.Actionable(
-                type = actionableObj.getString("type"),
-                app = actionableObj.optString("app", null),
-                newMode = actionableObj.optString("new_mode", null),
-                reason = actionableObj.optString("reason", null),
-                enabled = actionableObj.optBoolean("enabled", false)
-            )
-        }
-
-        // Parse usage patterns
-        val usagePatternsObj = jsonObject.getJSONObject("usage_patterns")
-        val usagePatterns = mutableMapOf<String, String>()
-        usagePatternsObj.keys().forEach { key ->
-            usagePatterns[key] = usagePatternsObj.getString(key)
-        }
-
-        return ActionResponse(
-            actionables = actionables,
-            summary = jsonObject.getString("summary"),
-            usagePatterns = usagePatterns,
-            timestamp = System.currentTimeMillis()
-        )
     }
 
     // Fallback method to simulate backend response if network call fails

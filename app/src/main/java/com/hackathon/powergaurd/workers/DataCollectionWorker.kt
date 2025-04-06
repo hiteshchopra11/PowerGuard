@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.hackathon.powergaurd.actionable.ActionableExecutor
 import com.hackathon.powergaurd.data.AppRepository
 import com.hackathon.powergaurd.data.BackendService
 import com.hackathon.powergaurd.data.DeviceStatsCollector
@@ -29,6 +30,9 @@ class DataCollectionWorker(
     @Inject
     lateinit var appRepository: AppRepository
 
+    @Inject
+    lateinit var actionableExecutor: ActionableExecutor
+
     companion object {
         private const val TAG = "DataCollectionWorker"
     }
@@ -41,7 +45,10 @@ class DataCollectionWorker(
 
             // 2. Send data to backend and get action response
             val actionResponse = sendDataToBackend(deviceData)
-            Log.d(TAG, "Backend response received")
+            Log.d(
+                TAG,
+                "Backend response received with ${actionResponse.actionables.size} actionables"
+            )
 
             // 3. Store the response
             storeResponse(actionResponse)
@@ -91,9 +98,26 @@ class DataCollectionWorker(
         return true
     }
 
-    private fun applyActions(response: ActionResponse) {
-        // TODO: Implement actual action application
-        Log.d(TAG, "Applying actions: ${response.actionables}")
+    private suspend fun applyActions(response: ActionResponse) {
+        Log.d(TAG, "Applying ${response.actionables.size} actions")
+
+        try {
+            val results = actionableExecutor.executeActionables(response.actionables)
+
+            // Log the results for debugging
+            val successCount = results.values.count { it }
+            Log.d(TAG, "Successfully applied $successCount out of ${results.size} actions")
+
+            // Log each action's result
+            results.forEach { (actionable, success) ->
+                Log.d(
+                    TAG,
+                    "Action ${actionable.type} for app ${actionable.app ?: "system"}: ${if (success) "SUCCESS" else "FAILED"}"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error applying actions", e)
+        }
     }
 
     private fun showOptimizationNotification(response: ActionResponse) {

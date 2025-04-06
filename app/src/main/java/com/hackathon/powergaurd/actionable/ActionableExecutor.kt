@@ -15,8 +15,10 @@ constructor(
     // Inject all handlers here
     private val killAppHandler: KillAppHandler,
     private val enableBatterySaverHandler: EnableBatterySaverHandler,
-    private val enableDataSaverHandler: EnableDataSaverHandler
-// TODO: Add other handlers as they are implemented
+    private val enableDataSaverHandler: EnableDataSaverHandler,
+    private val standbyBucketHandler: StandbyBucketHandler,
+    private val syncSettingsHandler: SyncSettingsHandler,
+    private val appInactiveHandler: AppInactiveHandler
 ) {
     private val TAG = "ActionableExecutor"
 
@@ -25,8 +27,10 @@ constructor(
         mapOf(
             killAppHandler.actionableType to killAppHandler,
             enableBatterySaverHandler.actionableType to enableBatterySaverHandler,
-            enableDataSaverHandler.actionableType to enableDataSaverHandler
-            // TODO: Add other handlers as they are implemented
+            enableDataSaverHandler.actionableType to enableDataSaverHandler,
+            standbyBucketHandler.actionableType to standbyBucketHandler,
+            syncSettingsHandler.actionableType to syncSettingsHandler,
+            appInactiveHandler.actionableType to appInactiveHandler
         )
     }
 

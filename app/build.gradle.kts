@@ -95,4 +95,10 @@ dependencies {
     // Hilt
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
+
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    // Optional for Android Instrumented Tests
+    androidTestImplementation(libs.mockk.android)
 }

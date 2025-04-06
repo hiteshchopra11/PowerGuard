@@ -2,9 +2,12 @@ package com.hackathon.powergaurd.di
 
 import android.content.Context
 import com.hackathon.powergaurd.actionable.ActionableExecutor
+import com.hackathon.powergaurd.actionable.AppInactiveHandler
 import com.hackathon.powergaurd.actionable.EnableBatterySaverHandler
 import com.hackathon.powergaurd.actionable.EnableDataSaverHandler
 import com.hackathon.powergaurd.actionable.KillAppHandler
+import com.hackathon.powergaurd.actionable.StandbyBucketHandler
+import com.hackathon.powergaurd.actionable.SyncSettingsHandler
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -42,14 +45,51 @@ object ActionableModule {
         return EnableDataSaverHandler(context)
     }
 
+    /** Provides the StandbyBucketHandler as a singleton. */
+    @Provides
+    @Singleton
+    fun provideStandbyBucketHandler(
+        @ApplicationContext context: Context
+    ): StandbyBucketHandler {
+        return StandbyBucketHandler(context)
+    }
+
+    /** Provides the SyncSettingsHandler as a singleton. */
+    @Provides
+    @Singleton
+    fun provideSyncSettingsHandler(
+        @ApplicationContext context: Context
+    ): SyncSettingsHandler {
+        return SyncSettingsHandler(context)
+    }
+
+    /** Provides the AppInactiveHandler as a singleton. */
+    @Provides
+    @Singleton
+    fun provideAppInactiveHandler(
+        @ApplicationContext context: Context
+    ): AppInactiveHandler {
+        return AppInactiveHandler(context)
+    }
+
     /** Provides the ActionableExecutor as a singleton. */
     @Provides
     @Singleton
     fun provideActionableExecutor(
         killAppHandler: KillAppHandler,
         enableBatterySaverHandler: EnableBatterySaverHandler,
-        enableDataSaverHandler: EnableDataSaverHandler
+        enableDataSaverHandler: EnableDataSaverHandler,
+        standbyBucketHandler: StandbyBucketHandler,
+        syncSettingsHandler: SyncSettingsHandler,
+        appInactiveHandler: AppInactiveHandler
     ): ActionableExecutor {
-        return ActionableExecutor(killAppHandler, enableBatterySaverHandler, enableDataSaverHandler)
+        return ActionableExecutor(
+            killAppHandler,
+            enableBatterySaverHandler,
+            enableDataSaverHandler,
+            standbyBucketHandler,
+            syncSettingsHandler,
+            appInactiveHandler
+        )
     }
 }

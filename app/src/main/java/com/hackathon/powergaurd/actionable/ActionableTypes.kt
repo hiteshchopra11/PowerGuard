@@ -8,6 +8,7 @@ object ActionableTypes {
     const val RESTRICT_BACKGROUND = "restrict_background"
     const val OPTIMIZE_BATTERY = "optimize_battery"
     const val MARK_APP_INACTIVE = "mark_app_inactive"
+    const val SET_STANDBY_BUCKET = "set_standby_bucket"
 
     // System settings actions
     const val ENABLE_BATTERY_SAVER = "enable_battery_saver"
@@ -24,6 +25,7 @@ object ActionableTypes {
             RESTRICT_BACKGROUND,
             OPTIMIZE_BATTERY,
             MARK_APP_INACTIVE,
+            SET_STANDBY_BUCKET,
             ENABLE_BATTERY_SAVER,
             ENABLE_DATA_SAVER,
             ADJUST_SYNC_SETTINGS,

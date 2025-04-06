@@ -2,49 +2,71 @@ package com.hackathon.powergaurd.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hackathon.powergaurd.data.repository.ActionHistoryItem
-import com.hackathon.powergaurd.data.repository.ActionHistoryRepository
+import com.hackathon.powergaurd.data.local.entity.DeviceInsightEntity
+import com.hackathon.powergaurd.domain.usecase.GetPastInsightsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /** Data class representing the state of the history screen. */
 data class HistoryState(
-    val items: List<ActionHistoryItem> = emptyList(),
+    val insights: List<DeviceInsightEntity> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null
 )
 
-/** ViewModel for the history screen. */
+/** ViewModel for the history screen showing device insights. */
 @HiltViewModel
-class HistoryViewModel
-@Inject
-constructor(private val actionHistoryRepository: ActionHistoryRepository) : ViewModel() {
+class HistoryViewModel @Inject constructor(
+    private val getPastInsightsUseCase: GetPastInsightsUseCase
+) : ViewModel() {
 
     private val _historyState = MutableStateFlow(HistoryState())
     val historyState: StateFlow<HistoryState> = _historyState.asStateFlow()
 
     init {
+        loadInsights()
+    }
+
+    fun refreshInsights() {
+        _historyState.value = _historyState.value.copy(isLoading = true, error = null)
+        loadInsights()
+    }
+
+    private fun loadInsights() {
         viewModelScope.launch {
-            // Start observing the history items
-            actionHistoryRepository.historyItems.collect { items ->
-                _historyState.update { state -> state.copy(items = items, isLoading = false) }
+            try {
+                // Use the device ID from shared preferences or generate one
+                val deviceId = getDeviceId()
+                
+                getPastInsightsUseCase(deviceId)
+                    .stateIn(
+                        scope = viewModelScope,
+                        started = SharingStarted.WhileSubscribed(5000),
+                        initialValue = emptyList()
+                    )
+                    .collect { insights ->
+                        _historyState.value = HistoryState(
+                            insights = insights,
+                            isLoading = false
+                        )
+                    }
+            } catch (e: Exception) {
+                _historyState.value = HistoryState(
+                    isLoading = false,
+                    error = "Failed to load insights: ${e.message}"
+                )
             }
         }
     }
-
-    /** Clears all action history. */
-    fun clearHistory() {
-        viewModelScope.launch {
-            try {
-                actionHistoryRepository.clearHistory()
-            } catch (e: Exception) {
-                _historyState.update { it.copy(error = e.message) }
-            }
-        }
+    
+    // Helper function to get device ID - in a real app, this would come from shared preferences
+    private fun getDeviceId(): String {
+        return "current_device" // Simplified for this example
     }
 }

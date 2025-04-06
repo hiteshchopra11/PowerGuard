@@ -1,8 +1,7 @@
 package com.hackathon.powergaurd.models
 
 /**
- * Data class to represent app usage statistics. This includes both foreground and background usage
- * time, as well as wakelock time and battery consumption.
+ * Data class to hold app usage statistics
  */
 data class AppUsageData(
     val packageName: String,
@@ -12,4 +11,4 @@ data class AppUsageData(
     val wakelockTimeMinutes: Long,
     val batteryUsagePercent: Double,
     val timestamp: Long
-)
+) 

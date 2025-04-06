@@ -1,4 +1,4 @@
-package com.hackathon.PowerGuard
+package com.hackathon.powergaurd
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

@@ -2,8 +2,7 @@ package com.hackathon.powergaurd.di
 
 import android.content.Context
 import com.hackathon.powergaurd.PowerGuardOptimizer
-import com.hackathon.powergaurd.data.AppRepository
-import com.hackathon.powergaurd.data.BackendService
+import com.hackathon.powergaurd.domain.usecase.AnalyzeDeviceDataUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -17,19 +16,16 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideBackendService(): BackendService {
-        return BackendService()
-    }
-
-    @Provides
-    @Singleton
     fun provideAppRepository(): AppRepository {
         return AppRepository()
     }
 
     @Provides
     @Singleton
-    fun providePowerGuardOptimizer(@ApplicationContext context: Context): PowerGuardOptimizer {
+    fun providePowerGuardOptimizer(
+        @ApplicationContext context: Context,
+        analyzeDeviceDataUseCase: AnalyzeDeviceDataUseCase
+    ): PowerGuardOptimizer {
         return PowerGuardOptimizer(context)
     }
 }

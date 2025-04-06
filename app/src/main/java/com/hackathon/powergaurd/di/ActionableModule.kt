@@ -7,7 +7,6 @@ import com.hackathon.powergaurd.actionable.EnableBatterySaverHandler
 import com.hackathon.powergaurd.actionable.EnableDataSaverHandler
 import com.hackathon.powergaurd.actionable.KillAppHandler
 import com.hackathon.powergaurd.actionable.StandbyBucketHandler
-import com.hackathon.powergaurd.actionable.SyncSettingsHandler
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -54,15 +53,6 @@ object ActionableModule {
         return StandbyBucketHandler(context)
     }
 
-    /** Provides the SyncSettingsHandler as a singleton. */
-    @Provides
-    @Singleton
-    fun provideSyncSettingsHandler(
-        @ApplicationContext context: Context
-    ): SyncSettingsHandler {
-        return SyncSettingsHandler(context)
-    }
-
     /** Provides the AppInactiveHandler as a singleton. */
     @Provides
     @Singleton
@@ -80,7 +70,6 @@ object ActionableModule {
         enableBatterySaverHandler: EnableBatterySaverHandler,
         enableDataSaverHandler: EnableDataSaverHandler,
         standbyBucketHandler: StandbyBucketHandler,
-        syncSettingsHandler: SyncSettingsHandler,
         appInactiveHandler: AppInactiveHandler
     ): ActionableExecutor {
         return ActionableExecutor(
@@ -88,7 +77,6 @@ object ActionableModule {
             enableBatterySaverHandler,
             enableDataSaverHandler,
             standbyBucketHandler,
-            syncSettingsHandler,
             appInactiveHandler
         )
     }

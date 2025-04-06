@@ -1,13 +1,13 @@
 package com.hackathon.powergaurd.actionable
 
 import android.util.Log
-import com.hackathon.powergaurd.models.ActionResponse
+import com.hackathon.powergaurd.data.model.Actionable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Service for processing and executing actionables received from the backend. */
+/** Service for processing and executing actionable received from the backend. */
 @Singleton
 class ActionableExecutor
 @Inject
@@ -17,7 +17,6 @@ constructor(
     private val enableBatterySaverHandler: EnableBatterySaverHandler,
     private val enableDataSaverHandler: EnableDataSaverHandler,
     private val standbyBucketHandler: StandbyBucketHandler,
-    private val syncSettingsHandler: SyncSettingsHandler,
     private val appInactiveHandler: AppInactiveHandler
 ) {
     private val TAG = "ActionableExecutor"
@@ -29,58 +28,57 @@ constructor(
             enableBatterySaverHandler.actionableType to enableBatterySaverHandler,
             enableDataSaverHandler.actionableType to enableDataSaverHandler,
             standbyBucketHandler.actionableType to standbyBucketHandler,
-            syncSettingsHandler.actionableType to syncSettingsHandler,
             appInactiveHandler.actionableType to appInactiveHandler
         )
     }
 
     /**
-     * Executes a list of actionables received from the backend.
+     * Executes a list of actionable received from the backend.
      *
-     * @param actionables List of actionables to execute
+     * @param actionable List of actionable to execute
      * @return Map of actionable to execution result (true if successful, false otherwise)
      */
-    suspend fun executeActionables(
-        actionables: List<ActionResponse.Actionable>
-    ): Map<ActionResponse.Actionable, Boolean> =
+    suspend fun executeActionable(
+        actionable: List<Actionable>
+    ): Map<Actionable, Boolean> =
         withContext(Dispatchers.IO) {
-            val results = mutableMapOf<ActionResponse.Actionable, Boolean>()
+            val results = mutableMapOf<Actionable, Boolean>()
 
-            if (actionables.isEmpty()) {
-                Log.d(TAG, "No actionables to execute")
+            if (actionable.isEmpty()) {
+                Log.d(TAG, "No actionable to execute")
                 return@withContext results
             }
 
-            Log.d(TAG, "Executing ${actionables.size} actionables")
+            Log.d(TAG, "Executing ${actionable.size} actionable")
 
-            for (actionable in actionables) {
+            for (action in actionable) {
                 val result =
                     try {
-                        val handler = handlers[actionable.type]
+                        val handler = handlers[action.type]
 
                         if (handler == null) {
                             Log.w(
                                 TAG,
-                                "No handler found for actionable type: ${actionable.type}"
+                                "No handler found for actionable type: ${action.type}"
                             )
                             false
                         } else {
                             Log.d(
                                 TAG,
-                                "Executing actionable: ${actionable.type} for app: ${actionable.app}"
+                                "Executing actionable: ${action.type} for app: ${action.packageName}"
                             )
-                            handler.handleActionable(actionable)
+                            handler.handleActionable(action)
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error executing actionable: ${actionable.type}", e)
+                        Log.e(TAG, "Error executing actionable: ${action.type}", e)
                         false
                     }
 
-                results[actionable] = result
+                results[action] = result
             }
 
             val successCount = results.values.count { it }
-            Log.d(TAG, "Executed ${results.size} actionables, $successCount successful")
+            Log.d(TAG, "Executed ${results.size} actionable, $successCount successful")
 
             results
         }

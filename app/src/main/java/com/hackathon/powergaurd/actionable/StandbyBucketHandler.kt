@@ -2,10 +2,10 @@ package com.hackathon.powergaurd.actionable
 
 import android.app.usage.UsageStatsManager
 import android.content.Context
-import android.os.Build // Ensure this is present
+import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import com.hackathon.powergaurd.models.ActionResponse
+import com.hackathon.powergaurd.data.model.Actionable
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.lang.reflect.Method
 import javax.inject.Inject
@@ -65,8 +65,8 @@ class StandbyBucketHandler @Inject constructor(@ApplicationContext private val c
         }
     }
 
-    override suspend fun handleActionable(actionable: ActionResponse.Actionable): Boolean {
-        val packageName = actionable.app ?: return false
+    override suspend fun handleActionable(actionable: Actionable): Boolean {
+        val packageName = actionable.packageName ?: return false
 
         if (packageName.isBlank()) {
             Log.e(TAG, "Cannot set standby bucket: package name is blank")

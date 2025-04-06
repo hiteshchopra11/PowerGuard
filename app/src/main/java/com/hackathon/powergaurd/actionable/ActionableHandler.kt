@@ -1,8 +1,8 @@
 package com.hackathon.powergaurd.actionable
 
-import com.hackathon.powergaurd.models.ActionResponse
+import com.hackathon.powergaurd.data.model.Actionable
 
-/** Interface for handling different types of actionables received from the backend. */
+/** Interface for handling different types of actionable received from the backend. */
 interface ActionableHandler {
 
     /** The type of actionable this handler can process. */
@@ -14,5 +14,5 @@ interface ActionableHandler {
      * @param actionable The actionable to process
      * @return true if the actionable was successfully executed, false otherwise
      */
-    suspend fun handleActionable(actionable: ActionResponse.Actionable): Boolean
+    suspend fun handleActionable(actionable: Actionable): Boolean
 }

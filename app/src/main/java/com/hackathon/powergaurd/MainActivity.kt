@@ -18,25 +18,19 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
-import androidx.work.Constraints
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import com.hackathon.powergaurd.services.PowerGuardService
 import com.hackathon.powergaurd.theme.PowerGuardTheme
 import com.hackathon.powergaurd.ui.AppNavHost
 import com.hackathon.powergaurd.ui.BottomNavBar
-import com.hackathon.powergaurd.workers.DataCollectionWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -47,15 +41,22 @@ class MainActivity : ComponentActivity() {
                 // Handle permission denial
                 showAppSettings()
             } else {
-                // Permissions granted, schedule data collection and start service
-                scheduleDataCollection()
+                // Permissions granted, start service
                 startPowerGuardService()
             }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { PowerGuardTheme { PowerGuardAppUI() } }
+        
+        // Check if we need to focus on the prompt input
+        val openDashboard = intent.getBooleanExtra("OPEN_DASHBOARD", false)
+        
+        setContent { 
+            PowerGuardTheme { 
+                PowerGuardAppUI(openPromptInput = openDashboard) 
+            } 
+        }
 
         // Request permissions
         requestRequiredPermissions()
@@ -94,8 +95,7 @@ class MainActivity : ComponentActivity() {
         if (permissionsToRequest.isNotEmpty()) {
             requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
         } else {
-            // We already have the permissions, schedule data collection and start service
-            scheduleDataCollection()
+            // We already have the permissions, start service
             startPowerGuardService()
         }
 
@@ -108,8 +108,7 @@ class MainActivity : ComponentActivity() {
             val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
             startActivity(intent)
         } else {
-            // Permission already granted, proceed with data collection
-            scheduleDataCollection()
+            // Permission already granted, proceed with service startup
             startPowerGuardService()
         }
     }
@@ -133,31 +132,6 @@ class MainActivity : ComponentActivity() {
         startActivity(intent)
     }
 
-    fun scheduleDataCollection() {
-        val constraints =
-            Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .setRequiresBatteryNotLow(true)
-                .build()
-
-        val dataCollectionRequest =
-            PeriodicWorkRequestBuilder<DataCollectionWorker>(
-                30,
-                TimeUnit.MINUTES,
-                5,
-                TimeUnit.MINUTES // Flex period for battery optimization
-            )
-                .setConstraints(constraints)
-                .build()
-
-        WorkManager.getInstance(this)
-            .enqueueUniquePeriodicWork(
-                "data_collection_work",
-                ExistingPeriodicWorkPolicy.UPDATE,
-                dataCollectionRequest
-            )
-    }
-
     private fun startPowerGuardService() {
         // For system apps, we want to start the service at boot
         // But for demonstration, we'll start it when the app is launched
@@ -173,13 +147,23 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun PowerGuardAppUI() {
+fun PowerGuardAppUI(openPromptInput: Boolean = false) {
     // Use remember functions to store the state of the NavController and SnackbarHostState
     val navController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Use rememberCoroutineScope to create a CoroutineScope that is scoped to the composition
     val coroutineScope = rememberCoroutineScope()
+    
+    // If openPromptInput is true, we navigate to the dashboard
+    LaunchedEffect(openPromptInput) {
+        if (openPromptInput) {
+            navController.navigate("dashboard") {
+                // Pop up to the dashboard destination
+                popUpTo("dashboard") { inclusive = true }
+            }
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -190,7 +174,8 @@ fun PowerGuardAppUI() {
             modifier = Modifier.padding(innerPadding),
             showSnackbar = { message ->
                 coroutineScope.launch { snackbarHostState.showSnackbar(message) }
-            }
+            },
+            openPromptInput = openPromptInput
         )
     }
 }

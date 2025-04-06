@@ -13,24 +13,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -40,273 +36,291 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.hackathon.powergaurd.PowerGuardOptimizer
-import com.hackathon.powergaurd.models.BatteryAppUsage
-import kotlinx.coroutines.delay
-import kotlin.math.roundToInt
-import kotlin.random.Random
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hackathon.powergaurd.ui.viewmodels.BatteryViewModel
+import com.hackathon.powergaurd.ui.viewmodels.BatteryUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BatteryScreen() {
-    val context = LocalContext.current
-    val optimizer = remember { PowerGuardOptimizer(context) }
-
-    var batteryLevel by remember { mutableStateOf(75) }
-    var temperature by remember { mutableStateOf(32.5f) }
-    var maxChargeLevel by remember { mutableFloatStateOf(80f) }
-    var remainingTime by remember { mutableStateOf("3h 45m") }
-
-    // Simulated app battery usage data
-    val appUsageList = remember {
-        listOf(
-            BatteryAppUsage("com.google.android.youtube", "YouTube", 28f),
-            BatteryAppUsage("com.instagram.android", "Instagram", 19f),
-            BatteryAppUsage("com.spotify.music", "Spotify", 12f),
-            BatteryAppUsage("com.whatsapp", "WhatsApp", 9f),
-            BatteryAppUsage("com.android.chrome", "Chrome", 7f),
-            BatteryAppUsage("com.google.android.gm", "Gmail", 5f),
-            BatteryAppUsage("com.android.systemui", "System UI", 4f)
-        )
-    }
-
-    // Simulate battery changes
-    LaunchedEffect(Unit) {
-        while (true) {
-            // Adjust battery level
-            batteryLevel = (batteryLevel - Random.nextInt(0, 2)).coerceAtLeast(20)
-
-            // Adjust temperature
-            temperature = (temperature + Random.nextFloat() * 0.4f - 0.2f).coerceIn(30f, 40f)
-
-            // Set remaining time if battery level drops below 30
-            if (batteryLevel < 30) {
-                remainingTime = "1h 20m"
-            }
-
-            delay(60000) // Update every minute
-        }
-    }
+fun BatteryScreen(
+    viewModel: BatteryViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Battery Optimization") }
+                title = { Text("Battery Information") },
+                actions = {
+                    IconButton(onClick = { viewModel.refreshBatteryData() }) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh"
+                        )
+                    }
+                }
             )
         }
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp)
-        ) {
-            // Battery Status Card
-            item {
-                Card(
+        if (uiState.isLoading) {
+            // Show loading
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else if (uiState.error != null) {
+            // Show error
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(uiState.error ?: "Unknown error")
+            }
+        } else {
+            // Show battery data
+            BatteryContent(uiState, paddingValues)
+        }
+    }
+}
+
+@Composable
+private fun BatteryContent(
+    uiState: BatteryUiState,
+    paddingValues: androidx.compose.foundation.layout.PaddingValues
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)
+            .padding(horizontal = 16.dp)
+    ) {
+        // Battery Status Card
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp)
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .size(150.dp)
+                            .padding(16.dp)
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(150.dp)
-                                .padding(16.dp)
-                        ) {
-                            // Battery circle indicator
-                            Canvas(modifier = Modifier.size(150.dp)) {
-                                // Background circle
-                                drawArc(
-                                    color = Color.LightGray.copy(alpha = 0.3f),
-                                    startAngle = 0f,
-                                    sweepAngle = 360f,
-                                    useCenter = false,
-                                    topLeft = Offset(0f, 0f),
-                                    size = Size(size.width, size.height),
-                                    style = Stroke(width = 12f)
-                                )
+                        // Battery circle indicator
+                        Canvas(modifier = Modifier.size(150.dp)) {
+                            // Background circle
+                            drawArc(
+                                color = Color.LightGray.copy(alpha = 0.3f),
+                                startAngle = 0f,
+                                sweepAngle = 360f,
+                                useCenter = false,
+                                topLeft = Offset(0f, 0f),
+                                size = Size(size.width, size.height),
+                                style = Stroke(width = 12f)
+                            )
 
-                                // Battery level arc
-                                drawArc(
-                                    color = when {
-                                        batteryLevel > 60 -> Color(0xFF4CAF50)
-                                        batteryLevel > 30 -> Color(0xFFFFC107)
-                                        else -> Color(0xFFF44336)
-                                    },
-                                    startAngle = -90f,
-                                    sweepAngle = 360f * (batteryLevel / 100f),
-                                    useCenter = false,
-                                    topLeft = Offset(0f, 0f),
-                                    size = Size(size.width, size.height),
-                                    style = Stroke(width = 12f)
-                                )
-                            }
-
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = "$batteryLevel%",
-                                    style = MaterialTheme.typography.headlineMedium
-                                )
-                                Text(
-                                    text = remainingTime,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
+                            // Battery level arc
+                            drawArc(
+                                color = when {
+                                    uiState.batteryLevel > 60 -> Color(0xFF4CAF50)
+                                    uiState.batteryLevel > 30 -> Color(0xFFFFC107)
+                                    else -> Color(0xFFF44336)
+                                },
+                                startAngle = -90f,
+                                sweepAngle = 360f * (uiState.batteryLevel / 100f),
+                                useCenter = false,
+                                topLeft = Offset(0f, 0f),
+                                size = Size(size.width, size.height),
+                                style = Stroke(width = 12f)
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "${uiState.batteryLevel}%",
+                                style = MaterialTheme.typography.headlineMedium
+                            )
+                        }
+                    }
 
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "Temperature",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = "${"%.1f".format(uiState.temperature)}°C",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (uiState.temperature > 38f)
+                                    MaterialTheme.colorScheme.error
+                                else
+                                    MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Column {
+                            Text(
+                                text = "Status",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = if (uiState.isCharging) "Charging" else "Discharging",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+
+                        Column {
+                            Text(
+                                text = "Voltage",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = "${uiState.voltage / 1000.0}V",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Additional Battery Info Card
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.BatteryChargingFull,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Battery Details",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Only show battery health if available
+                    if (uiState.health > 0) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column {
-                                Text(
-                                    text = "Temperature",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                Text(
-                                    text = "${"%.1f".format(temperature)}°C",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = if (temperature > 38f)
-                                        MaterialTheme.colorScheme.error
-                                    else
-                                        MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-
-                            Column {
-                                Text(
-                                    text = "Status",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                Text(
-                                    text = "Discharging",
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
-
-                            Column {
-                                Text(
-                                    text = "Health",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                Text(
-                                    text = "Good",
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
+                            Text("Health Status")
+                            Text(getBatteryHealthString(uiState.health))
                         }
-                    }
-                }
-            }
-
-            // Smart Charging Card
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.BatteryChargingFull,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = "Smart Charging",
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(start = 8.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Text(
-                            text = "Limit maximum charge level to extend battery lifespan",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-
                         Spacer(modifier = Modifier.height(8.dp))
+                    }
 
-                        Text(
-                            text = "Maximum charge: ${maxChargeLevel.roundToInt()}%",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                    // Only show charging type if available
+                    if (uiState.isCharging && uiState.chargingType.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Charging Type")
+                            Text(uiState.chargingType)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // Only show capacity if available
+                    if (uiState.capacity > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Battery Capacity")
+                            Text("${uiState.capacity} mAh")
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // Only show current draw if available
+                    if (uiState.currentNow != 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Current Draw")
+                            Text("${uiState.currentNow} mA")
+                        }
                     }
                 }
-            }
-
-            // App Usage Section
-            item {
-                Text(
-                    text = "Battery Usage by App",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(vertical = 16.dp)
-                )
-            }
-
-            // App usage items
-            items(appUsageList) { app ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = app.appName,
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    Text(
-                        text = "${app.percentUsage.roundToInt()}%",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    LinearProgressIndicator(
-                        progress = app.percentUsage / 100f,
-                        modifier = Modifier.width(100.dp),
-                        color = when {
-                            app.percentUsage > 20f -> MaterialTheme.colorScheme.error
-                            app.percentUsage > 10f -> MaterialTheme.colorScheme.tertiary
-                            else -> MaterialTheme.colorScheme.primary
-                        }
-                    )
-                }
-            }
-
-            // Add some space at the bottom for better UX
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
+
+        // Add some space at the bottom for better UX
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+// Helper function to convert battery health code to string
+private fun getBatteryHealthString(health: Int): String {
+    return when (health) {
+        1 -> "Unknown"
+        2 -> "Good"
+        3 -> "Overheat"
+        4 -> "Dead"
+        5 -> "Over voltage"
+        6 -> "Unspecified failure"
+        7 -> "Cold"
+        else -> "Unknown"
     }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun PreviewBatteryScreen() {
-    BatteryScreen()
+    BatteryContent(
+        BatteryUiState(
+            batteryLevel = 75,
+            temperature = 32.5f,
+            voltage = 4200,
+            isCharging = false,
+            chargingType = "AC",
+            health = 2,
+            capacity = 4000,
+            currentNow = 250,
+            isLoading = false
+        ),
+        paddingValues = androidx.compose.foundation.layout.PaddingValues(0.dp)
+    )
 }

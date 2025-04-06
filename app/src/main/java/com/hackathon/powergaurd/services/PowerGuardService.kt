@@ -20,9 +20,9 @@ import android.os.Process
 import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.hackathon.powergaurd.MainActivity
 import com.hackathon.powergaurd.R
-import com.hackathon.powergaurd.data.AppRepository
+import com.hackathon.powergaurd.MainActivity
+import com.hackathon.powergaurd.di.AppRepository
 import com.hackathon.powergaurd.models.AppUsageData
 import com.hackathon.powergaurd.models.BatteryOptimizationData
 import com.hackathon.powergaurd.models.NetworkUsageData

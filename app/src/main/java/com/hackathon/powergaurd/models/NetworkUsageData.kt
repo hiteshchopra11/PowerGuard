@@ -1,8 +1,7 @@
 package com.hackathon.powergaurd.models
 
 /**
- * Data class to represent network usage statistics. This includes mobile data and WiFi usage, as
- * well as background data consumption.
+ * Data class to hold network usage data for an app
  */
 data class NetworkUsageData(
     val packageName: String,
@@ -11,4 +10,4 @@ data class NetworkUsageData(
     val wifiDataUsageBytes: Long,
     val backgroundDataUsageBytes: Long,
     val timestamp: Long
-)
+) 

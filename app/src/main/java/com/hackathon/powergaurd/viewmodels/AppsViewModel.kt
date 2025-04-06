@@ -1,57 +1,59 @@
 package com.hackathon.powergaurd.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hackathon.powergaurd.data.DeviceStatsCollector
+import com.hackathon.powergaurd.collector.UsageDataCollector
 import com.hackathon.powergaurd.models.AppUsageInfo
+import com.hackathon.powergaurd.models.DeviceData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class AppsUiState(
+    val isLoading: Boolean = true,
+    val appUsageList: List<AppUsageInfo> = emptyList(),
+    val error: String? = null
+)
+
 @HiltViewModel
 class AppsViewModel @Inject constructor(
-    private val deviceStatsCollector: DeviceStatsCollector
+    private val usageDataCollector: UsageDataCollector
 ) : ViewModel() {
 
-    private val _appsList = MutableStateFlow<List<AppUsageInfo>>(emptyList())
-    val appsList: StateFlow<List<AppUsageInfo>> = _appsList.asStateFlow()
-
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-
-    private val _filteredApps = MutableStateFlow<List<AppUsageInfo>>(emptyList())
-    val filteredApps: StateFlow<List<AppUsageInfo>> = _filteredApps.asStateFlow()
+    private val _uiState = MutableStateFlow(AppsUiState())
+    val uiState: StateFlow<AppsUiState> = _uiState.asStateFlow()
 
     init {
-        loadApps()
+        loadAppsData()
     }
 
-    fun loadApps() {
+    fun loadAppsData() {
         viewModelScope.launch {
-            val apps = deviceStatsCollector.collectAppUsage()
-            _appsList.value = apps
-            filterApps()
-        }
-    }
+            _uiState.update { it.copy(isLoading = true) }
+            Log.d("AppsViewModel", "Loading apps usage data...")
+            try {
+                val allDeviceData: DeviceData = usageDataCollector.collectDeviceData()
 
-    fun setSearchQuery(query: String) {
-        _searchQuery.value = query
-        filterApps()
-    }
+                // Extract the needed part from the result
+                val appUsage = allDeviceData.appUsage
 
-    private fun filterApps() {
-        val query = _searchQuery.value
-        val apps = _appsList.value
-
-        _filteredApps.value = if (query.isEmpty()) {
-            apps
-        } else {
-            apps.filter {
-                it.appName.contains(query, ignoreCase = true) ||
-                        it.packageName.contains(query, ignoreCase = true)
+                Log.d("AppsViewModel", "Loaded ${appUsage.size} apps with usage data.")
+                _uiState.update {
+                    it.copy(isLoading = false, appUsageList = appUsage, error = null)
+                }
+            } catch (e: Exception) {
+                Log.e("AppsViewModel", "Error loading apps data", e)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "Failed to load apps data: ${e.localizedMessage}"
+                    )
+                }
             }
         }
     }

@@ -1,130 +1,70 @@
-package com.hackathon.powergaurd.workers
+package com.hackathon.powergaurd.workers // Ensure this matches your actual package structure
 
 import android.content.Context
 import android.util.Log
+import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.hackathon.powergaurd.actionable.ActionableExecutor
-import com.hackathon.powergaurd.data.AppRepository
+import com.hackathon.powergaurd.collector.UsageDataCollector
 import com.hackathon.powergaurd.data.BackendService
-import com.hackathon.powergaurd.data.DeviceStatsCollector
-import com.hackathon.powergaurd.models.ActionResponse
 import com.hackathon.powergaurd.models.DeviceData
-import com.hackathon.powergaurd.utils.NotificationUtils
-import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 
-class DataCollectionWorker(
-    @ApplicationContext private val context: Context,
-    params: WorkerParameters
-) : CoroutineWorker(context, params) {
-
-    @Inject
-    lateinit var deviceStatsCollector: DeviceStatsCollector
-
-    @Inject
-    lateinit var backendService: BackendService
-
-    @Inject
-    lateinit var appRepository: AppRepository
-
-    @Inject
-    lateinit var actionableExecutor: ActionableExecutor
+@HiltWorker
+class DataCollectionWorker @AssistedInject constructor(
+    @Assisted appContext: Context,
+    @Assisted workerParams: WorkerParameters,
+    private val usageDataCollector: UsageDataCollector,
+    // --- Keep other injections ---
+    private val backendService: BackendService
+    // Add other dependencies if needed (e.g., repository)
+) : CoroutineWorker(appContext, workerParams) {
 
     companion object {
-        private const val TAG = "DataCollectionWorker"
+        // Consider using a unique name if you also have a worker in com.hackathon.powergaurd.worker
+        const val WORK_NAME = "com.hackathon.powergaurd.workers.DataCollectionWorker"
+        private const val TAG = "DataCollectionWorker" // Keep or adjust TAG
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        try {
-            // 1. Collect device data
-            val deviceData = collectDeviceData()
-            Log.d(TAG, "Device data collected successfully")
+        Log.i(TAG, "Starting data collection work in package 'workers'...") // Added log clarity
 
-            // 2. Send data to backend and get action response
-            val actionResponse = sendDataToBackend(deviceData)
+        try {
+            // --- CALL THE REAL COLLECTOR'S UNIFIED METHOD ---
+            Log.d(TAG, "Calling usageDataCollector.collectDeviceData()")
+            val deviceData: DeviceData = usageDataCollector.collectDeviceData()
+
+            // Log some collected data for verification
+            Log.d(TAG, "Device data collected:")
+            Log.d(TAG, "  Device ID: ${deviceData.deviceId}")
+            Log.d(TAG, "  Timestamp: ${deviceData.timestamp}")
+            Log.d(TAG, "  App Usage Count: ${deviceData.appUsage.size}")
+            Log.d(TAG, "  Battery Level: ${deviceData.batteryStats.level}%")
+            Log.d(TAG, "  Network Usage Apps: ${deviceData.networkUsage.appNetworkUsage.size}")
             Log.d(
                 TAG,
-                "Backend response received with ${actionResponse.actionables.size} actionables"
-            )
+                "  Wake Locks Count: ${deviceData.wakeLocks.size} (Note: Data likely limited)"
+            ) // Remind about wake lock limitation
 
-            // 3. Store the response
-            storeResponse(actionResponse)
+            // Example: Send the collected data to the backend
+            Log.d(TAG, "Sending collected data to backend service...")
+            val actionResponse = backendService.sendDataForAnalysis(deviceData)
+            Log.i(TAG, "Data sent to backend. Response Summary: ${actionResponse.summary}")
+            Log.d(TAG, "Received ${actionResponse.actionables.size} actionables.")
 
-            // 4. Apply actions if auto-optimize is enabled
-            if (isAutoOptimizeEnabled()) {
-                applyActions(actionResponse)
-                showOptimizationNotification(actionResponse)
-            }
+            // TODO: Implement logic to handle the actionResponse if necessary
+            // For example, queueing actions based on actionResponse.actionables
 
-            return@withContext Result.success()
+            Log.i(TAG, "Data collection work finished successfully.")
+            Result.success()
+
         } catch (e: Exception) {
-            Log.e(TAG, "Error in data collection worker", e)
-            return@withContext Result.retry()
+            Log.e(TAG, "Error during data collection work", e)
+            // Consider retrying for transient network errors etc.
+            Result.failure()
         }
-    }
-
-    private suspend fun collectDeviceData(): DeviceData {
-        return DeviceData(
-            appUsage = deviceStatsCollector.collectAppUsage(),
-            batteryStats = deviceStatsCollector.collectBatteryStats(),
-            networkUsage = deviceStatsCollector.collectNetworkUsage(),
-            wakeLocks = deviceStatsCollector.collectWakeLocks(),
-            deviceId = deviceStatsCollector.getDeviceId(),
-            timestamp = System.currentTimeMillis()
-        )
-    }
-
-    private suspend fun sendDataToBackend(deviceData: DeviceData): ActionResponse {
-        Log.d(TAG, "Sending data to backend")
-        return try {
-            // This is where we call the new sendDataForAnalysis method
-            backendService.sendDataForAnalysis(deviceData)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error sending data to backend", e)
-            // Fallback to simulated response
-            backendService.sendDataForAnalysis(deviceData)
-        }
-    }
-
-    private suspend fun storeResponse(response: ActionResponse) {
-        appRepository.saveActionResponse(response)
-    }
-
-    private fun isAutoOptimizeEnabled(): Boolean {
-        // For now, always return true. In a real app, this would check user preferences
-        return true
-    }
-
-    private suspend fun applyActions(response: ActionResponse) {
-        Log.d(TAG, "Applying ${response.actionables.size} actions")
-
-        try {
-            val results = actionableExecutor.executeActionables(response.actionables)
-
-            // Log the results for debugging
-            val successCount = results.values.count { it }
-            Log.d(TAG, "Successfully applied $successCount out of ${results.size} actions")
-
-            // Log each action's result
-            results.forEach { (actionable, success) ->
-                Log.d(
-                    TAG,
-                    "Action ${actionable.type} for app ${actionable.app ?: "system"}: ${if (success) "SUCCESS" else "FAILED"}"
-                )
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error applying actions", e)
-        }
-    }
-
-    private fun showOptimizationNotification(response: ActionResponse) {
-        NotificationUtils.showOptimizationNotification(
-            context,
-            "PowerGuard Optimization",
-            response.summary
-        )
     }
 }

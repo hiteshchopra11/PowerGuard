@@ -15,6 +15,6 @@ interface PowerGuardApiService {
      * @param deviceData Device data to analyze
      * @return Response containing analysis results
      */
-    @POST("analyze")
+    @POST("/api/analyze")
     suspend fun analyzeDeviceData(@Body deviceData: DeviceData): Response<AnalysisResponse>
 }

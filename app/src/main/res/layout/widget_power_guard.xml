@@ -45,10 +45,52 @@
 
     <Button
         android:id="@+id/widget_optimize_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/widget_optimize_now" />
+
+    <!-- Button Row for Save Battery and Save Data -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="Optimize Now"
-        android:textSize="14sp" />
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp">
+        
+        <Button
+            android:id="@+id/widget_save_battery_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:text="@string/widget_save_battery" />
+            
+        <Button
+            android:id="@+id/widget_save_data_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:text="@string/widget_save_data" />
+    </LinearLayout>
+    
+    <!-- Prompt Row for input and send button -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp">
+        
+        <TextView
+            android:id="@+id/widget_prompt_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:text="@string/widget_prompt_hint"
+            android:background="@drawable/text_input_background"
+            android:textColor="#E0E0E0"
+            android:textSize="14sp"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
 
 </LinearLayout> 

@@ -6,6 +6,7 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hackathon.powergaurd.PowerGuardOptimizer
+import com.hackathon.powergaurd.actionable.ActionableExecutor
 import com.hackathon.powergaurd.collector.UsageDataCollector
 import com.hackathon.powergaurd.data.local.entity.DeviceInsightEntity
 import com.hackathon.powergaurd.data.model.Actionable
@@ -30,7 +31,8 @@ class DashboardViewModel @Inject constructor(
     private val analyzeDeviceDataUseCase: AnalyzeDeviceDataUseCase,
     private val getAllActionableUseCase: GetAllActionableUseCase,
     private val getCurrentInsightsUseCase: GetCurrentInsightsUseCase,
-    private val powerGuardOptimizer: PowerGuardOptimizer
+    private val powerGuardOptimizer: PowerGuardOptimizer,
+    private val actionableExecutor: ActionableExecutor
 ) : ViewModel() {
 
     // UI state
@@ -183,6 +185,9 @@ class DashboardViewModel @Inject constructor(
 
                     response?.let { analysisResponse ->
                         val actionables = getAllActionableUseCase(analysisResponse)
+
+                        actionableExecutor.executeActionable(actionables)
+
                         val insightEntities = getCurrentInsightsUseCase(analysisResponse).map {
                             it.toEntity()
                         }

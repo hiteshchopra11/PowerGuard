@@ -164,17 +164,17 @@ class PowerGuardRepository @Inject constructor(
 
         return AnalysisResponse(
             id = deviceData.deviceId,
-            timestamp = System.currentTimeMillis(),
-            batteryScore = batteryScore,
-            dataScore = dataScore,
-            performanceScore = performanceScore,
+            timestamp = System.currentTimeMillis().toFloat(),
+            batteryScore = batteryScore.toFloat(),
+            dataScore = dataScore.toFloat(),
+            performanceScore = performanceScore.toFloat(),
             insights = insights,
             actionable = actionable,
             success = true,
             message = "Analysis",
             estimatedSavings = AnalysisResponse.EstimatedSavings(
-                batteryMinutes = 17,
-                dataMB = 1200
+                batteryMinutes = 17f,
+                dataMB = 1200f
             )
         )
     }

@@ -118,28 +118,28 @@ data class DeviceInfo(
     val screenOnTime: Long
 )
 
-// Keep the response models as they were
 /**
  * Analysis response model from backend
  */
 data class AnalysisResponse(
     val id: String = "-1",
     val success: Boolean,
-    val timestamp: Long,
+    val timestamp: Float,
     val message: String,
+    val responseType: String? = null,
     val actionable: List<Actionable>,
     val insights: List<Insight>,
-    val batteryScore: Int,
-    val dataScore: Int,
-    val performanceScore: Int,
+    val batteryScore: Float,
+    val dataScore: Float,
+    val performanceScore: Float,
     val estimatedSavings: EstimatedSavings
 ) {
     /**
      * Estimated savings model
      */
     data class EstimatedSavings(
-        val batteryMinutes: Int,
-        val dataMB: Int
+        val batteryMinutes: Float,
+        val dataMB: Float
     )
 }
 
@@ -153,7 +153,7 @@ data class Actionable(
     val description: String,
     val reason: String,
     val newMode: String,
-    val parameters: Map<String, String>
+    val parameters: Map<String, Any>
 )
 
 /**

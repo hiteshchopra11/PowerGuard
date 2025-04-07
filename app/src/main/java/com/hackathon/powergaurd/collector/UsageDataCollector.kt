@@ -271,7 +271,9 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             "WiFi" -> {
                 val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as? WifiManager
                 val connectionInfo = wifiManager?.connectionInfo
-                "SSID: ${connectionInfo?.ssid ?: "unknown"}".also {
+                val rawSsid = connectionInfo?.ssid ?: "unknown"
+                val safeSsid = rawSsid.replace(Regex("[<>]"), "") // Remove < and >
+                "SSID: $safeSsid".also {
                     Log.v(TAG, "WiFi connection info: $it")
                 }
             }

@@ -1,0 +1,53 @@
+{
+  "id": "gen_1744055711",
+  "success": true,
+  "timestamp": 1744055711.0,
+  "message": "Analysis completed successfully",
+  "actionable": [
+    {
+      "id": "batt-com.whatsapp-c9f49d93",
+      "type": "OPTIMIZE_BATTERY",
+      "packageName": "com.whatsapp",
+      "description": "Optimize battery usage for WhatsApp",
+      "reason": "Consuming 27.0% battery",
+      "newMode": "optimized",
+      "parameters": {}
+    },
+    {
+      "id": "critical-com.google.android.gm-e7ace2a4",
+      "type": "OPTIMIZE_BATTERY",
+      "packageName": "com.google.android.gm",
+      "description": "Set Gmail to normal priority",
+      "reason": "Critical app needed for user's current task",
+      "newMode": "normal",
+      "parameters": {}
+    }
+  ],
+  "insights": [
+    {
+      "type": "Strategy",
+      "title": "Designed a custom battery strategy for you",
+      "description": "Protected critical apps: Gmail\nApplied moderate optimization for non-critical apps\nEstimated battery extension: 13 minutes",
+      "severity": "info"
+    },
+    {
+      "type": "CriticalApps",
+      "title": "Protected Critical Apps",
+      "description": "Maintaining full functionality for: Gmail",
+      "severity": "info"
+    },
+    {
+      "type": "BatterySavings",
+      "title": "Extended Battery Life",
+      "description": "Estimated battery extension: 13 minutes",
+      "severity": "info"
+    }
+  ],
+  "batteryScore": 86.0,
+  "dataScore": 100.0,
+  "performanceScore": 50.0,
+  "estimatedSavings": {
+    "batteryMinutes": 13.0,
+    "dataMB": 0.0
+  }
+}

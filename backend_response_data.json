@@ -1,0 +1,47 @@
+{
+  "id": "gen_1744055716",
+  "success": true,
+  "timestamp": 1744055716.0,
+  "message": "Analysis completed successfully",
+  "actionable": [
+    {
+      "id": "global-data-03dbca54",
+      "type": "ENABLE_DATA_SAVER",
+      "packageName": "system",
+      "description": "Enable data saver mode",
+      "reason": "Optimize network data usage",
+      "newMode": "enabled",
+      "parameters": {}
+    },
+    {
+      "id": "data-com.whatsapp-b5c57536",
+      "type": "ENABLE_DATA_SAVER",
+      "packageName": "com.whatsapp",
+      "description": "Enable data saver for WhatsApp",
+      "reason": "Consuming 120.0 MB of data",
+      "newMode": "enabled",
+      "parameters": {}
+    }
+  ],
+  "insights": [
+    {
+      "type": "Strategy",
+      "title": "Designed a custom network strategy for you",
+      "description": "Applied moderate optimization for non-critical apps\nEstimated data savings: 39 MB",
+      "severity": "info"
+    },
+    {
+      "type": "DataSavings",
+      "title": "Reduced Data Usage",
+      "description": "Estimated data savings: 39 MB",
+      "severity": "info"
+    }
+  ],
+  "batteryScore": 86.0,
+  "dataScore": 100.0,
+  "performanceScore": 50.0,
+  "estimatedSavings": {
+    "batteryMinutes": 0.0,
+    "dataMB": 39.0
+  }
+}

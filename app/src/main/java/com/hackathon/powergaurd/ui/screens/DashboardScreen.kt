@@ -244,6 +244,7 @@ private fun DashboardContent(
                 onPromptChange = onPromptChange,
                 onSubmit = {
                     if (promptText.isNotBlank()) {
+                        Log.d("PROMPT_DEBUG", "Prompt Request - User Query: $promptText")
                         viewModel.submitPrompt(promptText)
                         onShowAnalysisDialog(true, true) // Show dialog in analyzing state
                     } else {
@@ -598,15 +599,23 @@ fun AnalysisDialog(
     analysisResponse: com.hackathon.powergaurd.data.model.AnalysisResponse,
     onDismiss: () -> Unit
 ) {
-    // Debug log the response contents
+    // Debug log the response contents with HITESH tag
     LaunchedEffect(analysisResponse) {
-        Log.d("DashboardScreen", "AnalysisDialog - Displaying response with ${analysisResponse.insights.size} insights and ${analysisResponse.actionable.size} actionables")
-        if (analysisResponse.insights.isNotEmpty()) {
-            Log.d("DashboardScreen", "First insight: Type=${analysisResponse.insights[0].type}, Title=${analysisResponse.insights[0].title}")
-        }
-        if (analysisResponse.actionable.isNotEmpty()) {
-            Log.d("DashboardScreen", "First actionable: Type=${analysisResponse.actionable[0].type}, Description=${analysisResponse.actionable[0].description}")
-        }
+        Log.d("PROMPT_DEBUG", """
+            ╔════════════════════════════════════════════
+            ║ Analysis Response Details
+            ╠════════════════════════════════════════════
+            ║ INSIGHTS (${analysisResponse.insights.size}):
+            ║ ${analysisResponse.insights.joinToString("\n║ ") { 
+                "• Type: ${it.type}\n║   Title: ${it.title}\n║   Description: ${it.description}" 
+            }}
+            ╠════════════════════════════════════════════
+            ║ ACTIONABLES (${analysisResponse.actionable.size}):
+            ║ ${analysisResponse.actionable.joinToString("\n║ ") { 
+                "• Type: ${it.type}\n║   Description: ${it.description}\n║   Reason: ${it.reason}" 
+            }}
+            ╚════════════════════════════════════════════
+        """.trimIndent())
     }
     
     AlertDialog(

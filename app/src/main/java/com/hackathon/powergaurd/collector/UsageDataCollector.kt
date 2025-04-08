@@ -82,28 +82,39 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
      * Main entry point - collects all device data
      */
     @RequiresApi(Build.VERSION_CODES.P)
-    fun collectDeviceData(): DeviceData {
-        Log.d(TAG, "Starting to collect device data")
-        val timestamp = System.currentTimeMillis()
-        val startTime = timestamp - TIME_RANGE_MS
-        Log.v(TAG, "Time range: start=$startTime (${timestamp - startTime}ms ago), end=$timestamp")
+    suspend fun collectDeviceData(): DeviceData {
+        Log.i(TAG, "Starting data collection")
 
-        return try {
-            DeviceData(
-                deviceId = getDeviceId().also { Log.v(TAG, "Device ID: $it") },
-                timestamp = timestamp,
-                battery = collectBatteryInfo(),
-                memory = collectMemoryInfo(),
-                cpu = collectCpuInfo(),
-                network = collectNetworkInfo(startTime, timestamp),
-                apps = collectAppsInfo(startTime, timestamp),
-                settings = collectSettingsInfo(),
-                deviceInfo = collectDeviceInfo()
-            ).also { Log.i(TAG, "Successfully collected complete device data") }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error collecting complete device data: ${e.message}", e)
-            throw e
+        // Determine time range for stats collection
+        val endTime = System.currentTimeMillis()
+        val startTime = endTime - TIME_RANGE_MS
+
+        // Get various device and usage data
+        val deviceInfo = collectDeviceInfo()
+        val batteryInfo = collectBatteryInfo()
+        val memoryInfo = collectMemoryInfo()
+        val cpuInfo = collectCpuInfo()
+        val networkInfo = collectNetworkInfo(startTime, endTime) // Updated to pass start and end times
+        val settingsInfo = collectSettingsInfo()
+        var appsInfo = collectAppsInfo(startTime, endTime)
+
+        // Filter out system apps as requested, but keep pre-installed non-system apps
+        appsInfo = appsInfo.filter { app ->
+            !app.isSystemApp || isPopularPreinstalledApp(app.packageName)
         }
+
+        return DeviceData(
+            deviceId = getDeviceId(),
+            timestamp = endTime,
+            battery = batteryInfo,
+            memory = memoryInfo,
+            cpu = cpuInfo,
+            network = networkInfo,
+            apps = appsInfo,
+            settings = settingsInfo,
+            deviceInfo = deviceInfo,
+            prompt = ""
+        ).also { Log.i(TAG, "Data collection completed: ${it.apps.size} apps included") }
     }
 
     /**
@@ -1202,5 +1213,22 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             rxBytes = rxBytes,
             txBytes = txBytes
         ).also { Log.d(TAG, "Collected detailed network stats: $it") }
+    }
+
+    /**
+     * Check if package is a popular pre-installed app that should be included despite being system app
+     * Some pre-installed apps like YouTube, Gmail are useful to track even if they're system apps
+     */
+    private fun isPopularPreinstalledApp(packageName: String): Boolean {
+        val popularPreinstalledApps = listOf(
+            "com.google.android.youtube",
+            "com.google.android.gm", // Gmail
+            "com.google.android.apps.maps",
+            "com.google.android.apps.photos",
+            "com.android.chrome",
+            "com.google.android.music",
+            "com.google.android.videos"
+        )
+        return packageName in popularPreinstalledApps
     }
 }

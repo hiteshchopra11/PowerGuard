@@ -11,7 +11,7 @@ import java.util.Locale
  */
 @Entity(tableName = "device_insights")
 data class DeviceInsightEntity(
-    @PrimaryKey val id: Long = 0,
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val insightType: String, // e.g., "BATTERY", "NETWORK", "CPU"
     val insightTitle: String,
     val insightDescription: String,

@@ -1,8 +1,10 @@
 package com.hackathon.powergaurd.data.di
 
 import android.content.Context
+import com.hackathon.powergaurd.data.local.ActionablesDBRepository
 import com.hackathon.powergaurd.data.local.InsightsDBRepository
 import com.hackathon.powergaurd.data.local.PowerGuardDatabase
+import com.hackathon.powergaurd.data.local.dao.DeviceActionableDao
 import com.hackathon.powergaurd.data.local.dao.DeviceInsightDao
 import com.hackathon.powergaurd.data.remote.PowerGuardRepository
 import com.hackathon.powergaurd.domain.usecase.AnalyzeDeviceDataUseCase
@@ -24,20 +26,26 @@ object DatabaseModule {
     // Database related providers
     @Provides
     @Singleton
-    fun providePowerGuardDatabase(@ApplicationContext context: Context): PowerGuardDatabase {
-        return PowerGuardDatabase.getInstance(context)
-    }
-
-    @Provides
-    @Singleton
     fun provideDeviceInsightDao(database: PowerGuardDatabase): DeviceInsightDao {
         return database.deviceInsightDao()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideDeviceActionableDao(database: PowerGuardDatabase): DeviceActionableDao {
+        return database.deviceActionableDao()
     }
 
     @Provides
     @Singleton
     fun provideInsightsDBRepository(deviceInsightDao: DeviceInsightDao): InsightsDBRepository {
         return InsightsDBRepository(deviceInsightDao)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideActionablesDBRepository(deviceActionableDao: DeviceActionableDao): ActionablesDBRepository {
+        return ActionablesDBRepository(deviceActionableDao)
     }
 
     // Use case providers

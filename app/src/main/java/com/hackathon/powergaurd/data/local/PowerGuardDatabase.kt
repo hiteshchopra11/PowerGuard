@@ -7,13 +7,15 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.hackathon.powergaurd.data.local.dao.DeviceInsightDao
 import com.hackathon.powergaurd.data.local.entity.DeviceInsightEntity
+import com.hackathon.powergaurd.data.local.dao.DeviceActionableDao
+import com.hackathon.powergaurd.data.local.entity.DeviceActionableEntity
 
 /**
  * Room database for storing PowerGuard data
  */
 @Database(
-    entities = [DeviceInsightEntity::class],
-    version = 1,
+    entities = [DeviceInsightEntity::class, DeviceActionableEntity::class],
+    version = 3,
     exportSchema = false
 )
 abstract class PowerGuardDatabase : RoomDatabase() {
@@ -22,6 +24,11 @@ abstract class PowerGuardDatabase : RoomDatabase() {
      * Provides access to the DeviceInsightDao
      */
     abstract fun deviceInsightDao(): DeviceInsightDao
+    
+    /**
+     * Provides access to the DeviceActionableDao
+     */
+    abstract fun deviceActionableDao(): DeviceActionableDao
 
     companion object {
         private const val DATABASE_NAME = "powerguard_database"

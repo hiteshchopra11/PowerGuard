@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.util.Log
+import kotlinx.coroutines.delay
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -143,32 +145,25 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.P)
+    /**
+     * Submits the user's prompt to the API for analysis
+     */
     fun submitPrompt(prompt: String) {
         viewModelScope.launch {
             _isLoading.value = true
+            Log.d("DashboardViewModel", "Submitting prompt: $prompt")
 
             try {
-                // Create a new DeviceData object with the prompt added
-                val currentData = _deviceData.value
-                if (currentData != null) {
-                    val dataWithPrompt = currentData.copy(prompt = prompt)
+                // Get latest device data
+                val deviceData = usageDataCollector.collectDeviceData().copy(prompt = prompt)
+                _deviceData.value = deviceData
+                Log.d("DashboardViewModel", "Collected device data for analysis")
 
-                    // Analyze with the prompt
-                    analyzeDeviceData(dataWithPrompt)
-                } else {
-                    // Collect new data with prompt if we don't have current data
-                    val newData = usageDataCollector.collectDeviceData()
-                    val dataWithPrompt = newData.copy(prompt = prompt)
-                    _deviceData.value = dataWithPrompt
-
-                    // Update UI and analyze
-                    updateUiStateFromDeviceData(dataWithPrompt)
-                    analyzeDeviceData(dataWithPrompt)
-                }
+                // Analyze the data with the prompt
+                analyzeDeviceData(deviceData)
             } catch (e: Exception) {
-                _error.value = "Failed to analyze with prompt: ${e.message}"
-            } finally {
+                Log.e("DashboardViewModel", "Failed to submit prompt: ${e.message}", e)
+                _error.value = "Failed to submit prompt: ${e.message}"
                 _isLoading.value = false
             }
         }
@@ -176,34 +171,49 @@ class DashboardViewModel @Inject constructor(
 
     private fun analyzeDeviceData(deviceData: DeviceData) {
         viewModelScope.launch {
+            _isLoading.value = true
+            Log.d("DashboardViewModel", "Analyzing device data")
+
             try {
-                val result = analyzeDeviceDataUseCase(deviceData)
-
-                if (result.isSuccess) {
-                    val response = result.getOrNull()
-                    _analysisResponse.value = response
-
-                    response?.let { analysisResponse ->
-                        val actionables = getAllActionableUseCase(analysisResponse)
-
-                        actionableExecutor.executeActionable(actionables)
-
-                        val insightEntities = getCurrentInsightsUseCase(analysisResponse).map {
-                            it.toEntity()
-                        }
-
-                        if (insightEntities.isNotEmpty()) {
-                            _insights.value = insightEntities
-
-                            // Update UI state based on insights
-                            updateUiStateWithInsights(insightEntities)
-                        }
-                    }
+                val response = analyzeDeviceDataUseCase(deviceData).getOrNull()
+                _analysisResponse.value = response
+                
+                Log.d("DashboardViewModel", "Analysis complete: response=${response != null}")
+                if (response != null) {
+                    Log.d("DashboardViewModel", "Analysis returned ${response.insights.size} insights and ${response.actionable.size} actionables")
+                    updateUiStateFromDeviceData(deviceData)
+                    
+                    // Save the response to the history database
+                    saveResponseToHistory(response)
                 } else {
-                    _error.value = "Analysis failed: ${result.exceptionOrNull()?.message}"
+                    Log.w("DashboardViewModel", "Analysis returned null response")
                 }
+                
+                _isLoading.value = false
             } catch (e: Exception) {
-                _error.value = "Analysis error: ${e.message}"
+                Log.e("DashboardViewModel", "Failed to analyze data: ${e.message}", e)
+                _error.value = "Failed to analyze data: ${e.message}"
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    private fun saveResponseToHistory(response: AnalysisResponse) {
+        viewModelScope.launch {
+            try {
+                // Get the HistoryViewModel to save the response
+                val historyViewModel = HistoryViewModel.getInstance()
+                historyViewModel.storeAnalysisResponse(response)
+                
+                // Force refresh history data after saving
+                delay(500) // Small delay to ensure DB transaction completes
+                historyViewModel.refreshInsights()
+                
+                // Log successful save
+                Log.d("DashboardViewModel", "Saved analysis response with ${response.insights.size} insights and ${response.actionable.size} actionables")
+            } catch (e: Exception) {
+                Log.e("DashboardViewModel", "Failed to save analysis to history: ${e.message}", e)
+                // Don't show error to user since this is a background operation
             }
         }
     }

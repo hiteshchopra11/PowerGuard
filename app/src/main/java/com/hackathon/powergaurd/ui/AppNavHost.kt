@@ -8,7 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.hackathon.powergaurd.ui.navigation.Screen
-import com.hackathon.powergaurd.ui.screens.BatteryScreen
+import com.hackathon.powergaurd.ui.screens.ExploreScreen
 import com.hackathon.powergaurd.ui.screens.HistoryScreen
 import com.hackathon.powergaurd.ui.screens.DashboardScreen
 
@@ -26,11 +26,12 @@ fun AppNavHost(
     ) {
         composable(Screen.Dashboard.route) { 
             DashboardScreen(
+                modifier = modifier,
                 showSnackbar = showSnackbar,
                 openPromptInput = openPromptInput
             ) 
         }
-        composable(Screen.Battery.route) { BatteryScreen() }
+        composable(Screen.Explore.route) { ExploreScreen() }
         composable(Screen.History.route) { HistoryScreen() }
     }
 }

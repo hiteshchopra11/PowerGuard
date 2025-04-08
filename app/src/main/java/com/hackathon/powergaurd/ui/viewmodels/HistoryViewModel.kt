@@ -1,72 +1,190 @@
 package com.hackathon.powergaurd.ui.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hackathon.powergaurd.data.local.ActionablesDBRepository
+import com.hackathon.powergaurd.data.local.InsightsDBRepository
+import com.hackathon.powergaurd.data.local.entity.DeviceActionableEntity
 import com.hackathon.powergaurd.data.local.entity.DeviceInsightEntity
-import com.hackathon.powergaurd.domain.usecase.GetPastInsightsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
-/** Data class representing the state of the history screen. */
-data class HistoryState(
+data class HistoryUiState(
     val insights: List<DeviceInsightEntity> = emptyList(),
-    val isLoading: Boolean = true,
-    val error: String? = null
+    val actionables: List<DeviceActionableEntity> = emptyList(),
+    val isLoading: Boolean = false
 )
 
-/** ViewModel for the history screen showing device insights. */
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    private val getPastInsightsUseCase: GetPastInsightsUseCase
+    private val insightsRepository: InsightsDBRepository,
+    private val actionablesRepository: ActionablesDBRepository
 ) : ViewModel() {
 
-    private val _historyState = MutableStateFlow(HistoryState())
-    val historyState: StateFlow<HistoryState> = _historyState.asStateFlow()
+    private val _historyState = MutableStateFlow(HistoryUiState(isLoading = true))
+    val historyState: StateFlow<HistoryUiState> = _historyState.asStateFlow()
 
     init {
-        loadInsights()
+        // Register as the singleton instance
+        INSTANCE = this
+        
+        // Try loading history on initialization
+        try {
+            loadHistory()
+            Log.d("HistoryViewModel", "Initialized and started loading history")
+        } catch (e: Exception) {
+            Log.e("HistoryViewModel", "Error during initialization: ${e.message}", e)
+            // Set up empty UI state but don't show loading
+            _historyState.value = HistoryUiState(isLoading = false)
+        }
+    }
+
+    private fun loadHistory() {
+        viewModelScope.launch {
+            _historyState.update { it.copy(isLoading = true) }
+            
+            try {
+                // Load insights from repository
+                val insights = insightsRepository.getAllInsightsSortedByTimestamp()
+                Log.d("HistoryViewModel", "Loaded ${insights.size} insights from database")
+                if (insights.isNotEmpty()) {
+                    Log.d("HistoryViewModel", "First insight - Type: ${insights[0].insightType}, Title: ${insights[0].insightTitle}")
+                }
+                
+                // Load actionables from repository
+                val actionables = actionablesRepository.getAllActionablesSortedByTimestamp()
+                Log.d("HistoryViewModel", "Loaded ${actionables.size} actionables from database")
+                if (actionables.isNotEmpty()) {
+                    Log.d("HistoryViewModel", "First actionable - Type: ${actionables[0].actionableType}, Description: ${actionables[0].description}")
+                }
+                
+                // Verify there's no mix-up
+                val insightIds = insights.map { it.id }.toSet()
+                val actionableIds = actionables.map { it.id }.toSet()
+                val intersection = insightIds.intersect(actionableIds)
+                if (intersection.isNotEmpty()) {
+                    Log.e("HistoryViewModel", "ERROR: Found ${intersection.size} IDs that appear in both insights and actionables!")
+                }
+                
+                _historyState.update { 
+                    it.copy(
+                        insights = insights,
+                        actionables = actionables,
+                        isLoading = false
+                    )
+                }
+                
+                Log.d("HistoryViewModel", "Updated UI state with ${insights.size} insights and ${actionables.size} actionables")
+            } catch (e: Exception) {
+                Log.e("HistoryViewModel", "Error loading history: ${e.message}", e)
+                _historyState.update { 
+                    it.copy(
+                        isLoading = false
+                    )
+                }
+            }
+        }
     }
 
     fun refreshInsights() {
-        _historyState.value = _historyState.value.copy(isLoading = true, error = null)
-        loadInsights()
+        loadHistory()
     }
-
-    private fun loadInsights() {
+    
+    // Store insights and actionables when received from API
+    fun storeAnalysisResponse(analysisResponse: com.hackathon.powergaurd.data.model.AnalysisResponse) {
         viewModelScope.launch {
             try {
-                // Use the device ID from shared preferences or generate one
-                val deviceId = getDeviceId()
+                val timestamp = System.currentTimeMillis()
                 
-                getPastInsightsUseCase(deviceId)
-                    .stateIn(
-                        scope = viewModelScope,
-                        started = SharingStarted.WhileSubscribed(5000),
-                        initialValue = emptyList()
-                    )
-                    .collect { insights ->
-                        _historyState.value = HistoryState(
-                            insights = insights,
-                            isLoading = false
+                // Log the raw API response
+                Log.d("HistoryViewModel", "Raw API response - ${analysisResponse.insights.size} insights, ${analysisResponse.actionable.size} actionables")
+                if (analysisResponse.insights.isNotEmpty()) {
+                    Log.d("HistoryViewModel", "First API insight - Type: ${analysisResponse.insights[0].type}, Title: ${analysisResponse.insights[0].title}")
+                }
+                if (analysisResponse.actionable.isNotEmpty()) {
+                    Log.d("HistoryViewModel", "First API actionable - Type: ${analysisResponse.actionable[0].type}, Description: ${analysisResponse.actionable[0].description}")
+                }
+                
+                // Save insights
+                if (analysisResponse.insights.isNotEmpty()) {
+                    val insights = analysisResponse.insights.map { insight ->
+                        DeviceInsightEntity(
+                            insightType = insight.type,
+                            insightTitle = insight.title,
+                            insightDescription = insight.description,
+                            severity = insight.severity,
+                            timestamp = timestamp
                         )
                     }
+                    
+                    Log.d("HistoryViewModel", "Mapped ${insights.size} insights to DB entities")
+                    insightsRepository.saveInsights(insights)
+                    Log.d("HistoryViewModel", "Saved ${insights.size} insights to database")
+                } else {
+                    Log.d("HistoryViewModel", "No insights to save")
+                }
+                
+                // Save actionables
+                if (analysisResponse.actionable.isNotEmpty()) {
+                    val actionables = analysisResponse.actionable.map { actionable ->
+                        DeviceActionableEntity(
+                            actionableId = actionable.id,
+                            actionableType = actionable.type,
+                            packageName = actionable.packageName ?: "",
+                            description = actionable.description,
+                            reason = actionable.reason ?: "",
+                            newMode = actionable.newMode ?: "",
+                            timestamp = timestamp
+                        )
+                    }
+                    
+                    Log.d("HistoryViewModel", "Mapped ${actionables.size} actionables to DB entities")
+                    actionablesRepository.saveActionables(actionables)
+                    Log.d("HistoryViewModel", "Saved ${actionables.size} actionables to database")
+                } else {
+                    Log.d("HistoryViewModel", "No actionables to save")
+                }
+                
+                // Refresh data after insertion with a small delay to ensure DB transactions complete
+                kotlinx.coroutines.delay(100)
+                loadHistory()
+                Log.d("HistoryViewModel", "Refreshed history after saving response")
             } catch (e: Exception) {
-                _historyState.value = HistoryState(
-                    isLoading = false,
-                    error = "Failed to load insights: ${e.message}"
-                )
+                Log.e("HistoryViewModel", "Error storing analysis response: ${e.message}", e)
             }
         }
     }
     
-    // Helper function to get device ID - in a real app, this would come from shared preferences
-    private fun getDeviceId(): String {
-        return "current_device" // Simplified for this example
+    companion object {
+        @Volatile
+        private var INSTANCE: HistoryViewModel? = null
+        
+        fun getInstance(): HistoryViewModel {
+            return INSTANCE ?: throw IllegalStateException("HistoryViewModel not initialized yet")
+        }
     }
+}
+
+// Extension function to display the timestamp in a readable format
+fun DeviceInsightEntity.getFormattedDate(): String {
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+    return dateFormat.format(Date(timestamp))
+}
+
+// Extension function to display the timestamp in a readable format
+fun DeviceActionableEntity.getFormattedDate(): String {
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+    return dateFormat.format(Date(timestamp))
 }

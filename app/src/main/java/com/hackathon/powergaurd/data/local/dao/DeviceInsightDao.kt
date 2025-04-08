@@ -30,4 +30,12 @@ interface DeviceInsightDao {
      */
     @Query("SELECT * FROM device_insights where id = :deviceId ORDER BY timestamp DESC")
     fun getInsightsForDevice(deviceId: String): Flow<List<DeviceInsightEntity>>
+
+    /**
+     * Get all insights sorted by timestamp (newest first)
+     *
+     * @return List of all insights ordered by timestamp descending
+     */
+    @Query("SELECT * FROM device_insights ORDER BY timestamp DESC")
+    suspend fun getAllInsightsSortedByTimestamp(): List<DeviceInsightEntity>
 }

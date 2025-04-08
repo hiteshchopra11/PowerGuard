@@ -31,4 +31,13 @@ class InsightsDBRepository @Inject constructor(
     fun getInsightsForDevice(deviceId: String): Flow<List<DeviceInsightEntity>> {
         return deviceInsightDao.getInsightsForDevice(deviceId)
     }
+    
+    /**
+     * Get all insights sorted by timestamp (newest first)
+     *
+     * @return List of device insights ordered by timestamp
+     */
+    suspend fun getAllInsightsSortedByTimestamp(): List<DeviceInsightEntity> {
+        return deviceInsightDao.getAllInsightsSortedByTimestamp()
+    }
 }

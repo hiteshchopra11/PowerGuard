@@ -3,6 +3,7 @@ package com.hackathon.powergaurd.ui
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Battery4Bar
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -20,7 +21,7 @@ import com.hackathon.powergaurd.ui.navigation.Screen
 
 @Composable
 fun BottomNavBar(navController: NavController) {
-    val items = listOf(Screen.Dashboard, Screen.Battery, Screen.History)
+    val items = listOf(Screen.Dashboard, Screen.Explore, Screen.History)
 
     NavigationBar {
         val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -32,7 +33,7 @@ fun BottomNavBar(navController: NavController) {
                     Icon(
                         imageVector = when (screen) {
                             Screen.Dashboard -> Icons.Default.Dashboard
-                            Screen.Battery -> Icons.Default.Battery4Bar
+                            Screen.Explore -> Icons.Default.Explore
                             Screen.History -> Icons.Default.History
                         },
                         contentDescription = null

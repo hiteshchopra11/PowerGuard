@@ -2,11 +2,11 @@ package com.hackathon.powergaurd.di
 
 import android.content.Context
 import com.hackathon.powergaurd.actionable.ActionableExecutor
-import com.hackathon.powergaurd.actionable.AppInactiveHandler
-import com.hackathon.powergaurd.actionable.EnableBatterySaverHandler
-import com.hackathon.powergaurd.actionable.EnableDataSaverHandler
 import com.hackathon.powergaurd.actionable.KillAppHandler
-import com.hackathon.powergaurd.actionable.StandbyBucketHandler
+import com.hackathon.powergaurd.actionable.ManageWakeLocksHandler
+import com.hackathon.powergaurd.actionable.RestrictBackgroundDataHandler
+import com.hackathon.powergaurd.actionable.SetStandbyBucketHandler
+import com.hackathon.powergaurd.actionable.ThrottleCpuUsageHandler
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -26,40 +26,41 @@ object ActionableModule {
         return KillAppHandler(context)
     }
 
-    /** Provides the EnableBatterySaverHandler as a singleton. */
+    /** Provides the ManageWakeLocksHandler as a singleton. */
     @Provides
     @Singleton
-    fun provideEnableBatterySaverHandler(
+    fun provideManageWakeLocksHandler(
         @ApplicationContext context: Context
-    ): EnableBatterySaverHandler {
-        return EnableBatterySaverHandler(context)
+    ): ManageWakeLocksHandler {
+        return ManageWakeLocksHandler(context)
     }
 
-    /** Provides the EnableDataSaverHandler as a singleton. */
+    /** Provides the RestrictBackgroundDataHandler as a singleton. */
     @Provides
     @Singleton
-    fun provideEnableDataSaverHandler(
+    fun provideRestrictBackgroundDataHandler(
         @ApplicationContext context: Context
-    ): EnableDataSaverHandler {
-        return EnableDataSaverHandler(context)
+    ): RestrictBackgroundDataHandler {
+        return RestrictBackgroundDataHandler(context)
     }
 
-    /** Provides the StandbyBucketHandler as a singleton. */
+    /** Provides the SetStandbyBucketHandler as a singleton. */
     @Provides
     @Singleton
-    fun provideStandbyBucketHandler(
+    fun provideSetStandbyBucketHandler(
         @ApplicationContext context: Context
-    ): StandbyBucketHandler {
-        return StandbyBucketHandler(context)
+    ): SetStandbyBucketHandler {
+        return SetStandbyBucketHandler(context)
     }
 
-    /** Provides the AppInactiveHandler as a singleton. */
+
+    /** Provides the ThrottleCpuUsageHandler as a singleton. */
     @Provides
     @Singleton
-    fun provideAppInactiveHandler(
+    fun provideThrottleCpuUsageHandler(
         @ApplicationContext context: Context
-    ): AppInactiveHandler {
-        return AppInactiveHandler(context)
+    ): ThrottleCpuUsageHandler {
+        return ThrottleCpuUsageHandler(context)
     }
 
     /** Provides the ActionableExecutor as a singleton. */
@@ -67,17 +68,17 @@ object ActionableModule {
     @Singleton
     fun provideActionableExecutor(
         killAppHandler: KillAppHandler,
-        enableBatterySaverHandler: EnableBatterySaverHandler,
-        enableDataSaverHandler: EnableDataSaverHandler,
-        standbyBucketHandler: StandbyBucketHandler,
-        appInactiveHandler: AppInactiveHandler
+        manageWakeLocksHandler: ManageWakeLocksHandler,
+        restrictBackgroundDataHandler: RestrictBackgroundDataHandler,
+        setStandbyBucketHandler: SetStandbyBucketHandler,
+        throttleCpuUsageHandler: ThrottleCpuUsageHandler
     ): ActionableExecutor {
         return ActionableExecutor(
             killAppHandler,
-            enableBatterySaverHandler,
-            enableDataSaverHandler,
-            standbyBucketHandler,
-            appInactiveHandler
+            manageWakeLocksHandler,
+            restrictBackgroundDataHandler,
+            setStandbyBucketHandler,
+            throttleCpuUsageHandler
         )
     }
 }

@@ -17,7 +17,12 @@ data class DeviceActionableEntity(
     val description: String,
     val reason: String,
     val newMode: String,
-    val timestamp: Long // Timestamp when the actionable was received/saved
+    val timestamp: Long, // Timestamp when the actionable was received/saved
+    val estimatedBatterySavings: Float? = null,
+    val estimatedDataSavings: Float? = null,
+    val severity: Int? = null,
+    val enabled: Boolean? = null,
+    val throttleLevel: Int? = null
 ) {
     /**
      * Convert entity to domain model
@@ -30,6 +35,11 @@ data class DeviceActionableEntity(
             description = description,
             reason = reason,
             newMode = newMode,
+            estimatedBatterySavings = estimatedBatterySavings,
+            estimatedDataSavings = estimatedDataSavings,
+            severity = severity,
+            enabled = enabled,
+            throttleLevel = throttleLevel,
             parameters = mapOf()
         )
     }

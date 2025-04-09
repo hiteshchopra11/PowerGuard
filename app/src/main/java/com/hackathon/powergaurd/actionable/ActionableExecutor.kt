@@ -14,10 +14,10 @@ class ActionableExecutor
 constructor(
     // Inject all handlers here
     private val killAppHandler: KillAppHandler,
-    private val enableBatterySaverHandler: EnableBatterySaverHandler,
-    private val enableDataSaverHandler: EnableDataSaverHandler,
-    private val standbyBucketHandler: StandbyBucketHandler,
-    private val appInactiveHandler: AppInactiveHandler
+    private val manageWakeLocksHandler: ManageWakeLocksHandler,
+    private val restrictBackgroundDataHandler: RestrictBackgroundDataHandler,
+    private val setStandbyBucketHandler: SetStandbyBucketHandler,
+    private val throttleCpuUsageHandler: ThrottleCpuUsageHandler
 ) {
     private val TAG = "ActionableExecutor"
 
@@ -25,10 +25,10 @@ constructor(
     private val handlers: Map<String, ActionableHandler> by lazy {
         mapOf(
             killAppHandler.actionableType to killAppHandler,
-            enableBatterySaverHandler.actionableType to enableBatterySaverHandler,
-            enableDataSaverHandler.actionableType to enableDataSaverHandler,
-            standbyBucketHandler.actionableType to standbyBucketHandler,
-            appInactiveHandler.actionableType to appInactiveHandler
+            manageWakeLocksHandler.actionableType to manageWakeLocksHandler,
+            restrictBackgroundDataHandler.actionableType to restrictBackgroundDataHandler,
+            setStandbyBucketHandler.actionableType to setStandbyBucketHandler,
+            throttleCpuUsageHandler.actionableType to throttleCpuUsageHandler
         )
     }
 

@@ -74,11 +74,16 @@ class PowerGuardRepository @Inject constructor(
                             packageName = app.packageName,
                             description = "This app is using excessive battery in the background",
                             reason = "High background usage detected",
+                            newMode = "restricted",
+                            estimatedBatterySavings = 15.0f,
+                            estimatedDataSavings = 0.0f,
+                            severity = 4,
+                            enabled = true,
+                            throttleLevel = 3,
                             parameters = mapOf(
                                 "restrictBackground" to "true",
                                 "optimizeBatteryUsage" to "true"
-                            ),
-                            newMode = "restricted"
+                            )
                         )
                     )
 
@@ -108,10 +113,15 @@ class PowerGuardRepository @Inject constructor(
                             packageName = app.packageName,
                             description = "This app is using a lot of data",
                             reason = "High data usage detected",
+                            newMode = "restricted",
+                            estimatedBatterySavings = 5.0f,
+                            estimatedDataSavings = (app.dataUsage.background / (1024f * 1024f)),
+                            severity = 3,
+                            enabled = true,
+                            throttleLevel = 2,
                             parameters = mapOf(
                                 "restrictBackgroundData" to "true"
-                            ),
-                            newMode = "restricted"
+                            )
                         )
                     )
 
@@ -153,10 +163,15 @@ class PowerGuardRepository @Inject constructor(
                             packageName = app.packageName,
                             description = "This app is using a lot of memory",
                             reason = "High memory usage detected",
+                            newMode = "stopped",
+                            estimatedBatterySavings = 10.0f,
+                            estimatedDataSavings = 0.0f,
+                            severity = 5,
+                            enabled = true,
+                            throttleLevel = 5,
                             parameters = mapOf(
                                 "forceStop" to "true"
-                            ),
-                            newMode = "stopped"
+                            )
                         )
                     )
                 }

@@ -5,30 +5,18 @@ object ActionableTypes {
 
     // App control actions
     const val KILL_APP = "kill_app"
-    const val RESTRICT_BACKGROUND = "restrict_background"
-    const val OPTIMIZE_BATTERY = "optimize_battery"
-    const val MARK_APP_INACTIVE = "mark_app_inactive"
+    const val RESTRICT_BACKGROUND_DATA = "restrict_background_data"
     const val SET_STANDBY_BUCKET = "set_standby_bucket"
-
-    // System settings actions
-    const val ENABLE_BATTERY_SAVER = "enable_battery_saver"
-    const val ENABLE_DATA_SAVER = "enable_data_saver"
-    const val ADJUST_SYNC_SETTINGS = "adjust_sync_settings"
-
-    // Categorization actions
-    const val CATEGORIZE_APP = "categorize_app"
+    const val MANAGE_WAKE_LOCKS = "manage_wake_locks"
+    const val THROTTLE_CPU_USAGE = "throttle_cpu_usage"
 
     /** List of all supported actionable types. */
     val ALL_TYPES =
         listOf(
             KILL_APP,
-            RESTRICT_BACKGROUND,
-            OPTIMIZE_BATTERY,
-            MARK_APP_INACTIVE,
+            RESTRICT_BACKGROUND_DATA,
             SET_STANDBY_BUCKET,
-            ENABLE_BATTERY_SAVER,
-            ENABLE_DATA_SAVER,
-            ADJUST_SYNC_SETTINGS,
-            CATEGORIZE_APP
+            MANAGE_WAKE_LOCKS,
+            THROTTLE_CPU_USAGE
         )
 }

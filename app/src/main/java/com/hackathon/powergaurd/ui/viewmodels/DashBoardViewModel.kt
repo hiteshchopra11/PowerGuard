@@ -5,18 +5,14 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hackathon.powergaurd.PowerGuardOptimizer
 import com.hackathon.powergaurd.actionable.ActionableExecutor
+import com.hackathon.powergaurd.actionable.ActionableTypes
 import com.hackathon.powergaurd.collector.UsageDataCollector
 import com.hackathon.powergaurd.data.local.entity.DeviceInsightEntity
 import com.hackathon.powergaurd.data.model.Actionable
 import com.hackathon.powergaurd.data.model.AnalysisResponse
 import com.hackathon.powergaurd.data.model.DeviceData
-import com.hackathon.powergaurd.data.model.Insight
 import com.hackathon.powergaurd.domain.usecase.AnalyzeDeviceDataUseCase
-import com.hackathon.powergaurd.domain.usecase.GetAllActionableUseCase
-import com.hackathon.powergaurd.domain.usecase.GetCurrentInsightsUseCase
-import com.hackathon.powergaurd.domain.usecase.toEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,14 +22,12 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import android.util.Log
 import kotlinx.coroutines.delay
+import java.util.UUID
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val usageDataCollector: UsageDataCollector,
     private val analyzeDeviceDataUseCase: AnalyzeDeviceDataUseCase,
-    private val getAllActionableUseCase: GetAllActionableUseCase,
-    private val getCurrentInsightsUseCase: GetCurrentInsightsUseCase,
-    private val powerGuardOptimizer: PowerGuardOptimizer,
     private val actionableExecutor: ActionableExecutor
 ) : ViewModel() {
 
@@ -101,46 +95,39 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    fun saveBattery() {
+    /**
+     * Kills a specific app to immediately reduce resource usage
+     */
+    fun killApp(packageName: String, appName: String) {
         viewModelScope.launch {
-            _isLoading.value = true
-
             try {
-                // Using PowerGuardOptimizer to save battery
-                powerGuardOptimizer.saveBattery()
-
-                // Then trigger analysis to update recommendations
-                _deviceData.value?.let { analyzeDeviceData(it) }
-            } catch (e: Exception) {
-                _error.value = "Failed to save battery: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun saveData() {
-        viewModelScope.launch {
-            _isLoading.value = true
-
-            try {
-                // Get the most data-consuming app
-                val highDataApp = _deviceData.value?.apps?.maxByOrNull { it.dataUsage.background }
-
-                if (highDataApp != null) {
-                    // Save data for the high usage app
-                    powerGuardOptimizer.saveData(highDataApp.packageName, true)
+                Log.d("DashboardViewModel", "Attempting to kill app: $packageName")
+                
+                val actionable = Actionable(
+                    id = UUID.randomUUID().toString(),
+                    type = ActionableTypes.KILL_APP,
+                    description = "Force stop $appName to save resources",
+                    packageName = packageName,
+                    estimatedBatterySavings = 8.0f,
+                    estimatedDataSavings = 10.0f,
+                    severity = 5,
+                    newMode = null,
+                    enabled = true,
+                    throttleLevel = null,
+                    reason = "Immediate resource optimization"
+                )
+                
+                val result = actionableExecutor.executeActionable(listOf(actionable))
+                
+                if (result.values.first()) {
+                    Log.d("DashboardViewModel", "Successfully killed app: $packageName")
                 } else {
-                    // If no app found, apply general data saving
-                    powerGuardOptimizer.saveData("com.android.settings", true)
+                    Log.e("DashboardViewModel", "Failed to kill app: $packageName")
+                    _error.value = "Failed to force stop $appName"
                 }
-
-                // Then trigger analysis to update recommendations
-                _deviceData.value?.let { analyzeDeviceData(it) }
             } catch (e: Exception) {
-                _error.value = "Failed to save data: ${e.message}"
-            } finally {
-                _isLoading.value = false
+                Log.e("DashboardViewModel", "Error killing app", e)
+                _error.value = "Error stopping $appName: ${e.message}"
             }
         }
     }
@@ -148,6 +135,7 @@ class DashboardViewModel @Inject constructor(
     /**
      * Submits the user's prompt to the API for analysis
      */
+    @RequiresApi(Build.VERSION_CODES.P)
     fun submitPrompt(prompt: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -185,6 +173,12 @@ class DashboardViewModel @Inject constructor(
                     
                     // Save the response to the history database
                     saveResponseToHistory(response)
+                    
+                    // Execute actionables from the response
+                    if (response.actionable.isNotEmpty()) {
+                        Log.d("DashboardViewModel", "Executing ${response.actionable.size} actionables from analysis")
+                        actionableExecutor.executeActionable(response.actionable)
+                    }
                 } else {
                     Log.w("DashboardViewModel", "Analysis returned null response")
                 }
@@ -268,7 +262,7 @@ class DashboardViewModel @Inject constructor(
         return when {
             highSeverityInsights.isNotEmpty() -> {
                 val insight = highSeverityInsights.first()
-                "${insight.insightTitle}: ${insight.insightDescription}. Tap 'Save Battery' or 'Save Data' to optimize your device."
+                "${insight.insightTitle}: ${insight.insightDescription}. Tap 'Optimize Battery' or 'Optimize Data' to improve your device."
             }
             mediumSeverityInsights.isNotEmpty() -> {
                 val insight = mediumSeverityInsights.first()

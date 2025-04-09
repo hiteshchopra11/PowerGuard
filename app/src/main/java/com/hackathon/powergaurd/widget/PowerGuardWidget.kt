@@ -96,7 +96,7 @@ class PowerGuardWidget : AppWidgetProvider() {
             ACTION_SAVE_BATTERY -> {
                 // Apply battery optimization
                 val optimizer = PowerGuardOptimizer(context)
-                optimizer.saveBattery()
+                optimizer.optimizeBatteryCharging()
                 
                 // Open the app with the specific prompt
                 val openIntent = Intent(context, MainActivity::class.java).apply {
@@ -110,7 +110,7 @@ class PowerGuardWidget : AppWidgetProvider() {
             ACTION_SAVE_DATA -> {
                 // Apply data optimization
                 val optimizer = PowerGuardOptimizer(context)
-                optimizer.saveData("com.android.settings", true)
+                optimizer.restrictBackgroundData("com.android.settings", true)
                 
                 // Open the app with the specific prompt
                 val openIntent = Intent(context, MainActivity::class.java).apply {

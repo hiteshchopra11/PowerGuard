@@ -144,19 +144,6 @@ data class AnalysisResponse(
 }
 
 /**
- * Actionable model for recommended actions
- */
-data class Actionable(
-    val id: String,
-    val type: String,
-    val packageName: String,
-    val description: String,
-    val reason: String,
-    val newMode: String,
-    val parameters: Map<String, Any>
-)
-
-/**
  * Insight model for providing analysis insights
  */
 data class Insight(

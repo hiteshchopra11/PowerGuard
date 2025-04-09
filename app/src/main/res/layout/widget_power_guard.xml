@@ -1,53 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_height="wrap_content"
     android:background="@drawable/widget_background"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="12dp">
 
     <TextView
         android:id="@+id/widget_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="PowerGuard"
-        android:textColor="#FFFFFF"
-        android:textSize="18sp"
+        android:textAlignment="center"
+        android:textColor="#6200EE"
+        android:textSize="16sp"
         android:textStyle="bold" />
 
     <TextView
-        android:id="@+id/widget_status"
+        android:id="@+id/widget_prompt_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="Status: Monitoring"
-        android:textColor="#E0E0E0"
-        android:textSize="14sp" />
-
-    <TextView
-        android:id="@+id/widget_loading_text"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/widget_loading"
-        android:textColor="#E0E0E0"
-        android:textSize="14sp"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/widget_summary_text"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/widget_summary"
-        android:textColor="#E0E0E0"
-        android:textSize="14sp" />
-
-    <Button
-        android:id="@+id/widget_optimize_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/widget_optimize_now" />
+        android:layout_marginTop="6dp"
+        android:padding="4dp"
+        android:text="Ask: Which app is draining my battery?"
+        android:textAlignment="center"
+        android:textColor="#000000"
+        android:textSize="12sp"
+        android:clickable="true"
+        android:focusable="true"
+        android:maxLines="1"
+        android:ellipsize="end" />
 
     <!-- Button Row for Save Battery and Save Data -->
     <LinearLayout
@@ -58,39 +41,31 @@
         
         <Button
             android:id="@+id/widget_save_battery_button"
+            style="@style/Widget.AppCompat.Button.Colored"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="36dp"
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
-            android:text="@string/widget_save_battery" />
+            android:text="⚡ Battery"
+            android:textAllCaps="false"
+            android:textSize="11sp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp"
+            android:backgroundTint="#6200EE" />
             
         <Button
             android:id="@+id/widget_save_data_button"
+            style="@style/Widget.AppCompat.Button.Colored"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="36dp"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
-            android:text="@string/widget_save_data" />
-    </LinearLayout>
-    
-    <!-- Prompt Row for input and send button -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="8dp">
-        
-        <TextView
-            android:id="@+id/widget_prompt_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="8dp"
-            android:text="@string/widget_prompt_hint"
-            android:background="@drawable/text_input_background"
-            android:textColor="#E0E0E0"
-            android:textSize="14sp"
-            android:clickable="true"
-            android:focusable="true" />
+            android:text="📶 Data"
+            android:textAllCaps="false"
+            android:textSize="11sp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp"
+            android:backgroundTint="#03DAC5" />
     </LinearLayout>
 
 </LinearLayout> 

@@ -98,7 +98,4 @@ dependencies {
 
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
-
-    // Optional for Android Instrumented Tests
-    androidTestImplementation(libs.mockk.android)
 }

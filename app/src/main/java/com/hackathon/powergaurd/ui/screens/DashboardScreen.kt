@@ -7,6 +7,15 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.with
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,8 +43,8 @@ import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -46,12 +55,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.AssistChip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,6 +72,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -74,12 +88,13 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hackathon.powergaurd.PowerGuardOptimizer
+import com.hackathon.powergaurd.ui.screens.ExamplesBottomSheet
 import com.hackathon.powergaurd.ui.viewmodels.DashboardUiState
 import com.hackathon.powergaurd.ui.viewmodels.DashboardViewModel
 import kotlinx.coroutines.delay
 
 @RequiresApi(Build.VERSION_CODES.P)
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun DashboardScreen(
     modifier: Modifier = Modifier,
@@ -213,6 +228,16 @@ private fun DashboardContent(
     promptText: String,
     onPromptChange: (String) -> Unit
 ) {
+    // Track whether first API response has been received
+    var hasReceivedFirstResponse by remember { mutableStateOf(false) }
+    
+    // Set to true once the first analysis response is received
+    LaunchedEffect(analysisResponse) {
+        if (analysisResponse != null) {
+            hasReceivedFirstResponse = true
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -233,10 +258,11 @@ private fun DashboardContent(
                 )
             }
             
-            // Gratification card at the top
-            GratificationCard()
-            
-            Spacer(modifier = Modifier.height(16.dp))
+            // Only show gratification card after first API response
+            if (hasReceivedFirstResponse) {
+                GratificationCard()
+                Spacer(modifier = Modifier.height(16.dp))
+            }
             
             // Prompt input card - moved above battery card
             PromptCard(
@@ -263,8 +289,9 @@ private fun DashboardContent(
                 chargingType = uiState.chargingType,
                 batteryTemperature = uiState.batteryTemperature,
                 onOptimize = {
-                    optimizer.saveBattery()
-                    showSnackbar("Battery optimization applied")
+                    // Call API with exact prompt "Optimize battery"
+                    viewModel.submitPrompt("Optimize battery")
+                    onShowAnalysisDialog(true, true) // Show dialog in analyzing state
                 }
             )
             
@@ -276,8 +303,9 @@ private fun DashboardContent(
                 networkStrength = uiState.networkStrength,
                 highUsageApps = uiState.highUsageApps,
                 onOptimize = {
-                    optimizer.saveData("com.android.settings", true)
-                    showSnackbar("Data usage optimization applied")
+                    // Call API with exact prompt "Optimize data"
+                    viewModel.submitPrompt("Optimize data")
+                    onShowAnalysisDialog(true, true) // Show dialog in analyzing state
                 }
             )
             
@@ -393,6 +421,24 @@ fun NetworkUsageCard(
 ) {
     var networkSectionExpanded by remember { mutableStateOf(false) }
     val arrowRotation by animateFloatAsState(targetValue = if (networkSectionExpanded) 180f else 0f)
+    
+    // Create a simulated network speed that changes
+    var networkSpeed by remember { mutableStateOf(0f) }
+    
+    // Update the network speed every few seconds
+    LaunchedEffect(Unit) {
+        while(true) {
+            // Generate a random realistic network speed based on connection type
+            networkSpeed = when (networkType) {
+                "WiFi" -> (2.5f + (Math.random() * 8).toFloat()).coerceAtMost(10f) // 2.5-10 Mbps for WiFi
+                "4G" -> (1.5f + (Math.random() * 4).toFloat()).coerceAtMost(5f) // 1.5-5 Mbps for 4G
+                "3G" -> (0.4f + (Math.random() * 1).toFloat()).coerceAtMost(1.5f) // 0.4-1.5 Mbps for 3G
+                "2G" -> (0.05f + (Math.random() * 0.1).toFloat()).coerceAtMost(0.15f) // 50-150 Kbps for 2G
+                else -> (Math.random() * 3).toFloat() // Fallback
+            }
+            delay(3000) // Update every 3 seconds
+        }
+    }
 
     Card(
         modifier = Modifier
@@ -436,7 +482,14 @@ fun NetworkUsageCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text("Connection: $networkType")
-            Text("Signal Strength: $networkStrength/4")
+            
+            // Display network speed instead of signal strength
+            val speedText = if (networkSpeed < 1.0f) {
+                "${(networkSpeed * 1000).toInt()} Kbps"
+            } else {
+                "${String.format("%.1f", networkSpeed)} Mbps"
+            }
+            Text("Current Speed: $speedText")
 
             Row(
                 modifier = Modifier
@@ -479,6 +532,7 @@ fun NetworkUsageCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun PromptCard(
     promptText: String,
@@ -486,6 +540,33 @@ fun PromptCard(
     onSubmit: () -> Unit,
     focusRequester: FocusRequester
 ) {
+    // Create a list of rotating placeholder texts
+    val placeholders = listOf(
+        "Which app is draining my battery?",
+        "Which apps consume the most battery?",
+        "Save battery but keep WhatsApp running",
+        "Make my battery last 3 hours",
+        "What's using my data?",
+        "I have 500MB left, help me save it",
+        "Going on a trip with 10% battery, need help"
+    )
+    
+    // Set up rotating index for placeholders
+    var currentPlaceholderIndex by remember { mutableIntStateOf(0) }
+    
+    // Bottom sheet state
+    var showBottomSheet by remember { mutableStateOf(false) }
+    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
+    
+    // Rotate the placeholder every 3 seconds
+    LaunchedEffect(Unit) {
+        while(true) {
+            delay(3000) // 3 seconds
+            currentPlaceholderIndex = (currentPlaceholderIndex + 1) % placeholders.size
+        }
+    }
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -510,24 +591,69 @@ fun PromptCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
-                placeholder = { Text("Enter your query about device performance...") },
+                placeholder = { 
+                    // Animated content transition for placeholders
+                    AnimatedContent(
+                        targetState = currentPlaceholderIndex,
+                        transitionSpec = {
+                            // Use simpler enter/exit transitions
+                            (fadeIn(animationSpec = tween(300)) + 
+                            slideInHorizontally(
+                                initialOffsetX = { width -> width },
+                                animationSpec = tween(durationMillis = 500)
+                            )) togetherWith
+                            (fadeOut(animationSpec = tween(300)) + 
+                            slideOutHorizontally(
+                                targetOffsetX = { width -> -width },
+                                animationSpec = tween(durationMillis = 500)
+                            ))
+                        }
+                    ) { index ->
+                        Text(placeholders[index])
+                    }
+                },
                 maxLines = 2
             )
-
+            
             Spacer(modifier = Modifier.height(8.dp))
-
-            Button(
-                onClick = onSubmit,
-                modifier = Modifier.align(Alignment.End)
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Send,
-                    contentDescription = "Send"
+                AssistChip(
+                    onClick = { showBottomSheet = true },
+                    label = { Text("What can I ask?") },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Lightbulb,
+                            contentDescription = "Examples",
+                            Modifier.size(18.dp)
+                        )
+                    }
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Send")
+                
+                Button(
+                    onClick = onSubmit
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Send"
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Send")
+                }
             }
         }
+    }
+    
+    // Show bottom sheet with examples when clicked
+    if (showBottomSheet) {
+        ExamplesBottomSheet(
+            onDismiss = { showBottomSheet = false },
+            sheetState = bottomSheetState
+        )
     }
 }
 
@@ -703,7 +829,7 @@ fun AnalysisDialog(
                     Column(modifier = Modifier.padding(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.Assignment,
+                                imageVector = Icons.AutoMirrored.Filled.Assignment,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary
                             )

@@ -1,89 +1,96 @@
-# PowerGuard: Battery & Network Optimization System
+# PowerGuard Actionables
 
-## Project Overview
+PowerGuard leverages a set of high-impact actionables to optimize both battery and data usage on Android devices. These actionables are implementable with system privileges and target specific applications.
 
-PowerGuard is an innovative system designed to optimize battery and network usage on
-mobile devices. It collects real device usage data to provide insights and optimize device performance.
+## Core Actionables
 
-### Key Features
+PowerGuard implements 5 primary actionables, each focusing on different aspects of system optimization:
 
-1. **Real-time Device Monitoring**: Collects actual device data using the UsageDataCollector
-2. **Actionable Insights**: Generates and stores insights from device data analysis
-3. **Battery Information**: Detailed battery statistics and health information
-4. **Network Usage Monitoring**: Tracks data usage across applications
-5. **Historical Insights**: View past insights with timestamps
+### 1. Set Standby Bucket (`set_standby_bucket`)
 
-## System App Requirements
+Places apps in Android's app standby buckets to control background activity levels.
 
-**Important Note:** PowerGuard is designed to run as a system app to access the necessary
-permissions for deep optimization. This requires:
+- **Implementation**: Uses `UsageStatsManager.setAppStandbyBucket()` API
+- **Buckets**: ACTIVE, WORKING_SET, FREQUENT, RARE, RESTRICTED
+- **Requires**: Android P (API 28) or higher for full functionality
+- **Impact**: High impact on battery with low user experience disruption
 
-1. A rooted device, or
-2. An Android emulator with system privileges, or
-3. Integration into a custom ROM
+### 2. Restrict Background Data (`restrict_background_data`)
 
-For installation instructions, please see [SYSTEM_APP_INSTALLATION.md](SYSTEM_APP_INSTALLATION.md).
+Prevents specific apps from using data in the background.
 
-### Installation Location
+- **Implementation**: Uses `NetworkPolicyManager.setUidPolicy()` API
+- **Requirements**: System privileges to access NetworkPolicyManager
+- **Fallback**: Guides users to data settings when direct API access isn't possible
+- **Impact**: High impact on data usage with minimal UX effects
 
-PowerGuard is installed as a privileged system app in `/system/priv-app` to maximize permission
-access. This location grants the app more automatic permissions compared to the standard
-`/system/app` location.
+### 3. Kill App (`kill_app`)
 
-After installation, you must run the provided permissions script to handle permissions that require
-special granting:
+Force stops applications that are consuming excessive resources.
 
-```bash
-# Make the script executable
-chmod +x grant_permissions.sh
+- **Implementation**: Uses `ActivityManager.forceStopPackage()` API
+- **Requirements**: System privileges to force stop other applications
+- **Impact**: Immediate but temporary relief; apps will restart when launched
 
-# Run the script to grant permissions
-./grant_permissions.sh
-```
+### 4. Manage Wake Locks (`manage_wake_locks`)
 
-## Features
+Controls apps keeping the device awake via wake locks.
 
-### Core Functionality
+- **Implementation**: Uses `AppOpsManager` to deny wake lock operations
+- **Requirements**: Android M (API 23) or higher
+- **Impact**: Targets one of the most common battery drain sources
 
-- Real device data collection
-- Battery stats visualization
-- Network usage monitoring
-- Insights history tracking
+### 5. Throttle CPU Usage (`throttle_cpu_usage`)
 
-### User Interface
+Limits CPU resources allocated to specific apps.
 
-The app provides three main screens:
-
-1. **Dashboard**: Shows battery status, network usage information, and a query prompt
-2. **Battery**: Displays detailed battery information using real device data
-3. **History**: Shows insights generated from device data analysis with timestamps
+- **Implementation**: Uses process groups and cgroups when available
+- **Scaling**: Configurable throttle levels (1-10) for fine-tuned control
+- **Requirements**: System privileges or root access for cgroups
+- **Impact**: Allows granular balancing between performance and battery life
 
 ## Architecture
 
-PowerGuard follows a modern Android architecture:
+PowerGuard's actionable system follows a modular architecture:
 
-- **MVVM Pattern**: Clear separation of UI, business logic, and data
-- **Dependency Injection**: Uses Hilt for dependency management
-- **Coroutines**: Handles asynchronous operations efficiently
-- **WorkManager**: Manages background tasks for data collection
-- **Room Database**: Stores insights for historical tracking
-- **Jetpack Compose**: Powers the modern UI components
+1. **ActionableTypes**: Defines available actionable types as constants
+2. **ActionableHandler**: Interface implemented by all handlers
+3. **ActionableExecutor**: Central service for processing and executing actionables 
+4. **ActionableUtils**: Utility class with common operations for all handlers
+5. **Individual Handlers**: Implementations for each actionable type
 
-## Project Structure
+## Usage
 
-- **ui**: UI components and screens
-- **worker**: Background processing components
-- **data**: Data models and repositories
-- **domain**: Use cases and business logic
-- **collector**: Device data collectors
-- **di**: Dependency injection modules
+Each actionable is implemented with thorough error handling and fallback mechanisms, requiring minimal custom code to invoke:
 
-## Getting Started
+```kotlin
+// Example of using the actionable system
+val actionableExecutor: ActionableExecutor = // injected via Dagger
 
-1. Clone the repository
-2. Open the project in Android Studio
-3. Build and run on your device or emulator
+// Create an actionable
+val action = Actionable(
+    id = "unique_id",
+    type = ActionableTypes.THROTTLE_CPU_USAGE,
+    description = "Throttle Facebook to save battery",
+    packageName = "com.facebook.katana",
+    throttleLevel = 7
+)
 
-## License
+// Execute the actionable
+lifecycleScope.launch {
+    val result = actionableExecutor.executeActionable(listOf(action))
+    // Handle result
+}
+```
 
-MIT License 
+## Requirements
+
+Most actionables require elevated system privileges to function properly:
+
+- The app should be installed as a privileged system app
+- Requires PACKAGE_USAGE_STATS permission at minimum
+- Some features need additional permissions like WRITE_SECURE_SETTINGS
+
+## Compatibility
+
+PowerGuard actionables are designed to work across all modern Android versions (API 24+) with progressive enhancement for newer API levels. 

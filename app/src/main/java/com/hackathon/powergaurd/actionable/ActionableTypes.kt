@@ -4,11 +4,11 @@ package com.hackathon.powergaurd.actionable
 object ActionableTypes {
 
     // App control actions
-    const val KILL_APP = "kill_app"
-    const val RESTRICT_BACKGROUND_DATA = "restrict_background_data"
-    const val SET_STANDBY_BUCKET = "set_standby_bucket"
-    const val MANAGE_WAKE_LOCKS = "manage_wake_locks"
-    const val THROTTLE_CPU_USAGE = "throttle_cpu_usage"
+    const val KILL_APP = "KILL_APP"
+    const val RESTRICT_BACKGROUND_DATA = "RESTRICT_BACKGROUND_DATA"
+    const val SET_STANDBY_BUCKET = "SET_STANDBY_BUCKET"
+    const val MANAGE_WAKE_LOCKS = "MANAGE_WAKE_LOCKS"
+    const val THROTTLE_CPU_USAGE = "THROTTLE_CPU_USAGE"
 
     /** List of all supported actionable types. */
     val ALL_TYPES =

@@ -125,7 +125,7 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
         val bm = batteryManager ?: run {
             Log.w(TAG, "Battery manager not available")
             return BatteryInfo(
-                level = -1,
+                level = 10, // Hardcoded to 10% for demo
                 temperature = -1f,
                 voltage = -1,
                 isCharging = false,
@@ -166,9 +166,10 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             -1L
         }
 
-        val level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY).also {
-            Log.v(TAG, "Battery level: $it%")
-        }
+        // Hardcoded to 10% for demo
+        val level = 10
+        Log.v(TAG, "Battery level: $level% (hardcoded for demo)")
+        
         val temperature = batteryIntent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1)?.div(10f) ?: -1f
         Log.v(TAG, "Battery temperature: $temperature°C")
         val voltage = batteryIntent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1) ?: -1

@@ -15,6 +15,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,11 +39,13 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.Celebration
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -81,7 +85,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hackathon.powergaurd.PowerGuardOptimizer
 import com.hackathon.powergaurd.ui.viewmodels.DashboardUiState
 import com.hackathon.powergaurd.ui.viewmodels.DashboardViewModel
+import com.hackathon.powergaurd.ui.viewmodels.ActionableViewModel
 import kotlinx.coroutines.delay
+import com.hackathon.powergaurd.data.model.AnalysisResponse
+import com.hackathon.powergaurd.data.model.Actionable
+import com.hackathon.powergaurd.data.model.Insight
+import com.hackathon.powergaurd.actionable.ActionableTypes
+import kotlinx.coroutines.flow.MutableStateFlow
 
 @RequiresApi(Build.VERSION_CODES.P)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,6 +114,10 @@ fun DashboardScreen(
     var isAnalyzing by remember { mutableStateOf(false) }
     var promptText by remember { mutableStateOf("") }
     
+    LaunchedEffect(isLoading, analysisResponse, showActionableDialog, isAnalyzing) {
+        Log.d("DashboardScreen", "State changed: isLoading=$isLoading, hasResponse=${analysisResponse != null}, showDialog=$showActionableDialog, isAnalyzing=$isAnalyzing")
+    }
+    
     // Declare FocusRequester
     val focusRequester = remember { FocusRequester() }
 
@@ -117,17 +131,37 @@ fun DashboardScreen(
 
     // Handle error if needed
     LaunchedEffect(error) {
-        error?.let {
-            showSnackbar(it)
+        if (error != null) {
+            Log.e("DashboardScreen", "Error occurred: $error")
+            // Only reset analyzing state, keep dialog visible if showing results
             isAnalyzing = false
         }
     }
     
-    // When analysis response changes and is not null
-    LaunchedEffect(analysisResponse) {
-        if (analysisResponse != null) {
-            isAnalyzing = false
-        }
+    // Show loading dialog when analysis is in progress
+    if (isAnalyzing) {
+        LoadingAnalysisDialog(
+            onDismissRequest = {
+                // Only allow dismissal if not actively loading
+                if (!isLoading) {
+                    isAnalyzing = false
+                    viewModel.clearAnalysisResponse()
+                }
+            }
+        )
+    }
+
+    // Show analysis results dialog when response is available
+    if (showActionableDialog && analysisResponse != null) {
+        AnalysisDialog(
+            response = analysisResponse!!,
+            onDismissRequest = {
+                showActionableDialog = false
+                isAnalyzing = false
+                viewModel.clearAnalysisResponse()
+            },
+            viewModel = viewModel
+        )
     }
 
     Scaffold(
@@ -174,27 +208,6 @@ fun DashboardScreen(
                 focusRequester = focusRequester,
                 promptText = promptText,
                 onPromptChange = { promptText = it }
-            )
-        }
-    }
-    
-    // Dialog for showing insights and actionables or loading state
-    if (showActionableDialog) {
-        if (isAnalyzing) {
-            LoadingAnalysisDialog(
-                onDismiss = { 
-                    showActionableDialog = false
-                    isAnalyzing = false
-                }
-            )
-        } else if (analysisResponse != null) {
-            AnalysisDialog(
-                analysisResponse = analysisResponse!!,
-                onDismiss = { 
-                    showActionableDialog = false
-                    focusRequester.freeFocus()
-                    promptText = "" // Clear the prompt text
-                }
             )
         }
     }
@@ -650,7 +663,7 @@ fun PromptCard(
 }
 
 @Composable
-fun LoadingAnalysisDialog(onDismiss: () -> Unit) {
+fun LoadingAnalysisDialog(onDismissRequest: () -> Unit) {
     val animatedDots = remember { mutableStateOf("") }
     
     // Animated dots effect
@@ -664,7 +677,7 @@ fun LoadingAnalysisDialog(onDismiss: () -> Unit) {
     }
     
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = onDismissRequest,
         title = {
             Text(
                 text = "Analyzing Device Data",
@@ -704,7 +717,7 @@ fun LoadingAnalysisDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismissRequest) {
                 Text("Cancel")
             }
         },
@@ -714,22 +727,44 @@ fun LoadingAnalysisDialog(onDismiss: () -> Unit) {
 
 @Composable
 fun AnalysisDialog(
-    analysisResponse: com.hackathon.powergaurd.data.model.AnalysisResponse,
-    onDismiss: () -> Unit
+    response: com.hackathon.powergaurd.data.model.AnalysisResponse,
+    onDismissRequest: () -> Unit,
+    viewModel: DashboardViewModel
 ) {
-    // Debug log the response contents with HITESH tag
-    LaunchedEffect(analysisResponse) {
+    // Track execution states
+    val isExecuting by viewModel.isExecuting.collectAsStateWithLifecycle()
+    val executionResults by viewModel.executionResults.collectAsStateWithLifecycle()
+    
+    // Local state for showing success message
+    var showSuccessMessage by remember { mutableStateOf(false) }
+    var successMessage by remember { mutableStateOf("") }
+    
+    // Clear execution results when dialog opens
+    LaunchedEffect(Unit) {
+        viewModel.clearExecutionResults()
+    }
+    
+    // Auto-dismiss dialog when all actions are completed successfully
+    LaunchedEffect(executionResults) {
+        if (executionResults.isNotEmpty() && executionResults.values.all { it }) {
+            delay(1500) // Show success message for 1.5 seconds
+            onDismissRequest()
+        }
+    }
+    
+    // Debug log the response contents
+    LaunchedEffect(response) {
         Log.d("PROMPT_DEBUG", """
             ╔════════════════════════════════════════════
             ║ Analysis Response Details
             ╠════════════════════════════════════════════
-            ║ INSIGHTS (${analysisResponse.insights.size}):
-            ║ ${analysisResponse.insights.joinToString("\n║ ") { 
+            ║ INSIGHTS (${response.insights.size}):
+            ║ ${response.insights.joinToString("\n║ ") { 
                 "• Type: ${it.type}\n║   Title: ${it.title}\n║   Description: ${it.description}" 
             }}
             ╠════════════════════════════════════════════
-            ║ ACTIONABLES (${analysisResponse.actionable.size}):
-            ║ ${analysisResponse.actionable.joinToString("\n║ ") { 
+            ║ ACTIONABLES (${response.actionable.size}):
+            ║ ${response.actionable.joinToString("\n║ ") { 
                 "• Type: ${it.type}\n║   Description: ${it.description}\n║   Reason: ${it.reason}" 
             }}
             ╚════════════════════════════════════════════
@@ -737,7 +772,7 @@ fun AnalysisDialog(
     }
     
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = onDismissRequest,
         title = {
             Text(
                 text = "Device Optimization Insights",
@@ -751,6 +786,39 @@ fun AnalysisDialog(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
             ) {
+                // Success message if shown
+                AnimatedVisibility(
+                    visible = showSuccessMessage,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Celebration,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = successMessage,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+                
                 // INSIGHTS SECTION
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -776,14 +844,14 @@ fun AnalysisDialog(
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         // Display insights with proper bullet points
-                        if (analysisResponse.insights.isEmpty()) {
+                        if (response.insights.isEmpty()) {
                             Text(
                                 text = "No insights available at this time.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
-                            analysisResponse.insights.forEach { insight ->
+                            response.insights.forEach { insight ->
                                 Row(
                                     verticalAlignment = Alignment.Top,
                                     modifier = Modifier.padding(bottom = 8.dp)
@@ -811,64 +879,183 @@ fun AnalysisDialog(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // ACTIONS SECTION
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Assignment,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Suggested Actions:",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        // Display actionables with proper bullet points
-                        if (analysisResponse.actionable.isEmpty()) {
-                            Text(
-                                text = "No actions available at this time.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            analysisResponse.actionable.forEach { actionable ->
-                                Row(
-                                    verticalAlignment = Alignment.Top,
-                                    modifier = Modifier.padding(bottom = 8.dp)
+                // ACTIONS SECTION - Only show if there are actionables
+                if (response.actionable.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.Assignment,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Suggested Actions:",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                
+                                // Apply All button at the top level
+                                Button(
+                                    onClick = {
+                                        viewModel.executeAllActionablesAsync(response.actionable) { results ->
+                                            val successCount = results.values.count { it }
+                                            successMessage = if (successCount == response.actionable.size) {
+                                                "All actions applied successfully!"
+                                            } else {
+                                                "$successCount of ${response.actionable.size} actions applied."
+                                            }
+                                            showSuccessMessage = true
+                                        }
+                                    },
+                                    enabled = !isExecuting,
+                                    modifier = Modifier
+                                        .height(28.dp)
+                                        .padding(start = 8.dp)
+                                        .animateContentSize(
+                                            animationSpec = tween(
+                                                durationMillis = 300,
+                                                easing = FastOutSlowInEasing
+                                            )
+                                        ),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
                                 ) {
-                                    Box(
-                                        modifier = Modifier.width(24.dp),
-                                        contentAlignment = Alignment.TopStart
-                                    ) {
-                                        Text(
-                                            text = "•", 
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontSize = 18.sp
+                                    if (isExecuting) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary
                                         )
+                                        Spacer(modifier = Modifier.width(4.dp))
                                     }
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = actionable.description,
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                        if (actionable.reason.isNotBlank()) {
-                                            Spacer(modifier = Modifier.height(2.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Apply All",
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            // Display actionables with apply buttons
+                            response.actionable.forEach { actionable ->
+                                val isActionExecuted = executionResults[actionable.id] == true
+                                val isActionFailed = executionResults[actionable.id] == false
+                                
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 8.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = when {
+                                            isActionExecuted -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                                            isActionFailed -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+                                            else -> MaterialTheme.colorScheme.surface
+                                        }
+                                    )
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.Top,
+                                        modifier = Modifier.padding(12.dp)
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = "Reason: ${actionable.reason}",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                text = actionable.description,
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                            if (actionable.reason.isNotBlank()) {
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = "Reason: ${actionable.reason}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            
+                                            // Show success or error message if action was executed
+                                            if (isActionExecuted) {
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "✓ Action applied successfully",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            } else if (isActionFailed) {
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "✗ Failed to apply action",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        }
+                                        
+                                        // Apply button for individual actionable
+                                        Button(
+                                            onClick = {
+                                                viewModel.executeActionableAsync(actionable) { success ->
+                                                    if (success) {
+                                                        successMessage = "Action applied successfully!"
+                                                        showSuccessMessage = true
+                                                    }
+                                                }
+                                            },
+                                            enabled = !isExecuting && !isActionExecuted,
+                                            modifier = Modifier
+                                                .padding(start = 8.dp)
+                                                .animateContentSize(
+                                                    animationSpec = tween(
+                                                        durationMillis = 300,
+                                                        easing = FastOutSlowInEasing
+                                                    )
+                                                ),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (isActionExecuted) 
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                                else 
+                                                    MaterialTheme.colorScheme.primary
+                                            )
+                                        ) {
+                                            if (isExecuting && !isActionExecuted && !isActionFailed) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(16.dp),
+                                                    strokeWidth = 2.dp,
+                                                    color = MaterialTheme.colorScheme.onPrimary
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                            } else if (isActionExecuted) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = "Applied",
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = MaterialTheme.colorScheme.onPrimary
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                            }
+                                            Text(
+                                                text = if (isActionExecuted) "Applied" else "Apply", 
+                                                style = MaterialTheme.typography.labelLarge
                                             )
                                         }
                                     }
@@ -880,8 +1067,8 @@ fun AnalysisDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = "OK")
+            TextButton(onClick = onDismissRequest) {
+                Text(text = "Close")
             }
         }
     )
@@ -948,8 +1135,245 @@ fun PromptCardPreview() {
 @Composable
 fun LoadingAnalysisDialogPreview() {
     MaterialTheme {
-        LoadingAnalysisDialog(onDismiss = {})
+        LoadingAnalysisDialog(onDismissRequest = {})
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AnalysisDialogPreview() {
+    val sampleResponse = AnalysisResponse(
+        id = "preview-1",
+        success = true,
+        timestamp = System.currentTimeMillis().toFloat(),
+        message = "Analysis completed successfully",
+        batteryScore = 85f,
+        dataScore = 75f,
+        performanceScore = 90f,
+        estimatedSavings = AnalysisResponse.EstimatedSavings(
+            batteryMinutes = 120f,
+            dataMB = 250f
+        ),
+        insights = listOf(
+            Insight(
+                type = "BATTERY",
+                title = "Battery Usage",
+                description = "Your device's battery health is good",
+                severity = "LOW"
+            ),
+            Insight(
+                type = "DATA",
+                title = "Data Usage",
+                description = "Some apps are consuming high data in background",
+                severity = "MEDIUM"
+            )
+        ),
+        actionable = listOf(
+            Actionable(
+                id = "action-1",
+                type = ActionableTypes.RESTRICT_BACKGROUND_DATA,
+                packageName = "com.example.youtube",
+                description = "Optimize battery usage for YouTube",
+                reason = "High battery consumption in background",
+                estimatedBatterySavings = 10f,
+                estimatedDataSavings = 50f,
+                severity = 3,
+                enabled = true,
+                throttleLevel = 5,
+                newMode = "restricted"
+            ),
+            Actionable(
+                id = "action-2",
+                type = ActionableTypes.SET_STANDBY_BUCKET,
+                packageName = "com.example.instagram",
+                description = "Restrict background data for Instagram",
+                reason = "Excessive data usage in background",
+                estimatedBatterySavings = 5f,
+                estimatedDataSavings = 100f,
+                severity = 4,
+                enabled = true,
+                throttleLevel = null,
+                newMode = "restricted"
+            )
+        )
+    )
+
+    MaterialTheme {
+        Surface {
+            AnalysisDialogPreviewContent(sampleResponse)
+        }
+    }
+}
+
+@Composable
+private fun AnalysisDialogPreviewContent(response: AnalysisResponse) {
+    AlertDialog(
+        onDismissRequest = {},
+        title = {
+            Text(
+                text = "Device Optimization Insights",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // INSIGHTS SECTION
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Lightbulb,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Insights:",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Display insights with proper bullet points
+                        if (response.insights.isEmpty()) {
+                            Text(
+                                text = "No insights available at this time.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            response.insights.forEach { insight ->
+                                Row(
+                                    verticalAlignment = Alignment.Top,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier.width(24.dp),
+                                        contentAlignment = Alignment.TopStart
+                                    ) {
+                                        Text(
+                                            text = "•", 
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontSize = 18.sp
+                                        )
+                                    }
+                                    Text(
+                                        text = insight.description,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // ACTIONS SECTION - Only show if there are actionables
+                if (response.actionable.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.Assignment,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Suggested Actions:",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                
+                                // Apply All button at the top level (disabled in preview)
+                                Button(
+                                    onClick = {},
+                                    enabled = false,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Text("Apply All")
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            // Display actionables
+                            response.actionable.forEach { actionable ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surface
+                                    )
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text(
+                                            text = actionable.description,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = actionable.reason,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        
+                                        // Action button (disabled in preview)
+                                        Button(
+                                            onClick = {},
+                                            enabled = false,
+                                            modifier = Modifier
+                                                .align(Alignment.End)
+                                                .padding(top = 8.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.primary
+                                            )
+                                        ) {
+                                            Text("Apply")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {}) {
+                Text("Close")
+            }
+        }
+    )
 }
 
 @RequiresApi(Build.VERSION_CODES.P)
@@ -967,7 +1391,11 @@ fun FullDashboardContentPreview() {
                 networkType = "WiFi",
                 networkStrength = 3,
                 highUsageApps = listOf("YouTube (250MB)", "Instagram (120MB)"),
-                insights = emptyList()
+                batteryScore = 90,
+                dataScore = 85,
+                performanceScore = 95,
+                insights = emptyList(),
+                aiSummary = "Your device is performing well"
             )
 
             DashboardContent(

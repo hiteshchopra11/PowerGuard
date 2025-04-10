@@ -53,6 +53,13 @@ class DashboardViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // Execution state tracking
+    private val _isExecuting = MutableStateFlow(false)
+    val isExecuting: StateFlow<Boolean> = _isExecuting.asStateFlow()
+    
+    private val _executionResults = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val executionResults: StateFlow<Map<String, Boolean>> = _executionResults.asStateFlow()
+
     init {
         refreshData()
     }
@@ -159,34 +166,43 @@ class DashboardViewModel @Inject constructor(
 
     private fun analyzeDeviceData(deviceData: DeviceData) {
         viewModelScope.launch {
-            _isLoading.value = true
-            Log.d("DashboardViewModel", "Analyzing device data")
-
             try {
-                val response = analyzeDeviceDataUseCase(deviceData).getOrNull()
-                _analysisResponse.value = response
+                Log.d("DashboardViewModel", "Analyzing device data")
+                val result = analyzeDeviceDataUseCase(deviceData)
                 
-                Log.d("DashboardViewModel", "Analysis complete: response=${response != null}")
-                if (response != null) {
-                    Log.d("DashboardViewModel", "Analysis returned ${response.insights.size} insights and ${response.actionable.size} actionables")
-                    updateUiStateFromDeviceData(deviceData)
-                    
-                    // Save the response to the history database
-                    saveResponseToHistory(response)
-                    
-                    // Execute actionables from the response
-                    if (response.actionable.isNotEmpty()) {
-                        Log.d("DashboardViewModel", "Executing ${response.actionable.size} actionables from analysis")
-                        actionableExecutor.executeActionable(response.actionable)
+                when {
+                    result.isSuccess -> {
+                        val response = result.getOrNull()
+                        Log.d("DashboardViewModel", "Analysis result success, response: ${response?.insights?.size ?: 0} insights")
+                        _analysisResponse.value = response
+                        
+                        if (response != null) {
+                            Log.d("DashboardViewModel", "Analysis returned ${response.insights.size} insights and ${response.actionable.size} actionables")
+                            updateUiStateFromDeviceData(deviceData)
+                            
+                            // Save the response to the history database
+                            saveResponseToHistory(response)
+                            
+                            // Execute actionables from the response
+                            if (response.actionable.isNotEmpty()) {
+                                Log.d("DashboardViewModel", "Executing ${response.actionable.size} actionables from analysis")
+                                actionableExecutor.executeActionable(response.actionable)
+                            }
+                        } else {
+                            Log.w("DashboardViewModel", "Analysis returned success but null response")
+                            _error.value = "Failed to process analysis response"
+                        }
                     }
-                } else {
-                    Log.w("DashboardViewModel", "Analysis returned null response")
+                    result.isFailure -> {
+                        val exception = result.exceptionOrNull()
+                        Log.e("DashboardViewModel", "Analysis failed with error: ${exception?.message}", exception)
+                        _error.value = "Analysis failed: ${exception?.message ?: "Unknown error"}"
+                    }
                 }
-                
-                _isLoading.value = false
             } catch (e: Exception) {
                 Log.e("DashboardViewModel", "Failed to analyze data: ${e.message}", e)
                 _error.value = "Failed to analyze data: ${e.message}"
+            } finally {
                 _isLoading.value = false
             }
         }
@@ -281,6 +297,73 @@ class DashboardViewModel @Inject constructor(
             bytes < 1024 * 1024 -> "${bytes / 1024} KB"
             bytes < 1024 * 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
             else -> "${bytes / (1024 * 1024 * 1024)} GB"
+        }
+    }
+
+    /**
+     * Clears the current analysis response and resets related states
+     */
+    fun clearAnalysisResponse() {
+        _analysisResponse.value = null
+        _error.value = null
+        _isLoading.value = false
+    }
+
+    /**
+     * Clears the execution results
+     */
+    fun clearExecutionResults() {
+        _executionResults.value = emptyMap()
+    }
+
+    /**
+     * Execute an actionable asynchronously and handle the result
+     */
+    fun executeActionableAsync(actionable: Actionable, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            _isExecuting.value = true
+            try {
+                val result = actionableExecutor.executeActionable(listOf(actionable))
+                val success = result.values.firstOrNull() ?: false
+                
+                // Update execution results
+                _executionResults.value = mapOf(actionable.id to success)
+                
+                onComplete(success)
+            } catch (e: Exception) {
+                Log.e("DashboardViewModel", "Error executing actionable: ${e.message}", e)
+                onComplete(false)
+            } finally {
+                _isExecuting.value = false
+            }
+        }
+    }
+
+    /**
+     * Execute all actionables asynchronously and handle the results
+     */
+    fun executeAllActionablesAsync(actionables: List<Actionable>, onComplete: (Map<String, Boolean>) -> Unit) {
+        viewModelScope.launch {
+            _isExecuting.value = true
+            try {
+                val results = actionableExecutor.executeActionable(actionables)
+                
+                // Convert to ID-based map
+                val idResults = results.entries.associate { (actionable, success) ->
+                    actionable.id to success
+                }
+                
+                // Update execution results
+                _executionResults.value = idResults
+                
+                onComplete(idResults)
+            } catch (e: Exception) {
+                Log.e("DashboardViewModel", "Error executing actionables: ${e.message}", e)
+                val failureResults = actionables.associate { it.id to false }
+                onComplete(failureResults)
+            } finally {
+                _isExecuting.value = false
+            }
         }
     }
 }

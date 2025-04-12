@@ -166,9 +166,16 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             -1L
         }
 
-        // Hardcoded to 10% for demo
-        val level = 10
-        Log.v(TAG, "Battery level: $level% (hardcoded for demo)")
+        // Get actual battery level instead of hardcoded value
+        val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)?.let { level ->
+            val scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            if (level != -1 && scale != -1) {
+                (level * 100) / scale
+            } else {
+                bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            }
+        } ?: bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        Log.v(TAG, "Battery level: $level%")
         
         val temperature = batteryIntent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1)?.div(10f) ?: -1f
         Log.v(TAG, "Battery temperature: $temperature°C")

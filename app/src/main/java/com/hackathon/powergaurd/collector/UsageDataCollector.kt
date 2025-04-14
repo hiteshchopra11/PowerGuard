@@ -18,6 +18,7 @@ import android.net.TrafficStats
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Build
+import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
 import android.telephony.TelephonyManager
@@ -33,16 +34,23 @@ import com.hackathon.powergaurd.data.model.DeviceInfo
 import com.hackathon.powergaurd.data.model.MemoryInfo
 import com.hackathon.powergaurd.data.model.NetworkInfo
 import com.hackathon.powergaurd.data.model.SettingsInfo
+import com.hackathon.powergaurd.data.model.SocketInfo
+import com.hackathon.powergaurd.data.model.WakelockInfo
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.BufferedReader
+import java.io.File
+import java.io.FileReader
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.app.AlarmManager
+import android.os.SystemClock
 
 /** Collector for gathering device usage data to be sent to the backend. */
 @Singleton
 class UsageDataCollector @Inject constructor(@ApplicationContext private val context: Context) {
     private val TAG = "UsageDataCollector"
-    private val TIME_RANGE_MS = 24 * 60 * 60 * 1000L // 24 hours
+    private val TIME_RANGE_MS = 10 * 24 * 60 * 60 * 1000L // 10 days
 
     // System service managers
     private val batteryManager by lazy {
@@ -76,6 +84,14 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
     private val activityManager by lazy {
         Log.v(TAG, "Initializing activityManager")
         context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+    }
+    private val powerManager by lazy {
+        Log.v(TAG, "Initializing powerManager")
+        context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    }
+    private val alarmManager by lazy {
+        Log.v(TAG, "Initializing alarmManager")
+        context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
     }
 
     /**
@@ -114,14 +130,9 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
         }
         
         val settingsInfo = collectSettingsInfo()
-        var appsInfo = collectAppsInfo(startTime, endTime)
-
-        // Filter out system apps as requested, but keep pre-installed non-system apps
-        appsInfo = appsInfo.filter { app ->
-            !app.isSystemApp || isPopularPreinstalledApp(app.packageName)
-        }
-
-        return DeviceData(
+        val appsInfo = collectAppsInfo(startTime, endTime)
+        
+        val deviceData = DeviceData(
             deviceId = getDeviceId(),
             timestamp = endTime,
             battery = batteryInfo,
@@ -132,7 +143,32 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             settings = settingsInfo,
             deviceInfo = deviceInfo,
             prompt = ""
-        ).also { Log.i(TAG, "Data collection completed: ${it.apps.size} apps included, battery=${it.battery.level}%, network=${it.network.type}") }
+        )
+        
+        // Log detailed information about the collected data
+        Log.i(TAG, "Data collection completed: ${deviceData.apps.size} apps included, battery=${deviceData.battery.level}%, network=${deviceData.network.type}")
+        
+        // Use our new PromptDebug to log detailed metrics for debugging and analysis
+        Log.d(TAG, "Logging detailed metrics via PromptDebug")
+        PromptDebug.logDeviceData(deviceData)
+        
+        // Log detailed info for the top 10 battery and data consumers
+        Log.d(TAG, "Top 10 battery consumers:")
+        deviceData.apps.sortedByDescending { 
+            it.batteryUsage + (it.wakelockInfo.totalDurationMs / 60000f) 
+        }.take(10).forEach { PromptDebug.logAppInfo(it) }
+        
+        Log.d(TAG, "Top 10 data consumers:")
+        deviceData.apps.sortedByDescending { 
+            it.dataUsage.rxBytes + it.dataUsage.txBytes 
+        }.take(10).forEach { PromptDebug.logAppInfo(it) }
+        
+        Log.d(TAG, "Apps using doze mode data:")
+        deviceData.apps.filter { it.dataUsage.dozeBytes > 0 }
+            .sortedByDescending { it.dataUsage.dozeBytes }
+            .forEach { PromptDebug.logAppInfo(it) }
+        
+        return deviceData
     }
 
     /**
@@ -144,11 +180,11 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             Log.w(TAG, "Battery manager not available")
             return BatteryInfo(
                 level = 10, // Hardcoded to 10% for demo
-                temperature = -1f,
-                voltage = -1,
+                temperature = 0f,
+                voltage = 0,
                 isCharging = false,
                 chargingType = "unknown",
-                health = -1
+                health = 0
             )
         }
 
@@ -167,7 +203,7 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error getting current now: ${e.message}")
-            -1
+            0
         }
 
         val capacity = try {
@@ -181,7 +217,7 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error getting battery capacity: ${e.message}")
-            -1L
+            0L
         }
 
         // Get actual battery level instead of hardcoded value
@@ -238,10 +274,10 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
         val activityManager = activityManager ?: run {
             Log.w(TAG, "Activity manager not available")
             return MemoryInfo(
-                totalRam = -1,
-                availableRam = -1,
+                totalRam = 0,
+                availableRam = 0,
                 lowMemory = false,
-                threshold = -1
+                threshold = 0
             )
         }
 
@@ -266,8 +302,8 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
         Log.d(TAG, "Collecting CPU information (simplified)")
         // Simplified CPU info as requested to focus on network and data
         return CpuInfo(
-            usage = -1f,
-            temperature = -1f,
+            usage = 0f,
+            temperature = 0f,
             frequencies = emptyList()
         ).also { Log.d(TAG, "Collected CPU info: $it") }
     }
@@ -282,7 +318,7 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             Log.w(TAG, "Connectivity manager not available")
             return NetworkInfo(
                 type = "unknown",
-                strength = -1,
+                strength = 0,
                 isRoaming = false,
                 dataUsage = DataUsage(0, 0, 0, 0)
             )
@@ -542,17 +578,22 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             return emptyList()
         }
 
+        // Get installed apps and filter out system apps early
+        val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+            .filter { shouldCollectAppData(it) }
+        Log.i(TAG, "Found ${installedApps.size} non-system/popular apps out of ${packageManager.getInstalledApplications(PackageManager.GET_META_DATA).size} total installed apps")
+
         // Get running processes and memory info
         val runningAppProcesses = activityManager.runningAppProcesses ?: emptyList()
         Log.v(TAG, "Found ${runningAppProcesses.size} running processes")
         val memoryInfoMap = collectMemoryInfoPerApp(runningAppProcesses)
 
         // Get per-app network usage
-        val networkUsageMap = collectNetworkUsagePerApp(startTime, endTime)
+        val networkUsageMap = collectNetworkUsagePerApp(startTime, endTime, installedApps)
         Log.v(TAG, "Collected network usage for ${networkUsageMap.size} apps")
 
         // Get per-app battery usage (if possible)
-        val batteryUsageMap = collectBatteryUsagePerApp()
+        val batteryUsageMap = collectBatteryUsagePerApp(installedApps)
         Log.v(TAG, "Collected battery usage for ${batteryUsageMap.size} apps")
 
         // Get app usage statistics
@@ -563,9 +604,26 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
         )?.associateBy { it.packageName } ?: emptyMap()
         Log.v(TAG, "Collected usage stats for ${usageStatsMap.size} apps")
 
-        // Collection of apps that are installed and potentially running
-        val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-        Log.i(TAG, "Found ${installedApps.size} installed apps")
+        // New metrics collection
+        // Get per-app wakelock information
+        val wakelockInfoMap = collectWakelockInfoPerApp(installedApps)
+        Log.v(TAG, "Collected wakelock info for ${wakelockInfoMap.size} apps")
+
+        // Get per-app doze mode data usage
+        val dozeModeUsageMap = collectDozeUsagePerApp(startTime, endTime, installedApps)
+        Log.v(TAG, "Collected doze mode usage for ${dozeModeUsageMap.size} apps")
+
+        // Get per-app socket connection counts and durations
+        val socketInfoMap = collectSocketInfoPerApp(installedApps)
+        Log.v(TAG, "Collected socket connection info for ${socketInfoMap.size} apps")
+
+        // Get per-app alarm manager wakeups
+        val alarmWakeupsMap = collectAlarmManagerWakeupsPerApp(installedApps)
+        Log.v(TAG, "Collected alarm wakeups for ${alarmWakeupsMap.size} apps")
+
+        // Get per-app process priority changes
+        val priorityChangesMap = collectProcessPriorityChangesPerApp(installedApps)
+        Log.v(TAG, "Collected priority changes for ${priorityChangesMap.size} apps")
 
         return installedApps.mapNotNull { appInfo ->
             try {
@@ -581,6 +639,23 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
                 // Get app version info
                 val packageInfo = packageManager.getPackageInfo(packageName, 0)
 
+                // Get the standard data usage
+                val dataUsage = networkUsageMap[packageName] ?: DataUsage(0, 0, 0, 0)
+                
+                // Get doze mode usage and combine with standard data usage if available
+                val combinedDataUsage = if (dozeModeUsageMap.containsKey(packageName)) {
+                    val dozeUsage = dozeModeUsageMap[packageName]
+                    DataUsage(
+                        foreground = dataUsage.foreground,
+                        background = dataUsage.background,
+                        rxBytes = dataUsage.rxBytes,
+                        txBytes = dataUsage.txBytes,
+                        dozeBytes = dozeUsage?.rxBytes?.plus(dozeUsage.txBytes) ?: 0L
+                    )
+                } else {
+                    dataUsage
+                }
+
                 AppInfo(
                     packageName = packageName,
                     processName = runningAppProcesses.find { it.pkgList.contains(packageName) }?.processName
@@ -592,10 +667,10 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
                     backgroundTime = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && usageStats != null) {
                         (usageStats.totalTimeVisible - usageStats.totalTimeInForeground).coerceAtLeast(0)
                     } else 0L,
-                    batteryUsage = batteryUsageMap[packageName] ?: -1f,
-                    dataUsage = networkUsageMap[packageName] ?: DataUsage(0L, 0L, 0L, 0L),
-                    memoryUsage = memoryInfoMap[packageName] ?: -1L,
-                    cpuUsage = -1f, // Ignoring CPU usage as requested
+                    batteryUsage = batteryUsageMap[packageName] ?: 0f,
+                    dataUsage = combinedDataUsage,
+                    memoryUsage = memoryInfoMap[packageName] ?: 0L,
+                    cpuUsage = 0f, // We'll update this with detailed CPU usage if available
                     notifications = 0, // Requires notification listener permissions
                     crashes = 0, // Would require system logs access
                     versionName = packageInfo.versionName ?: "",
@@ -607,7 +682,11 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
                     },
                     targetSdkVersion = appInfo.targetSdkVersion,
                     installTime = packageInfo.firstInstallTime,
-                    updatedTime = packageInfo.lastUpdateTime
+                    updatedTime = packageInfo.lastUpdateTime,
+                    wakelockInfo = wakelockInfoMap[packageName] ?: WakelockInfo(),
+                    socketConnections = socketInfoMap[packageName] ?: SocketInfo(), 
+                    alarmWakeups = alarmWakeupsMap[packageName] ?: 0,
+                    priorityChanges = priorityChangesMap[packageName] ?: 0
                 ).also { Log.v(TAG, "Collected info for app $packageName: $it") }
             } catch (e: Exception) {
                 Log.e(TAG, "Error collecting info for app ${appInfo.packageName}: ${e.message}")
@@ -664,7 +743,7 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
     /**
      * Collects per-app network usage statistics with proper permission handling
      */
-    private fun collectNetworkUsagePerApp(startTime: Long, endTime: Long): Map<String, DataUsage> {
+    private fun collectNetworkUsagePerApp(startTime: Long, endTime: Long, apps: List<ApplicationInfo>): Map<String, DataUsage> {
         Log.d(TAG, "Collecting network usage per app")
         // First check if we have PACKAGE_USAGE_STATS permission
         if (!hasUsageStatsPermission()) {
@@ -675,7 +754,7 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
         // Check if we have network stats manager
         val networkStatsManager = networkStatsManager ?: run {
             Log.w(TAG, "Network stats manager not available, using TrafficStats fallback")
-            return getNetworkUsageFromTrafficStats()
+            return getNetworkUsageFromTrafficStats(apps)
         }
 
         val networkUsageMap = HashMap<String, DataUsage>()
@@ -690,11 +769,8 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             val subscriberId = if (hasPhoneStatePermission) getSubscriberId() else null
             Log.v(TAG, "Subscriber ID: ${subscriberId ?: "null"}")
 
-            // Get all installed apps with their UIDs
-            val packageManager = packageManager
-            val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-
-            for (app in installedApps) {
+            // Use the filtered app list
+            for (app in apps) {
                 var foregroundBytes = 0L
                 var backgroundBytes = 0L
                 var rxBytes = 0L
@@ -798,7 +874,7 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
         } catch (e: Exception) {
             Log.e(TAG, "Error collecting network usage per app: ${e.message}", e)
             // Try fallback using TrafficStats only
-            return getNetworkUsageFromTrafficStats()
+            return getNetworkUsageFromTrafficStats(apps)
         }
 
         Log.i(TAG, "Collected network usage for ${networkUsageMap.size} apps")
@@ -806,40 +882,16 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
     }
 
     /**
-     * Helper method to get traffic stats for a specific UID
-     * Returns a Pair of (rxBytes, txBytes) or null if stats aren't available
-     */
-    private fun tryTrafficStatsForApp(uid: Int): Pair<Long, Long>? {
-        return try {
-            val rxBytes = TrafficStats.getUidRxBytes(uid)
-            val txBytes = TrafficStats.getUidTxBytes(uid)
-
-            if (rxBytes > 0 || txBytes > 0) {
-                Pair(rxBytes, txBytes).also {
-                    Log.v(TAG, "TrafficStats for UID $uid: rx=${it.first}, tx=${it.second}")
-                }
-            } else {
-                null.also { Log.v(TAG, "No traffic stats for UID $uid") }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting traffic stats for UID $uid: ${e.message}")
-            null
-        }
-    }
-
-    /**
      * Fallback method to get current session network usage per app
      * Uses TrafficStats which only provides data since boot
      */
-    private fun getNetworkUsageFromTrafficStats(): Map<String, DataUsage> {
+    private fun getNetworkUsageFromTrafficStats(apps: List<ApplicationInfo>): Map<String, DataUsage> {
         Log.d(TAG, "Getting network usage from TrafficStats (fallback)")
         val networkUsageMap = HashMap<String, DataUsage>()
 
         try {
-            val packageManager = packageManager
-            val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-
-            for (app in installedApps) {
+            // Use the filtered app list
+            for (app in apps) {
                 tryTrafficStatsForApp(app.uid)?.let { (rxBytes, txBytes) ->
                     // With TrafficStats, we can't differentiate foreground vs background
                     // Assuming 70% foreground, 30% background for simplicity
@@ -867,7 +919,7 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
      * Collects battery usage per app (if available)
      * Note: Battery usage is not always accessible on all devices
      */
-    private fun collectBatteryUsagePerApp(): Map<String, Float> {
+    private fun collectBatteryUsagePerApp(apps: List<ApplicationInfo>): Map<String, Float> {
         Log.d(TAG, "Collecting battery usage per app")
         val batteryUsageMap = HashMap<String, Float>()
 
@@ -901,7 +953,8 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
                     Log.v(TAG, "Battery consumed: $batteryConsumed%")
 
                     for (stat in usageStats) {
-                        if (stat.totalTimeInForeground > 0) {
+                        // Only include stats for apps in our filtered list
+                        if (apps.any { it.packageName == stat.packageName } && stat.totalTimeInForeground > 0) {
                             val proportion = stat.totalTimeInForeground.toFloat() / totalScreenTime.toFloat()
                             // Rough estimation
                             batteryUsageMap[stat.packageName] = proportion * batteryConsumed
@@ -918,6 +971,9 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
         if (batteryUsageMap.isEmpty()) {
             try {
                 Log.v(TAG, "Trying manufacturer-specific battery usage APIs")
+                // Use the filtered app list for any manufacturer-specific implementation
+                val appPackageNames = apps.map { it.packageName }.toSet()
+                
                 // Some manufacturers provide battery stats through their own APIs
                 // This is highly device-specific and would need custom implementations
 
@@ -925,12 +981,14 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
                 if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) {
                     Log.v(TAG, "Samsung device detected")
                     // Samsung specific implementation would go here
+                    // Only include apps in our filtered list
                 }
 
                 // Example for Huawei (pseudo-code)
                 if (Build.MANUFACTURER.equals("huawei", ignoreCase = true)) {
                     Log.v(TAG, "Huawei device detected")
                     // Huawei specific implementation would go here
+                    // Only include apps in our filtered list
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error in manufacturer-specific battery usage approach: ${e.message}")
@@ -1256,5 +1314,846 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             "com.google.android.videos"
         )
         return packageName in popularPreinstalledApps
+    }
+
+    /**
+     * Collects detailed per-app CPU usage (including wakelock information)
+     */
+    private fun collectCpuUsagePerApp(): Map<String, CpuInfo> {
+        Log.d(TAG, "Collecting CPU usage per app")
+        val cpuUsageMap = HashMap<String, CpuInfo>()
+
+        try {
+            val packageManager = packageManager
+            val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+
+            for (app in installedApps) {
+                val cpuInfo = getCpuUsageForApp(app.packageName)
+                if (cpuInfo != null) {
+                    cpuUsageMap[app.packageName] = cpuInfo
+                    Log.v(TAG, "CPU usage for ${app.packageName}: $cpuInfo")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error collecting CPU usage per app: ${e.message}", e)
+        }
+
+        Log.i(TAG, "Collected CPU usage for ${cpuUsageMap.size} apps")
+        return cpuUsageMap
+    }
+
+    /**
+     * Helper method to get CPU usage for a specific app
+     * Returns a CpuInfo object or null if stats aren't available
+     */
+    private fun getCpuUsageForApp(packageName: String): CpuInfo? {
+        return try {
+            val process = activityManager?.getRunningAppProcesses()?.find { it.processName == packageName }
+            if (process != null) {
+                val pid = process.pid
+                val cpuUsage = getCpuUsageForPid(pid)
+                val wakelockInfo = getWakelockInfoForPid(pid)
+                CpuInfo(
+                    usage = cpuUsage,
+                    temperature = 0f, // We can't get per-app CPU temperature
+                    wakelockInfo = wakelockInfo
+                )
+            } else {
+                null.also { Log.v(TAG, "No CPU usage for $packageName") }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting CPU usage for $packageName: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Helper method to get CPU usage for a specific PID
+     * Returns a float value representing the CPU usage percentage
+     */
+    private fun getCpuUsageForPid(pid: Int): Float {
+        return try {
+            val procStatFile = File("/proc/$pid/stat")
+            val reader = BufferedReader(FileReader(procStatFile))
+            val processStats = reader.readLine().split(" ")
+            reader.close()
+
+            val utime = processStats[13].toLong()
+            val stime = processStats[14].toLong()
+            val cutime = processStats[15].toLong()
+            val cstime = processStats[16].toLong()
+            val startTime = processStats[21].toLong()
+            val totalTime = (utime + stime + cutime + cstime) / 1000
+            val elapsedTime = SystemClock.elapsedRealtime() - startTime
+
+            val cpuUsage = (totalTime.toFloat() / elapsedTime.toFloat()) * 100
+            Log.v(TAG, "CPU usage for PID $pid: $cpuUsage%")
+            cpuUsage
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting CPU usage for PID $pid: ${e.message}")
+            0f
+        }
+    }
+
+    /**
+     * Helper method to get wakelock info for a specific PID
+     * Returns a WakelockInfo object or null if wakelock info isn't available
+     */
+    private fun getWakelockInfoForPid(pid: Int): WakelockInfo? {
+        return try {
+            val wakelockFile = File("/sys/kernel/debug/wakeup_sources")
+            if (wakelockFile.exists()) {
+                val reader = BufferedReader(FileReader(wakelockFile))
+                var line: String?
+                var acquireCount = 0
+                var totalDurationMs = 0L
+                val wakelockTypes = HashMap<String, Int>()
+                
+                while (reader.readLine().also { line = it } != null) {
+                    if (line?.contains("pid:$pid") == true) {
+                        val parts = line?.split("\\s+".toRegex())
+                        if (parts != null && parts.size > 2) {
+                            val name = parts[0]
+                            val count = parts.find { it.startsWith("count=") }?.split("=")?.get(1)?.toIntOrNull() ?: 0
+                            val duration = parts.find { it.startsWith("total_time=") }?.split("=")?.get(1)?.toLongOrNull() ?: 0L
+                            
+                            if (count > 0) {
+                                wakelockTypes[name] = count
+                                acquireCount += count
+                                totalDurationMs += duration
+                            }
+                        }
+                    }
+                }
+                reader.close()
+                
+                if (acquireCount > 0) {
+                    WakelockInfo(
+                        acquireCount = acquireCount,
+                        totalDurationMs = totalDurationMs,
+                        wakelockTypes = wakelockTypes
+                    ).also {
+                        Log.v(TAG, "Wakelock info for PID $pid: $it")
+                    }
+                } else {
+                    null.also { Log.v(TAG, "No wakelock info for PID $pid") }
+                }
+            } else {
+                null.also { Log.v(TAG, "No wakelock file for PID $pid") }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting wakelock info for PID $pid: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Collects per-app data usage when device is in doze mode
+     */
+    private fun collectDozeUsagePerApp(startTime: Long, endTime: Long, apps: List<ApplicationInfo>): Map<String, DataUsage> {
+        Log.d(TAG, "Collecting doze usage per app")
+        val dozeUsageMap = HashMap<String, DataUsage>()
+
+        try {
+            // Use the filtered app list
+            for (app in apps) {
+                val dozeUsage = getDozeUsageForApp(app.uid, startTime, endTime)
+                if (dozeUsage != null) {
+                    dozeUsageMap[app.packageName] = dozeUsage
+                    Log.v(TAG, "Doze usage for ${app.packageName}: $dozeUsage")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error collecting doze usage per app: ${e.message}", e)
+        }
+
+        Log.i(TAG, "Collected doze usage for ${dozeUsageMap.size} apps")
+        return dozeUsageMap
+    }
+
+    /**
+     * Helper method to get doze usage for a specific app
+     * Returns a DataUsage object or null if stats aren't available
+     */
+    private fun getDozeUsageForApp(uid: Int, startTime: Long, endTime: Long): DataUsage? {
+        return try {
+            val networkStatsManager = networkStatsManager ?: run {
+                Log.w(TAG, "Network stats manager not available")
+                return null
+            }
+
+            // Check if we have the PowerManager to detect doze mode
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            val supportsDoze = powerManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+            
+            if (!supportsDoze) {
+                Log.d(TAG, "Doze mode not supported on this device")
+                return null
+            }
+
+            // For mobile data
+            var mobileRxBytes = 0L
+            var mobileTxBytes = 0L
+            
+            try {
+                val mobileStat = networkStatsManager.queryDetailsForUid(
+                    ConnectivityManager.TYPE_MOBILE,
+                    getSubscriberId() ?: "",
+                    startTime,
+                    endTime,
+                    uid
+                )
+                
+                val mobileBucket = NetworkStats.Bucket()
+                while (mobileStat.hasNextBucket()) {
+                    mobileStat.getNextBucket(mobileBucket)
+                    // Ideally we would check if the device was in doze mode during this bucket's time range
+                    // but this information is not directly available through the API
+                    // We'll use a heuristic assuming very small data transfers during inactive periods
+                    // might indicate transfers during doze (not perfectly accurate)
+                    if (mobileBucket.rxBytes + mobileBucket.txBytes < 5 * 1024) { // Less than 5KB
+                        mobileRxBytes += mobileBucket.rxBytes
+                        mobileTxBytes += mobileBucket.txBytes
+                    }
+                }
+                mobileStat.close()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting mobile doze stats: ${e.message}")
+            }
+            
+            // For WiFi data
+            var wifiRxBytes = 0L
+            var wifiTxBytes = 0L
+            
+            try {
+                val wifiStat = networkStatsManager.queryDetailsForUid(
+                    ConnectivityManager.TYPE_WIFI,
+                    "",
+                    startTime,
+                    endTime,
+                    uid
+                )
+                
+                val wifiBucket = NetworkStats.Bucket()
+                while (wifiStat.hasNextBucket()) {
+                    wifiStat.getNextBucket(wifiBucket)
+                    // Same heuristic for WiFi
+                    if (wifiBucket.rxBytes + wifiBucket.txBytes < 5 * 1024) { // Less than 5KB
+                        wifiRxBytes += wifiBucket.rxBytes
+                        wifiTxBytes += wifiBucket.txBytes
+                    }
+                }
+                wifiStat.close()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting WiFi doze stats: ${e.message}")
+            }
+
+            val rxBytes = mobileRxBytes + wifiRxBytes
+            val txBytes = mobileTxBytes + wifiTxBytes
+            
+            DataUsage(
+                foreground = 0L, // Doze mode data is never considered foreground
+                background = rxBytes + txBytes,
+                rxBytes = rxBytes,
+                txBytes = txBytes
+            ).also {
+                Log.v(TAG, "Doze usage for UID $uid: $it")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting doze usage for UID $uid: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Collects per-app socket connection counts and durations
+     */
+    private fun collectSocketInfoPerApp(apps: List<ApplicationInfo>): Map<String, SocketInfo> {
+        Log.d(TAG, "Collecting socket info per app")
+        val socketInfoMap = HashMap<String, SocketInfo>()
+
+        try {
+            // Use the filtered app list
+            for (app in apps) {
+                val socketInfo = getSocketInfoForApp(app.packageName)
+                if (socketInfo != null) {
+                    socketInfoMap[app.packageName] = socketInfo
+                    Log.v(TAG, "Socket info for ${app.packageName}: $socketInfo")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error collecting socket info per app: ${e.message}", e)
+        }
+
+        Log.i(TAG, "Collected socket info for ${socketInfoMap.size} apps")
+        return socketInfoMap
+    }
+
+    /**
+     * Helper method to get socket info for a specific app
+     * Returns a SocketInfo object or null if stats aren't available
+     */
+    private fun getSocketInfoForApp(packageName: String): SocketInfo? {
+        return try {
+            val process = activityManager?.getRunningAppProcesses()?.find { it.processName == packageName }
+            if (process != null) {
+                val pid = process.pid
+                val socketInfo = getSocketInfoForPid(pid)
+                socketInfo?.also {
+                    Log.v(TAG, "Socket info for $packageName: $it")
+                }
+            } else {
+                null.also { Log.v(TAG, "No socket info for $packageName") }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting socket info for $packageName: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Helper method to get socket info for a specific PID
+     * Returns a SocketInfo object or null if stats aren't available
+     */
+    private fun getSocketInfoForPid(pid: Int): SocketInfo? {
+        return try {
+            val socketDir = File("/proc/$pid/fd")
+            if (socketDir.exists() && socketDir.canRead()) {
+                // Safe handling of file listing
+                val socketFiles = try {
+                    socketDir.listFiles { file -> 
+                        try {
+                            val path = file.canonicalPath
+                            path.contains("socket:") || path.contains("sock")
+                        } catch (e: Exception) {
+                            false
+                        }
+                    } ?: emptyArray()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error listing socket files for PID $pid: ${e.message}")
+                    emptyArray()
+                }
+                
+                // Count TCP and UDP connections safely
+                val tcpSocketsFile = File("/proc/$pid/net/tcp")
+                val udpSocketsFile = File("/proc/$pid/net/udp")
+                
+                var tcpConnections = 0
+                var udpConnections = 0
+                
+                if (tcpSocketsFile.exists() && tcpSocketsFile.canRead()) {
+                    try {
+                        val reader = BufferedReader(FileReader(tcpSocketsFile))
+                        // Skip header line
+                        reader.readLine()
+                        while (reader.readLine() != null) {
+                            tcpConnections++
+                        }
+                        reader.close()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error reading TCP connections for PID $pid: ${e.message}")
+                    }
+                }
+                
+                if (udpSocketsFile.exists() && udpSocketsFile.canRead()) {
+                    try {
+                        val reader = BufferedReader(FileReader(udpSocketsFile))
+                        // Skip header line
+                        reader.readLine()
+                        while (reader.readLine() != null) {
+                            udpConnections++
+                        }
+                        reader.close()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error reading UDP connections for PID $pid: ${e.message}")
+                    }
+                }
+                
+                // For socket duration, we need to estimate since there's no easy way
+                // to determine this from the proc filesystem without root access
+                // We'll use a rough estimate based on process uptime
+                val uptimeFile = File("/proc/$pid/stat")
+                var totalDurationMs = 0L
+                if (uptimeFile.exists() && uptimeFile.canRead()) {
+                    try {
+                        val reader = BufferedReader(FileReader(uptimeFile))
+                        val stats = reader.readLine()?.split(" ") ?: emptyList()
+                        reader.close()
+                        
+                        // Get process start time (in clock ticks since system boot)
+                        val startTimeTicks = stats.getOrNull(21)?.toLongOrNull() ?: 0L
+                        if (startTimeTicks > 0) {
+                            val clockTicksPerSec = 100 // Standard on most Linux systems
+                            val startTimeSecs = startTimeTicks / clockTicksPerSec
+                            val uptimeSecs = SystemClock.elapsedRealtime() / 1000
+                            // Average socket duration - assuming sockets last ~1/3 of process lifetime
+                            totalDurationMs = (uptimeSecs - startTimeSecs) * 1000 / 3
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error reading process stats for PID $pid: ${e.message}")
+                    }
+                }
+                
+                return SocketInfo(
+                    totalConnections = socketFiles.size,
+                    activeConnections = tcpConnections + udpConnections,
+                    totalDurationMs = totalDurationMs,
+                    tcpConnections = tcpConnections,
+                    udpConnections = udpConnections
+                ).also {
+                    Log.v(TAG, "Socket info for PID $pid: $it")
+                }
+            } else {
+                null.also { Log.v(TAG, "Socket directory not accessible for PID $pid") }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting socket info for PID $pid: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Collects AlarmManager wakeups per app
+     */
+    private fun collectAlarmManagerWakeupsPerApp(apps: List<ApplicationInfo>): Map<String, Int> {
+        Log.d(TAG, "Collecting AlarmManager wakeups per app")
+        val alarmManagerWakeupsMap = HashMap<String, Int>()
+
+        try {
+            val alarmManager = alarmManager ?: run {
+                Log.w(TAG, "AlarmManager not available")
+                return emptyMap()
+            }
+
+            // Use the filtered app list
+            for (app in apps) {
+                val wakeups = getAlarmManagerWakeupsForApp(app.packageName)
+                if (wakeups > 0) {
+                    alarmManagerWakeupsMap[app.packageName] = wakeups
+                    Log.v(TAG, "AlarmManager wakeups for ${app.packageName}: $wakeups")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error collecting AlarmManager wakeups per app: ${e.message}", e)
+        }
+
+        Log.i(TAG, "Collected AlarmManager wakeups for ${alarmManagerWakeupsMap.size} apps")
+        return alarmManagerWakeupsMap
+    }
+
+    /**
+     * Helper method to get AlarmManager wakeups for a specific app
+     * Returns an int value representing the number of wakeups
+     */
+    private fun getAlarmManagerWakeupsForApp(packageName: String): Int {
+        return try {
+            val alarmManager = alarmManager ?: run {
+                Log.w(TAG, "AlarmManager not available")
+                return 0
+            }
+
+            val intentFilter = IntentFilter().apply {
+                addAction(Intent.ACTION_TIME_TICK)
+                addAction(Intent.ACTION_TIMEZONE_CHANGED)
+                addAction(Intent.ACTION_TIME_CHANGED)
+            }
+
+            val intent = Intent().apply {
+                addCategory(Intent.CATEGORY_DEFAULT)
+                setPackage(packageName)
+            }
+
+            // Query for registered receivers with proper API based on SDK version
+            val receivers = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val flags = PackageManager.ResolveInfoFlags.of(PackageManager.GET_RECEIVERS.toLong())
+                context.packageManager.queryBroadcastReceivers(intent, flags)
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.queryBroadcastReceivers(intent, PackageManager.GET_RECEIVERS)
+            }
+            
+            var wakeups = 0
+            for (receiver in receivers) {
+                try {
+                    // Count only receivers that are enabled and exported
+                    if (receiver.activityInfo != null && receiver.activityInfo.enabled) {
+                        wakeups++
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error checking receiver for $packageName: ${e.message}")
+                }
+            }
+
+            wakeups
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting AlarmManager wakeups for $packageName: ${e.message}")
+            0
+        }
+    }
+
+    /**
+     * Collects process priority changes
+     */
+    private fun collectProcessPriorityChangesPerApp(apps: List<ApplicationInfo>): Map<String, Int> {
+        Log.d(TAG, "Collecting process priority changes")
+        val priorityChangesMap = HashMap<String, Int>()
+
+        try {
+            // Use the filtered app list
+            for (app in apps) {
+                val priorityChanges = getProcessPriorityChangesForApp(app.packageName)
+                if (priorityChanges > 0) {
+                    priorityChangesMap[app.packageName] = priorityChanges
+                    Log.v(TAG, "Process priority changes for ${app.packageName}: $priorityChanges")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error collecting process priority changes: ${e.message}", e)
+        }
+
+        Log.i(TAG, "Collected process priority changes for ${priorityChangesMap.size} apps")
+        return priorityChangesMap
+    }
+
+    /**
+     * Helper method to get process priority changes for a specific app
+     * Returns an int value representing the number of priority changes
+     */
+    private fun getProcessPriorityChangesForApp(packageName: String): Int {
+        return try {
+            val process = activityManager?.getRunningAppProcesses()?.find { it.processName == packageName }
+            if (process != null) {
+                val pid = process.pid
+                val priorityChanges = getProcessPriorityChangesForPid(pid)
+                priorityChanges
+            } else {
+                0
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting process priority changes for $packageName: ${e.message}")
+            0
+        }
+    }
+
+    /**
+     * Helper method to get process priority changes for a specific PID
+     * Returns an int value representing the number of priority changes
+     */
+    private fun getProcessPriorityChangesForPid(pid: Int): Int {
+        return try {
+            val procStatFile = File("/proc/$pid/stat")
+            val reader = BufferedReader(FileReader(procStatFile))
+            val processStats = reader.readLine().split(" ")
+            reader.close()
+
+            val priority = processStats[17].toInt()
+            val nice = processStats[18].toInt()
+
+            priority - nice
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting process priority changes for PID $pid: ${e.message}")
+            0
+        }
+    }
+
+    /**
+     * Collects wakelock information per app
+     */
+    private fun collectWakelockInfoPerApp(apps: List<ApplicationInfo>): Map<String, WakelockInfo> {
+        Log.d(TAG, "Collecting wakelock info per app")
+        val wakelockInfoMap = HashMap<String, WakelockInfo>()
+
+        try {
+            // Try to get permission to read wakelock stats
+            val hasPermission = context.checkSelfPermission(
+                Manifest.permission.DUMP
+            ) == PackageManager.PERMISSION_GRANTED
+            
+            if (!hasPermission) {
+                Log.w(TAG, "DUMP permission not granted for wakelock collection")
+                return emptyMap()
+            }
+
+            // For devices with proper permissions, we can get detailed wakelock information
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // Use the filtered app list
+                for (app in apps) {
+                    try {
+                        val processName = app.processName ?: app.packageName
+                        val pid = getProcessId(processName)
+                        
+                        if (pid > 0) {
+                            // Read wakelock info from proc filesystem
+                            val wakelockFile = File("/proc/$pid/wakelock")
+                            if (wakelockFile.exists() && wakelockFile.canRead()) {
+                                val reader = BufferedReader(FileReader(wakelockFile))
+                                var line: String?
+                                val wakelockTypes = HashMap<String, Int>()
+                                var acquireCount = 0
+                                var totalDurationMs = 0L
+                                
+                                while (reader.readLine().also { line = it } != null) {
+                                    // Parse wakelock information from line
+                                    // Format is usually: name count time
+                                    val parts = line?.split("\\s+".toRegex())
+                                    if (parts != null && parts.size >= 3) {
+                                        val name = parts[0]
+                                        val count = parts[1].toIntOrNull() ?: 0
+                                        val time = parts[2].toLongOrNull() ?: 0L
+                                        
+                                        if (count > 0) {
+                                            wakelockTypes[name] = count
+                                            acquireCount += count
+                                            totalDurationMs += time
+                                        }
+                                    }
+                                }
+                                reader.close()
+                                
+                                if (acquireCount > 0) {
+                                    wakelockInfoMap[app.packageName] = WakelockInfo(
+                                        acquireCount = acquireCount,
+                                        totalDurationMs = totalDurationMs,
+                                        wakelockTypes = wakelockTypes
+                                    )
+                                    Log.v(TAG, "Wakelock info for ${app.packageName}: ${wakelockInfoMap[app.packageName]}")
+                                }
+                            } else {
+                                // Alternative approach using PowerManager API
+                                // This requires DEVICE_POWER permission which normal apps don't have
+                                // Implemented just in case the app runs with elevated permissions
+                                if (context.checkSelfPermission(
+                                        "android.permission.DEVICE_POWER"
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                                    
+                                    // Using reflection to access hidden APIs
+                                    val getWakeLockStatsMethod = PowerManager::class.java.getDeclaredMethod("getWakeLockStats")
+                                    getWakeLockStatsMethod.isAccessible = true
+                                    
+                                    val stats = getWakeLockStatsMethod.invoke(powerManager) as? Map<*, *>
+                                    if (stats != null) {
+                                        var totalCount = 0
+                                        var totalDuration = 0L
+                                        val wakelockTypes = HashMap<String, Int>()
+                                        
+                                        for ((key, value) in stats) {
+                                            if (key is String && key.contains(app.packageName)) {
+                                                val countMethod = value!!.javaClass.getDeclaredMethod("getCount")
+                                                val timeMethod = value.javaClass.getDeclaredMethod("getTotalTime")
+                                                countMethod.isAccessible = true
+                                                timeMethod.isAccessible = true
+                                                
+                                                val count = countMethod.invoke(value) as Int
+                                                val time = timeMethod.invoke(value) as Long
+                                                
+                                                val wakelockName = getWakelockNameFromKey(key)
+                                                wakelockTypes[wakelockName] = count
+                                                totalCount += count
+                                                totalDuration += time
+                                            }
+                                        }
+                                        
+                                        if (totalCount > 0) {
+                                            wakelockInfoMap[app.packageName] = WakelockInfo(
+                                                acquireCount = totalCount,
+                                                totalDurationMs = totalDuration,
+                                                wakelockTypes = wakelockTypes
+                                            )
+                                            Log.v(TAG, "Wakelock info for ${app.packageName} (alternative): ${wakelockInfoMap[app.packageName]}")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error collecting wakelock info for ${app.packageName}: ${e.message}")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error collecting wakelock info per app: ${e.message}", e)
+        }
+
+        Log.i(TAG, "Collected wakelock info for ${wakelockInfoMap.size} apps")
+        return wakelockInfoMap
+    }
+    
+    /**
+     * Helper method to get the process ID for a given process name
+     */
+    private fun getProcessId(processName: String): Int {
+        try {
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val runningApps = am.runningAppProcesses ?: return -1
+            
+            for (processInfo in runningApps) {
+                if (processInfo.processName == processName) {
+                    return processInfo.pid
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting process ID for $processName: ${e.message}")
+        }
+        return -1
+    }
+
+    // Fix the regex for splitting the wakelock name
+    private fun getWakelockNameFromKey(key: String): String {
+        return try {
+            if (key.contains("*")) {
+                key.split("\\*".toRegex())[1]
+            } else {
+                key
+            }
+        } catch (e: Exception) {
+            key
+        }
+    }
+
+    // Extension function to check if a file is a socket
+    private fun File.isSocket(): Boolean {
+        return try {
+            this.canonicalPath.contains("socket:") || this.canonicalPath.contains("sock")
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Helper method to determine if we should include this app in data collection
+     * Returns true for non-system apps and popular pre-installed apps
+     */
+    private fun shouldCollectAppData(appInfo: ApplicationInfo): Boolean {
+        val isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+        
+        // If it's not a system app, we definitely want to include it
+        if (!isSystemApp) {
+            return true
+        }
+        
+        // If it is a system app, check if it's a popular pre-installed app
+        return isPopularPreinstalledApp(appInfo.packageName)
+    }
+
+    /**
+     * Helper method to get traffic stats for a specific UID
+     * Returns a Pair of (rxBytes, txBytes) or null if stats aren't available
+     */
+    private fun tryTrafficStatsForApp(uid: Int): Pair<Long, Long>? {
+        return try {
+            val rxBytes = TrafficStats.getUidRxBytes(uid)
+            val txBytes = TrafficStats.getUidTxBytes(uid)
+
+            if (rxBytes > 0 || txBytes > 0) {
+                Pair(rxBytes, txBytes).also {
+                    Log.v(TAG, "TrafficStats for UID $uid: rx=${it.first}, tx=${it.second}")
+                }
+            } else {
+                null.also { Log.v(TAG, "No traffic stats for UID $uid") }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting traffic stats for UID $uid: ${e.message}")
+            null
+        }
+    }
+}
+
+/**
+ * Debug utility class for logging detailed information for prompt generation
+ */
+private object PromptDebug {
+    private const val TAG = "PowerGuard-PromptDebug"
+
+    fun logAppInfo(app: AppInfo) {
+        Log.d(TAG, "App: ${app.appName} (${app.packageName})")
+        Log.d(TAG, "  System app: ${app.isSystemApp}")
+        Log.d(TAG, "  Battery usage: ${app.batteryUsage}%")
+        Log.d(TAG, "  CPU usage: ${app.cpuUsage}%")
+        Log.d(TAG, "  Memory: ${formatBytes(app.memoryUsage)}")
+        Log.d(TAG, "  Foreground time: ${formatDuration(app.foregroundTime)}")
+        Log.d(TAG, "  Background time: ${formatDuration(app.backgroundTime)}")
+        
+        // Log the new metrics we added
+        Log.d(TAG, "  -- Additional Metrics --")
+        
+        // Wakelock info
+        Log.d(TAG, "  Wakelocks: ${app.wakelockInfo.acquireCount} (${formatDuration(app.wakelockInfo.totalDurationMs)})")
+        if (app.wakelockInfo.wakelockTypes.isNotEmpty()) {
+            Log.d(TAG, "  Wakelock types: ${app.wakelockInfo.wakelockTypes.entries.joinToString { "${it.key}=${it.value}" }}")
+        }
+        
+        // Socket connections
+        Log.d(TAG, "  Socket connections: total=${app.socketConnections.totalConnections}, active=${app.socketConnections.activeConnections}")
+        Log.d(TAG, "  Socket types: TCP=${app.socketConnections.tcpConnections}, UDP=${app.socketConnections.udpConnections}")
+        Log.d(TAG, "  Socket duration: ${formatDuration(app.socketConnections.totalDurationMs)}")
+        
+        // Alarm wakeups
+        Log.d(TAG, "  Alarm wakeups: ${app.alarmWakeups}")
+        
+        // Process priority changes
+        Log.d(TAG, "  Priority changes: ${app.priorityChanges}")
+        
+        // Data usage with doze
+        val dataUsage = app.dataUsage
+        Log.d(TAG, "  Data usage: ${formatBytes(dataUsage.rxBytes + dataUsage.txBytes)}")
+        Log.d(TAG, "  Foreground data: ${formatBytes(dataUsage.foreground)}")
+        Log.d(TAG, "  Background data: ${formatBytes(dataUsage.background)}")
+        Log.d(TAG, "  Doze mode data: ${formatBytes(dataUsage.dozeBytes)}")
+    }
+
+    fun logDeviceData(data: DeviceData) {
+        Log.d(TAG, "==== Device Data Summary ====")
+        Log.d(TAG, "Device: ${data.deviceInfo.manufacturer} ${data.deviceInfo.model}")
+        Log.d(TAG, "OS: Android ${data.deviceInfo.osVersion} (SDK ${data.deviceInfo.sdkVersion})")
+        Log.d(TAG, "Battery: ${data.battery.level}% (${data.battery.temperature}°C)")
+        
+        // Count apps with significant metrics
+        val appsWithWakelocks = data.apps.count { it.wakelockInfo.acquireCount > 0 }
+        val appsWithDozeData = data.apps.count { it.dataUsage.dozeBytes > 0 }
+        val appsWithSockets = data.apps.count { it.socketConnections.totalConnections > 0 }
+        val appsWithAlarms = data.apps.count { it.alarmWakeups > 0 }
+        
+        Log.d(TAG, "Apps with wakelocks: $appsWithWakelocks")
+        Log.d(TAG, "Apps using data in doze: $appsWithDozeData")
+        Log.d(TAG, "Apps with socket connections: $appsWithSockets")
+        Log.d(TAG, "Apps with alarm wakeups: $appsWithAlarms")
+        
+        // Memory stats
+        val memoryUsage = (data.memory.totalRam - data.memory.availableRam).toFloat() / data.memory.totalRam * 100
+        Log.d(TAG, "Memory: ${formatBytes(data.memory.totalRam - data.memory.availableRam)} of ${formatBytes(data.memory.totalRam)} (${memoryUsage.toInt()}%)")
+        
+        // Top battery drainers based on combined metrics
+        data.apps.sortedByDescending { 
+            it.batteryUsage + (it.wakelockInfo.totalDurationMs / 60000f) + (it.alarmWakeups * 0.5f)
+        }.take(5).forEach { app ->
+            Log.d(TAG, "Battery drainer: ${app.appName} - ${app.batteryUsage}%, wakelocks=${app.wakelockInfo.acquireCount}, alarms=${app.alarmWakeups}")
+        }
+        
+        // Top data users during doze
+        data.apps.sortedByDescending { it.dataUsage.dozeBytes }.take(5).forEach { app ->
+            if (app.dataUsage.dozeBytes > 0) {
+                Log.d(TAG, "Doze data user: ${app.appName} - ${formatBytes(app.dataUsage.dozeBytes)}")
+            }
+        }
+    }
+
+    private fun formatBytes(bytes: Long): String {
+        return when {
+            bytes < 1024 -> "$bytes B"
+            bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+            bytes < 1024 * 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
+            else -> "${bytes / (1024 * 1024 * 1024)} GB"
+        }
+    }
+
+    private fun formatDuration(millis: Long): String {
+        val seconds = millis / 1000
+        return when {
+            seconds < 60 -> "${seconds}s"
+            seconds < 3600 -> "${seconds / 60}m ${seconds % 60}s"
+            else -> "${seconds / 3600}h ${(seconds % 3600) / 60}m"
+        }
     }
 }

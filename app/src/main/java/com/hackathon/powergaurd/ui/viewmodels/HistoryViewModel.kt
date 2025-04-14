@@ -70,13 +70,9 @@ class HistoryViewModel @Inject constructor(
                     Log.d("HistoryViewModel", "First actionable - Type: ${actionables[0].actionableType}, Description: ${actionables[0].description}")
                 }
                 
-                // Verify there's no mix-up
-                val insightIds = insights.map { it.id }.toSet()
-                val actionableIds = actionables.map { it.id }.toSet()
-                val intersection = insightIds.intersect(actionableIds)
-                if (intersection.isNotEmpty()) {
-                    Log.e("HistoryViewModel", "ERROR: Found ${intersection.size} IDs that appear in both insights and actionables!")
-                }
+                // We don't need to verify for overlapping IDs since insights use auto-generated primary keys
+                // and actionables have their own actionableId field which is different
+                // The previous check was incorrectly comparing auto-generated room IDs
                 
                 _historyState.update { 
                     it.copy(
@@ -121,6 +117,7 @@ class HistoryViewModel @Inject constructor(
                 if (analysisResponse.insights.isNotEmpty()) {
                     val insights = analysisResponse.insights.map { insight ->
                         DeviceInsightEntity(
+                            // Let Room auto-generate the ID
                             insightType = insight.type,
                             insightTitle = insight.title,
                             insightDescription = insight.description,
@@ -140,13 +137,19 @@ class HistoryViewModel @Inject constructor(
                 if (analysisResponse.actionable.isNotEmpty()) {
                     val actionables = analysisResponse.actionable.map { actionable ->
                         DeviceActionableEntity(
-                            actionableId = actionable.id,
+                            // Let Room auto-generate the ID
+                            actionableId = actionable.id,  // This comes from the API and is already a unique string
                             actionableType = actionable.type,
                             packageName = actionable.packageName ?: "",
                             description = actionable.description,
                             reason = actionable.reason ?: "",
                             newMode = actionable.newMode ?: "",
-                            timestamp = timestamp
+                            timestamp = timestamp,
+                            estimatedBatterySavings = actionable.estimatedBatterySavings,
+                            estimatedDataSavings = actionable.estimatedDataSavings,
+                            severity = actionable.severity,
+                            enabled = actionable.enabled,
+                            throttleLevel = actionable.throttleLevel
                         )
                     }
                     
@@ -157,9 +160,36 @@ class HistoryViewModel @Inject constructor(
                     Log.d("HistoryViewModel", "No actionables to save")
                 }
                 
-                // Refresh data after insertion with a small delay to ensure DB transactions complete
+                // Force refresh history data after saving
                 kotlinx.coroutines.delay(100)
                 loadHistory()
+                
+                // Add additional diagnostic logging about the saved data
+                viewModelScope.launch {
+                    val savedInsights = insightsRepository.getAllInsightsSortedByTimestamp()
+                    val savedActionables = actionablesRepository.getAllActionablesSortedByTimestamp()
+                    
+                    Log.d("HistoryViewModel", "After saving: ${savedInsights.size} insights in DB, " +
+                            "${savedActionables.size} actionables in DB")
+                    
+                    // Log a few examples with their IDs for debugging
+                    if (savedInsights.isNotEmpty()) {
+                        val sample = savedInsights.take(3)
+                        sample.forEach { insight ->
+                            Log.d("HistoryViewModel", "Insight ID: ${insight.id}, Type: ${insight.insightType}, " +
+                                    "Title: ${insight.insightTitle}")
+                        }
+                    }
+                    
+                    if (savedActionables.isNotEmpty()) {
+                        val sample = savedActionables.take(3)
+                        sample.forEach { actionable ->
+                            Log.d("HistoryViewModel", "Actionable ID: ${actionable.id}, ActionableID: ${actionable.actionableId}, " +
+                                    "Type: ${actionable.actionableType}")
+                        }
+                    }
+                }
+                
                 Log.d("HistoryViewModel", "Refreshed history after saving response")
             } catch (e: Exception) {
                 Log.e("HistoryViewModel", "Error storing analysis response: ${e.message}", e)
@@ -171,8 +201,8 @@ class HistoryViewModel @Inject constructor(
         @Volatile
         private var INSTANCE: HistoryViewModel? = null
         
-        fun getInstance(): HistoryViewModel {
-            return INSTANCE ?: throw IllegalStateException("HistoryViewModel not initialized yet")
+        fun getInstance(): HistoryViewModel? {
+            return INSTANCE
         }
     }
 }

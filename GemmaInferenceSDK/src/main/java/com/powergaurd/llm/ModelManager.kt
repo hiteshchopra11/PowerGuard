@@ -81,8 +81,7 @@ class ModelManager(
     private fun createGenerativeModel(): GenerativeModel {
         return GenerativeModel(
             modelName = config.modelName,
-            apiKey = config.apiKey,
-            requestOptions = RequestOptions(apiVersion = "v1beta")
+            apiKey = config.apiKey
         )
     }
     
@@ -93,8 +92,7 @@ class ModelManager(
         return GenerativeModel(
             modelName = config.modelName,
             apiKey = config.apiKey,
-            generationConfig = generationConfig,
-            requestOptions = RequestOptions(apiVersion = "v1beta")
+            generationConfig = generationConfig
         )
     }
     

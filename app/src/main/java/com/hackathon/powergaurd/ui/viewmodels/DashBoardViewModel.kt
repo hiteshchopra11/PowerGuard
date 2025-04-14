@@ -76,7 +76,8 @@ class DashboardViewModel @Inject constructor(
 
     init {
         _isUsingGemma.value = analysisRepository.isUsingGemma()
-        refreshData()
+        // Don't automatically call refreshData() on initialization
+        // This prevents automatic LLM API calls on app startup
     }
 
     /**
@@ -218,6 +219,45 @@ class DashboardViewModel @Inject constructor(
     }
 
     /**
+     * Fetches only device data without running LLM analysis
+     * This separates data collection from LLM inference
+     */
+    @SuppressLint("NewApi")
+    fun fetchDeviceDataOnly() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            
+            try {
+                Log.d(TAG, "Starting to fetch device data only")
+                
+                // Get device data
+                val deviceData = usageDataCollector.collectDeviceData()
+                _deviceData.value = deviceData
+                Log.d(TAG, "Device data collected successfully")
+                
+                // Update UI state with device data only
+                updateUiStateFromDeviceData(deviceData)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching device data: ${e.message}", e)
+                
+                // Handle network-related errors more gracefully
+                val errorMessage = when (e) {
+                    is java.net.UnknownHostException -> "Network connection issue: Unable to connect to server"
+                    is java.net.ConnectException -> "Network connection issue: Server is unreachable"
+                    is java.net.SocketTimeoutException -> "Network connection issue: Connection timed out"
+                    is javax.net.ssl.SSLException -> "Network security issue: Could not establish secure connection"
+                    else -> "Error: ${e.message ?: "Unknown error"}"
+                }
+                
+                _error.value = errorMessage
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
      * Submits the user's prompt to the API for analysis
      */
     @RequiresApi(Build.VERSION_CODES.P)
@@ -228,12 +268,29 @@ class DashboardViewModel @Inject constructor(
 
             try {
                 // Get latest device data
-                val deviceData = usageDataCollector.collectDeviceData().copy(prompt = prompt)
-                _deviceData.value = deviceData
+                Log.d("DashboardViewModel", "Starting device data collection for prompt")
+                val deviceData = usageDataCollector.collectDeviceData()
+                
+                // Log the quality of collected device data
+                Log.d("DashboardViewModel", """
+                    Device Data Quality Check:
+                    - Battery Level: ${deviceData.battery.level}%
+                    - Battery Temp: ${deviceData.battery.temperature}°C
+                    - Network Type: ${deviceData.network.type}
+                    - Network Strength: ${deviceData.network.strength}
+                    - Memory: ${deviceData.memory.availableRam}/${deviceData.memory.totalRam} bytes
+                    - Installed Apps: ${deviceData.apps.size}
+                """.trimIndent())
+                
+                // Give more time for data collection to complete
+                delay(800)
+                
+                val deviceDataWithPrompt = deviceData.copy(prompt = prompt)
+                _deviceData.value = deviceDataWithPrompt
                 Log.d("DashboardViewModel", "Collected device data for analysis")
 
                 // Analyze the data with the prompt
-                analyzeDeviceData(deviceData)
+                analyzeDeviceData(deviceDataWithPrompt)
             } catch (e: Exception) {
                 Log.e("DashboardViewModel", "Failed to submit prompt: ${e.message}", e)
                 _error.value = "Failed to submit prompt: ${e.message}"

@@ -135,14 +135,6 @@ fun DashboardScreen(
     // Declare FocusRequester
     val focusRequester = remember { FocusRequester() }
 
-    // Auto-refresh data every 5 minutes
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(300000) // 5 minutes
-            viewModel.refreshData()
-        }
-    }
-
     // Handle error if needed
     LaunchedEffect(error) {
         if (error != null) {
@@ -235,6 +227,18 @@ fun DashboardScreen(
             onDismiss = { showSettingsSheet = false }
         )
     }
+
+    // Auto-refresh data every 5 minutes
+    LaunchedEffect(Unit) {
+        // Initial data load to populate UI (this just fetches device data, no LLM call)
+        viewModel.fetchDeviceDataOnly()
+        
+        while (true) {
+            delay(300000) // 5 minutes
+            // Only refresh device data, not analysis
+            viewModel.fetchDeviceDataOnly()
+        }
+    }
 }
 
 @RequiresApi(Build.VERSION_CODES.P)
@@ -305,7 +309,8 @@ private fun DashboardContent(
                         showSnackbar("Please enter a prompt first")
                     }
                 },
-                focusRequester = focusRequester
+                focusRequester = focusRequester,
+                isLoading = isRefreshing
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -568,7 +573,8 @@ fun PromptCard(
     promptText: String,
     onPromptChange: (String) -> Unit,
     onSubmit: () -> Unit,
-    focusRequester: FocusRequester
+    focusRequester: FocusRequester,
+    isLoading: Boolean = false
 ) {
     // Create a list of rotating placeholder texts
     val placeholders = listOf(
@@ -665,14 +671,25 @@ fun PromptCard(
                 )
                 
                 Button(
-                    onClick = onSubmit
+                    onClick = onSubmit,
+                    // Disable button when loading
+                    enabled = !isLoading
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send"
-                    )
+                    // Show loading indicator or send icon based on loading state
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send"
+                        )
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Send")
+                    Text(if (isLoading) "Sending..." else "Send")
                 }
             }
         }
@@ -1150,7 +1167,8 @@ fun PromptCardPreview() {
                 promptText = "",
                 onPromptChange = {},
                 onSubmit = {},
-                focusRequester = remember { FocusRequester() }
+                focusRequester = remember { FocusRequester() },
+                isLoading = false
             )
         }
     }

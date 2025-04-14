@@ -2,29 +2,23 @@ package com.powergaurd.llm
 
 import android.content.Context
 import android.os.BatteryManager
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
-import com.google.ai.client.generativeai.type.RequestOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
-import com.google.ai.client.generativeai.type.content
 
 /**
  * Main entry point for the Gemma Inference SDK.
@@ -400,79 +394,7 @@ class GemmaInferenceSDK(
         /** SDK initialization failed */
         ERROR
     }
-    
-    /**
-     * Lists available models from the Generative AI API.
-     * This can help diagnose model availability issues.
-     */
-    suspend fun listAvailableModels() {
-        if (!isInitialized.get()) {
-            logError("SDK not initialized", IllegalStateException("Call initialize() first"))
-            return
-        }
-        
-        try {
-            // Log current configuration
-            logDebug("Current model configuration:")
-            logDebug("- Model name: ${config.modelName}")
-            logDebug("- Max tokens: ${config.maxTokens}")
-            logDebug("- Temperature: ${config.temperature}")
-            
-            // Create a test model to check API connectivity
-            try {
-                // Try different model types to discover available ones
-                val modelTypes = listOf(
-                    "gemini-1.5-pro-latest"
-                )
-                
-                logDebug("\nChecking available models...")
-                modelTypes.forEach { modelType ->
-                    try {
-                        val testModel = com.google.ai.client.generativeai.GenerativeModel(
-                            modelName = modelType,
-                            apiKey = config.apiKey,
-                            requestOptions = RequestOptions(apiVersion = "v1beta")
-                        )
-                        val testPrompt = content(role = "user") { text("Test") }
-                        testModel.generateContent(testPrompt)
-                        logDebug("✓ models/$modelType : Available and responding")
-                    } catch (e: Exception) {
-                        when {
-                            e.message?.contains("not found") == true || 
-                            e.message?.contains("not supported") == true -> {
-                                logDebug("✗ models/$modelType : Not available (${e.message})")
-                            }
-                            e.message?.contains("permission") == true || 
-                            e.message?.contains("access") == true -> {
-                                logDebug("? models/$modelType : No permission")
-                            }
-                            else -> {
-                                logDebug("? models/$modelType : Error (${e.message})")
-                            }
-                        }
-                    }
-                }
-                
-                // Test current configured model
-                logDebug("\nTesting configured model...")
-                val model = modelManager.getModel()
-                val testPrompt = content(role = "user") { text("Test prompt") }
-                model.generateContent(testPrompt)
-                logDebug("✓ Current model (${config.modelName}) is accessible and responding")
-                
-            } catch (e: Exception) {
-                logError("\nFailed to check models: ${e.message}", e)
-                logDebug("\nTroubleshooting steps:")
-                logDebug("1. Verify your API key has necessary permissions")
-                logDebug("2. Check if the model name includes the full path (e.g., 'models/gemini-pro')")
-                logDebug("3. Ensure you're using a supported model for your API version")
-                logDebug("4. Check network connectivity")
-                logDebug("\nAPI Error details: ${e.message}")
-            }
-        } catch (e: Exception) {
-            logError("Failed to initialize model manager", e)
-        }
-    }
+
     
     companion object {
         private const val LOW_BATTERY_THRESHOLD = 15

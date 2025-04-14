@@ -91,10 +91,28 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
 
         // Get various device and usage data
         val deviceInfo = collectDeviceInfo()
-        val batteryInfo = collectBatteryInfo()
+        var batteryInfo = collectBatteryInfo()
         val memoryInfo = collectMemoryInfo()
         val cpuInfo = collectCpuInfo()
-        val networkInfo = collectNetworkInfo(startTime, endTime) // Updated to pass start and end times
+        
+        // Retry battery info collection if we get default values
+        if (batteryInfo.level <= 0 || batteryInfo.temperature <= 0f) {
+            Log.w(TAG, "Got default battery values, retrying collection: level=${batteryInfo.level}, temp=${batteryInfo.temperature}")
+            kotlinx.coroutines.delay(300) // Short delay before retry
+            batteryInfo = collectBatteryInfo() // Try again
+            Log.d(TAG, "After retry: battery level=${batteryInfo.level}, temp=${batteryInfo.temperature}")
+        }
+        
+        // Collect network info with retry for better data
+        var networkInfo = collectNetworkInfo(startTime, endTime)
+        // Retry network collection if we get default values
+        if (networkInfo.strength < 0) {
+            Log.w(TAG, "Got default network values, retrying collection: strength=${networkInfo.strength}")
+            kotlinx.coroutines.delay(300) // Short delay before retry
+            networkInfo = collectNetworkInfo(startTime, endTime) // Try again
+            Log.d(TAG, "After retry: network strength=${networkInfo.strength}")
+        }
+        
         val settingsInfo = collectSettingsInfo()
         var appsInfo = collectAppsInfo(startTime, endTime)
 
@@ -114,7 +132,7 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             settings = settingsInfo,
             deviceInfo = deviceInfo,
             prompt = ""
-        ).also { Log.i(TAG, "Data collection completed: ${it.apps.size} apps included") }
+        ).also { Log.i(TAG, "Data collection completed: ${it.apps.size} apps included, battery=${it.battery.level}%, network=${it.network.type}") }
     }
 
     /**

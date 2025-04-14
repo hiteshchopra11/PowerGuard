@@ -22,7 +22,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.hackathon.powergaurd.R
 import com.hackathon.powergaurd.MainActivity
-import com.hackathon.powergaurd.di.AppRepository
+import com.hackathon.powergaurd.di.AppDataRepository
 import com.hackathon.powergaurd.models.AppUsageData
 import com.hackathon.powergaurd.models.BatteryOptimizationData
 import com.hackathon.powergaurd.models.NetworkUsageData
@@ -46,7 +46,7 @@ class PowerGuardService : Service() {
     private var isCollectingData = false
 
     @Inject
-    lateinit var appRepository: AppRepository
+    lateinit var appRepository: AppDataRepository
 
     private lateinit var powerManager: PowerManager
     private lateinit var batteryManager: BatteryManager
@@ -260,7 +260,7 @@ class PowerGuardService : Service() {
         serviceScope.launch {
             while (isCollectingData) {
                 try {
-                    collectAndAnalyzeData()
+                    collectUsageData()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error collecting data: ${e.message}")
                 }
@@ -271,7 +271,7 @@ class PowerGuardService : Service() {
         }
     }
 
-    private suspend fun collectAndAnalyzeData() {
+    private fun collectUsageData() {
         Log.d(TAG, "Collecting usage data")
 
         // 1. Collect battery and app usage data
@@ -281,7 +281,15 @@ class PowerGuardService : Service() {
         val networkUsageData = collectNetworkUsageData(installedApps)
 
         // 2. Store data for pattern recognition
-        appRepository.saveUsageData(appUsageData, batteryInfo, networkUsageData)
+        try {
+            if (::appRepository.isInitialized) {
+                appRepository.saveUsageData(appUsageData, batteryInfo, networkUsageData)
+            } else {
+                Log.e(TAG, "AppRepository not initialized")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving usage data: ${e.message}", e)
+        }
 
         // 3. Analyze patterns and optimize based on available permissions
         optimizeBatteryUsage(appUsageData, batteryInfo)

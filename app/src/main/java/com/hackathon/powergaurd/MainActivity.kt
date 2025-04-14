@@ -10,7 +10,10 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
@@ -45,7 +48,9 @@ class MainActivity : ComponentActivity() {
                 startPowerGuardService()
             }
         }
-
+    
+    private var doubleBackToExitPressedOnce = false
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -60,6 +65,26 @@ class MainActivity : ComponentActivity() {
 
         // Request permissions
         requestRequiredPermissions()
+        
+        // Set up back press handling
+        setupBackPressHandling()
+    }
+    
+    private fun setupBackPressHandling() {
+        // Register a callback for back press events
+        onBackPressedDispatcher.addCallback(this) {
+            if (doubleBackToExitPressedOnce) {
+                finish()
+            } else {
+                doubleBackToExitPressedOnce = true
+                Toast.makeText(this@MainActivity, "Press back again to exit", Toast.LENGTH_SHORT).show()
+                
+                // Reset after 2 seconds
+                android.os.Handler(mainLooper).postDelayed({
+                    doubleBackToExitPressedOnce = false
+                }, 2000)
+            }
+        }
     }
 
     private fun requestRequiredPermissions() {

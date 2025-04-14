@@ -40,8 +40,12 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -51,17 +55,20 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -83,6 +90,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hackathon.powergaurd.PowerGuardOptimizer
+import com.hackathon.powergaurd.ui.components.BottomSheetContent
 import com.hackathon.powergaurd.ui.viewmodels.DashboardUiState
 import com.hackathon.powergaurd.ui.viewmodels.DashboardViewModel
 import com.hackathon.powergaurd.ui.viewmodels.ActionableViewModel
@@ -92,6 +100,10 @@ import com.hackathon.powergaurd.data.model.Actionable
 import com.hackathon.powergaurd.data.model.Insight
 import com.hackathon.powergaurd.actionable.ActionableTypes
 import kotlinx.coroutines.flow.MutableStateFlow
+import androidx.compose.material3.Divider
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @RequiresApi(Build.VERSION_CODES.P)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,10 +121,12 @@ fun DashboardScreen(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val analysisResponse by viewModel.analysisResponse.collectAsStateWithLifecycle()
+    val isUsingGemma by viewModel.isUsingGemma.collectAsState()
     
     var showActionableDialog by remember { mutableStateOf(false) }
     var isAnalyzing by remember { mutableStateOf(false) }
     var promptText by remember { mutableStateOf("") }
+    var showSettingsSheet by remember { mutableStateOf(false) }
     
     LaunchedEffect(isLoading, analysisResponse, showActionableDialog, isAnalyzing) {
         Log.d("DashboardScreen", "State changed: isLoading=$isLoading, hasResponse=${analysisResponse != null}, showDialog=$showActionableDialog, isAnalyzing=$isAnalyzing")
@@ -168,9 +182,10 @@ fun DashboardScreen(
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0.dp), // 👈 Makes Scaffold handle insets
         topBar = {
-            TopAppBar(
-                windowInsets = WindowInsets(0, 0, 0, 0),
-                title = { Text("PowerGuard Dashboard") }
+            DashboardTopBar(
+                title = "PowerGuard",
+                onRefresh = { viewModel.refreshData() },
+                onSettings = { showSettingsSheet = true }
             )
         }
     )  { paddingValues ->
@@ -207,9 +222,18 @@ fun DashboardScreen(
                 isAnalyzing = isAnalyzing,
                 focusRequester = focusRequester,
                 promptText = promptText,
-                onPromptChange = { promptText = it }
+                onPromptChange = { promptText = it },
+                isUsingGemma = isUsingGemma
             )
         }
+    }
+    
+    // Show the bottom sheets when appropriate
+    if (showSettingsSheet) {
+        SettingsBottomSheet(
+            viewModel = viewModel,
+            onDismiss = { showSettingsSheet = false }
+        )
     }
 }
 
@@ -229,7 +253,8 @@ private fun DashboardContent(
     isAnalyzing: Boolean,
     focusRequester: FocusRequester,
     promptText: String,
-    onPromptChange: (String) -> Unit
+    onPromptChange: (String) -> Unit,
+    isUsingGemma: Boolean
 ) {
     // Track whether first API response has been received
     var hasReceivedFirstResponse by remember { mutableStateOf(false) }
@@ -1395,25 +1420,237 @@ fun FullDashboardContentPreview() {
                 dataScore = 85,
                 performanceScore = 95,
                 insights = emptyList(),
-                aiSummary = "Your device is performing well"
+                aiSummary = "Your device is performing well",
+                inferenceMode = "Gemma SDK"
             )
 
-            DashboardContent(
-                uiState = previewUiState,
-                isRefreshing = false,
-                paddingValues = PaddingValues(0.dp),
-                optimizer = PowerGuardOptimizer(LocalContext.current),
-                showSnackbar = {},
-                viewModel = hiltViewModel(),
-                openPromptInput = false,
-                analysisResponse = null,
-                onShowAnalysisDialog = { _, _ -> },
-                showActionableDialog = false,
-                isAnalyzing = false,
-                focusRequester = remember { FocusRequester() },
-                promptText = "",
-                onPromptChange = {}
+            // Simplified preview version of DashboardContent
+            Column {
+                DeviceStatusCard(
+                    batteryLevel = previewUiState.batteryLevel,
+                    isCharging = previewUiState.isCharging,
+                    networkType = previewUiState.networkType,
+                    networkStrength = previewUiState.networkStrength,
+                    isUsingGemma = true
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                BatteryStatusCard(
+                    batteryLevel = previewUiState.batteryLevel,
+                    isCharging = previewUiState.isCharging,
+                    chargingType = previewUiState.chargingType,
+                    batteryTemperature = previewUiState.batteryTemperature,
+                    onOptimize = {}
+                )
+            }
+        }
+    }
+}
+
+// Add Gemma mode toggle to the Settings section of the Dashboard
+@Composable
+private fun SettingsBottomSheet(
+    viewModel: DashboardViewModel,
+    onDismiss: () -> Unit
+) {
+    val isUsingGemma by viewModel.isUsingGemma.collectAsState()
+
+    BottomSheetContent(
+        title = "Settings",
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Gemma toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Local AI Inference",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "Use on-device Gemma SDK instead of backend API",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Switch(
+                    checked = isUsingGemma,
+                    onCheckedChange = { viewModel.toggleInferenceMode(it) }
+                )
+            }
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Display current mode
+            Text(
+                text = "Current mode: ${if (isUsingGemma) "Gemma SDK (On-device)" else "Backend API (Cloud)"}",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+
+            // Add more settings items as needed
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DashboardTopBar(
+    title: String,
+    onRefresh: () -> Unit,
+    onSettings: () -> Unit
+) {
+    TopAppBar(
+        title = { Text(text = title) },
+        actions = {
+            IconButton(onClick = onRefresh) {
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = "Refresh"
+                )
+            }
+            IconButton(onClick = onSettings) {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = "Settings"
+                )
+            }
+        }
+    )
+}
+
+// Add this function to create the inference mode indicator
+@Composable
+private fun InferenceModeIndicator(isUsingGemma: Boolean) {
+    Surface(
+        modifier = Modifier.padding(8.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = if (isUsingGemma) 
+            MaterialTheme.colorScheme.primaryContainer 
+        else 
+            MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = if (isUsingGemma) 
+            MaterialTheme.colorScheme.onPrimaryContainer 
+        else 
+            MaterialTheme.colorScheme.onSecondaryContainer
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = if (isUsingGemma) 
+                    Icons.Filled.PhoneAndroid 
+                else 
+                    Icons.Filled.Cloud,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = if (isUsingGemma) "On-device AI" else "Cloud API",
+                style = MaterialTheme.typography.labelMedium
             )
         }
+    }
+}
+
+// Modify the existing DeviceStatusCard to add the inference mode indicator
+@Composable
+private fun DeviceStatusCard(
+    batteryLevel: Int,
+    isCharging: Boolean,
+    networkType: String,
+    networkStrength: Int,
+    isUsingGemma: Boolean
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Device Status",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                
+                // Add inference mode indicator
+                InferenceModeIndicator(isUsingGemma = isUsingGemma)
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Battery info
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = if (isCharging) Icons.Filled.BatteryAlert else Icons.Filled.BatteryAlert,
+                    contentDescription = "Battery status"
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("$batteryLevel%${if (isCharging) " (Charging)" else ""}")
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Network info
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.NetworkCheck,
+                    contentDescription = "Network status"
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("$networkType (Signal: $networkStrength)")
+            }
+        }
+    }
+}
+
+// Update the usage in DashboardContent
+@Composable
+private fun DashboardContent(
+    modifier: Modifier = Modifier,
+    viewModel: DashboardViewModel,
+    uiState: DashboardUiState,
+    showExamples: () -> Unit,
+    onActionableClick: (Actionable) -> Unit,
+    isUsingGemma: Boolean
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 16.dp)
+    ) {
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            DeviceStatusCard(
+                batteryLevel = uiState.batteryLevel,
+                isCharging = uiState.isCharging,
+                networkType = uiState.networkType,
+                networkStrength = uiState.networkStrength,
+                isUsingGemma = isUsingGemma
+            )
+            // ... rest of the existing LazyColumn content
+        }
+        
+        // ... existing items
     }
 }

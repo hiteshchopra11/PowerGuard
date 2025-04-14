@@ -2,6 +2,7 @@ package com.hackathon.powergaurd.data.remote
 
 import android.util.Log
 import com.hackathon.powergaurd.data.model.Actionable
+import com.hackathon.powergaurd.data.model.AnalysisRepository
 import com.hackathon.powergaurd.data.model.AnalysisResponse
 import com.hackathon.powergaurd.data.model.DeviceData
 import com.hackathon.powergaurd.data.model.Insight
@@ -17,7 +18,7 @@ import javax.inject.Singleton
 @Singleton
 class PowerGuardRepository @Inject constructor(
     private val apiService: PowerGuardApiService
-) {
+) : AnalysisRepository {
     companion object {
         private const val TAG = "PowerGuardRepository"
     }
@@ -29,7 +30,7 @@ class PowerGuardRepository @Inject constructor(
      * @param deviceData The collected device data
      * @return Result with AnalysisResponse or error information
      */
-    suspend fun analyzeDeviceData(deviceData: DeviceData): Result<AnalysisResponse> =
+    override suspend fun analyzeDeviceData(deviceData: DeviceData): Result<AnalysisResponse> =
         withContext(Dispatchers.IO) {
             try {
                 val response = apiService.analyzeDeviceData(deviceData)

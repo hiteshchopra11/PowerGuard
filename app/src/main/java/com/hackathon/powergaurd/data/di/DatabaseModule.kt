@@ -6,7 +6,7 @@ import com.hackathon.powergaurd.data.local.InsightsDBRepository
 import com.hackathon.powergaurd.data.local.PowerGuardDatabase
 import com.hackathon.powergaurd.data.local.dao.DeviceActionableDao
 import com.hackathon.powergaurd.data.local.dao.DeviceInsightDao
-import com.hackathon.powergaurd.data.remote.PowerGuardRepository
+import com.hackathon.powergaurd.data.PowerGuardAnalysisRepository
 import com.hackathon.powergaurd.domain.usecase.AnalyzeDeviceDataUseCase
 import com.hackathon.powergaurd.domain.usecase.GetAllActionableUseCase
 import com.hackathon.powergaurd.domain.usecase.GetCurrentInsightsUseCase
@@ -64,7 +64,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideAnalyzeDeviceDataUseCase(
-        repository: PowerGuardRepository,
+        repository: PowerGuardAnalysisRepository,
         saveInsightsUseCase: SaveInsightsUseCase
     ): AnalyzeDeviceDataUseCase {
         return AnalyzeDeviceDataUseCase(repository, saveInsightsUseCase)

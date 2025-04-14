@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.GenerationConfig
+import com.google.ai.client.generativeai.type.RequestOptions
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -80,7 +81,8 @@ class ModelManager(
     private fun createGenerativeModel(): GenerativeModel {
         return GenerativeModel(
             modelName = config.modelName,
-            apiKey = config.apiKey
+            apiKey = config.apiKey,
+            requestOptions = RequestOptions(apiVersion = "v1beta")
         )
     }
     
@@ -91,7 +93,8 @@ class ModelManager(
         return GenerativeModel(
             modelName = config.modelName,
             apiKey = config.apiKey,
-            generationConfig = generationConfig
+            generationConfig = generationConfig,
+            requestOptions = RequestOptions(apiVersion = "v1beta")
         )
     }
     

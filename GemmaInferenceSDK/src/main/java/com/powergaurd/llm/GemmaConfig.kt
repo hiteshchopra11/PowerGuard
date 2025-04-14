@@ -18,7 +18,7 @@ package com.powergaurd.llm
  */
 data class GemmaConfig(
     val modelName: String = "gemma-3-1b",
-    val apiKey: String = "AIzaSyAAgRaAGrIOQdGR-x2my5OfGJU24Gjhfm4",
+    val apiKey: String = "",
     val maxCacheSize: Long = 100 * 1024 * 1024, // 100 MB
     val enableLogging: Boolean = false,
     val timeoutMs: Long = 30000, // 30 seconds

@@ -599,65 +599,18 @@ class GemmaRepository @Inject constructor(
      * Makes sure the SDK is initialized before use.
      * This method blocks until initialization is complete.
      */
-    private fun ensureSdkInitialized() {
-        synchronized(this) {
-            if (_sdk != null) {
-                return
-            }
-            
-            if (Looper.myLooper() == Looper.getMainLooper()) {
-                // Already on main thread, initialize directly
-                try {
-                    // Use runBlocking to call suspend function from non-suspend context
-                    runBlocking(Dispatchers.Main) {
-                        initialize()
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to initialize SDK on main thread: ${e.message}", e)
-                    throw e
-                }
-            } else {
-                // Need to initialize on main thread
-                val latch = CountDownLatch(1)
-                var initException: Exception? = null
-                
-                Handler(Looper.getMainLooper()).post {
-                    try {
-                        // Run blocking on main thread
-                        MainScope().launch {
-                            try {
-                                initialize()
-                            } catch (e: Exception) {
-                                initException = e
-                            } finally {
-                                latch.countDown()
-                            }
-                        }
-                    } catch (e: Exception) {
-                        initException = e
-                        latch.countDown()
-                    }
-                }
-                
-                try {
-                    // Wait for main thread initialization to complete
-                    val success = latch.await(10, TimeUnit.SECONDS)
-                    if (!success) {
-                        throw RuntimeException("SDK initialization timed out after 10 seconds")
-                    }
-                    
-                    // Throw any exception that occurred during initialization
-                    if (initException != null) {
-                        throw initException as Exception
-                    } else {
-                        // Do nothing
-                    }
-                } catch (e: InterruptedException) {
-                    Log.e(TAG, "SDK initialization interrupted: ${e.message}", e)
-                    Thread.currentThread().interrupt()
-                    throw RuntimeException("SDK initialization interrupted", e)
-                }
-            }
+    private suspend fun ensureSdkInitialized() {
+        // Access sdk getter to ensure _sdk is initialized
+        if (_sdk == null) {
+            // The sdk getter will initialize _sdk if it's null
+            sdk // This will trigger the getter which initializes _sdk
         }
+        
+        if (!sdk.initialize()) {
+            throw IllegalStateException("Failed to initialize Gemma SDK")
+        }
+        
+        // List available models to help with debugging
+        sdk.listAvailableModels()
     }
 } 

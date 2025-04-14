@@ -22,7 +22,7 @@ object GemmaModule {
     private const val PLACEHOLDER_KEY = "null"
     
     // Standard model names for Gemini API
-    private const val MODEL_GEMINI_PRO = "gemini-pro"
+    private const val MODEL_GEMINI_PRO = "gemini-1.5-pro-latest"
     
     /**
      * Provides the GemmaConfig with appropriate settings for PowerGuard
@@ -57,7 +57,7 @@ object GemmaModule {
         val isLowEndDevice = isLowEndDevice(context)
         
         // Use standard Gemini model names that are supported by the API
-        val modelName = if (isLowEndDevice) MODEL_GEMINI_PRO else MODEL_GEMINI_PRO
+        val modelName = MODEL_GEMINI_PRO
         Log.d(TAG, "Using model: $modelName")
         
         return GemmaConfig(

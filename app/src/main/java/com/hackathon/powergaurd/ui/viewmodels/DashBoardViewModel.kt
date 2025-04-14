@@ -348,6 +348,11 @@ class DashboardViewModel @Inject constructor(
             try {
                 // Get the HistoryViewModel to save the response
                 val historyViewModel = HistoryViewModel.getInstance()
+                if (historyViewModel == null) {
+                    Log.w("DashboardViewModel", "HistoryViewModel not initialized yet, can't save to history")
+                    return@launch
+                }
+                
                 historyViewModel.storeAnalysisResponse(response)
                 
                 // Force refresh history data after saving
@@ -404,7 +409,7 @@ class DashboardViewModel @Inject constructor(
 
     private fun generateAiSummary(insights: List<DeviceInsightEntity>): String {
         if (insights.isEmpty()) {
-            return "Based on our analysis, your device is operating efficiently. We'll continue monitoring for optimization opportunities."
+            return "Your device is operating efficiently. We'll continue monitoring for optimization opportunities."
         }
 
         val highSeverityInsights = insights.filter { it.severity == "HIGH" }
@@ -413,15 +418,15 @@ class DashboardViewModel @Inject constructor(
         return when {
             highSeverityInsights.isNotEmpty() -> {
                 val insight = highSeverityInsights.first()
-                "${insight.insightTitle}: ${insight.insightDescription}. Tap 'Optimize Battery' or 'Optimize Data' to improve your device."
+                insight.insightDescription
             }
             mediumSeverityInsights.isNotEmpty() -> {
                 val insight = mediumSeverityInsights.first()
-                "${insight.insightTitle}: ${insight.insightDescription}. Consider optimizing your device settings."
+                insight.insightDescription
             }
             else -> {
                 val insight = insights.first()
-                "${insight.insightTitle}: ${insight.insightDescription}."
+                insight.insightDescription
             }
         }
     }

@@ -11,6 +11,8 @@ import com.hackathon.powergaurd.ui.navigation.Screen
 import com.hackathon.powergaurd.ui.screens.ExploreScreen
 import com.hackathon.powergaurd.ui.screens.HistoryScreen
 import com.hackathon.powergaurd.ui.screens.DashboardScreen
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.hackathon.powergaurd.ui.viewmodels.HistoryViewModel
 
 @Composable
 fun AppNavHost(
@@ -19,6 +21,10 @@ fun AppNavHost(
     showSnackbar: (String) -> Unit,
     openPromptInput: Boolean = false
 ) {
+    // Initialize HistoryViewModel at the app level to ensure it's available
+    // This prevents the "HistoryViewModel not initialized yet" error
+    val historyViewModel: HistoryViewModel = hiltViewModel()
+    
     NavHost(
         navController = navController,
         startDestination = Screen.Dashboard.route,
@@ -32,7 +38,7 @@ fun AppNavHost(
             ) 
         }
         composable(Screen.Explore.route) { ExploreScreen() }
-        composable(Screen.History.route) { HistoryScreen() }
+        composable(Screen.History.route) { HistoryScreen(viewModel = historyViewModel) }
     }
 }
 

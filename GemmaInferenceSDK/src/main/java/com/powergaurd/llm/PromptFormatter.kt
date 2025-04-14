@@ -78,7 +78,7 @@ class PromptFormatter {
             2. insights: List of insights about the device's behavior, each with:
                - type: insight category
                - title: summary title
-               - description: detailed explanation
+               - description: concise one-liner explanation (keep it brief but actionable)
                - severity: low, medium, or high
             
             3. scores and estimates:
@@ -141,6 +141,7 @@ class PromptFormatter {
             
             Based on this data, generate a targeted analysis focusing on ${area.uppercase()} optimization.
             Include specific actions, insights, and improvement estimates in JSON format.
+            Keep insights as concise one-liners that provide actionable advice.
         """.trimIndent())
         
         return prompt.toString()

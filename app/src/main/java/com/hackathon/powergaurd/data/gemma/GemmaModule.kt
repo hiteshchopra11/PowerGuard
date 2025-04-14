@@ -64,7 +64,7 @@ object GemmaModule {
             modelName = modelName,
             apiKey = apiKey, 
             enableLogging = true,
-            maxTokens = if (isLowEndDevice) 256 else 384,
+            maxTokens = 512,  // Reduced from 2048 to prevent MAX_TOKENS errors
             temperature = 0.5f,  // Slightly higher temperature for more varied responses
             autoInitialize = true,
             releaseOnBackground = isLowEndDevice

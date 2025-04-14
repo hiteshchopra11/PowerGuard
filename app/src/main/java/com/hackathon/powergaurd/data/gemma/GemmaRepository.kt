@@ -171,7 +171,7 @@ class GemmaRepository @Inject constructor(
             }
             
             try {
-                val jsonResponse = sdk.generateJsonResponse(prompt, maxTokens = 800, temperature = 0.5f)
+                val jsonResponse = sdk.generateJsonResponse(prompt, maxTokens = 512, temperature = 0.5f)
                 
                 if (DEBUG) {
                     Log.d(TAG, "Gemma response: $jsonResponse")
@@ -187,6 +187,24 @@ class GemmaRepository @Inject constructor(
             } catch (e: Exception) {
                 // Check if this is a network/connectivity related exception
                 when {
+                    e.message?.contains("MAX_TOKENS") == true -> {
+                        Log.e(TAG, "MAX_TOKENS error: ${e.message}. Trying with reduced token count.", e)
+                        try {
+                            // Retry with smaller token count
+                            val jsonResponse = sdk.generateJsonResponse(prompt, maxTokens = 256, temperature = 0.5f)
+                            
+                            val parsedResponse = if (jsonResponse != null) {
+                                parseGemmaResponse(jsonResponse, deviceData.deviceId)
+                            } else {
+                                simulateAnalysisResponse(deviceData)
+                            }
+                            
+                            return@withContext Result.success(parsedResponse)
+                        } catch (retryEx: Exception) {
+                            Log.e(TAG, "Failed retry after MAX_TOKENS error: ${retryEx.message}", retryEx)
+                            return@withContext Result.success(simulateAnalysisResponse(deviceData))
+                        }
+                    }
                     e is InvalidAPIKeyException || 
                     e.cause is InvalidAPIKeyException || 
                     e.message?.contains("API key") == true -> {
@@ -241,57 +259,42 @@ class GemmaRepository @Inject constructor(
     private fun createAnalysisPrompt(deviceData: DeviceData): String {
         val prompt = StringBuilder()
         
-        prompt.append("You are PowerGuard AI, an expert in analyzing device data to optimize battery, data usage, and performance.\n\n")
-        prompt.append("Analyze the following device data and provide optimizations:\n\n")
+        prompt.append("As PowerGuard AI, analyze this device data and provide optimizations:\n\n")
         
-        // Add device details
-        prompt.append("Device: ${deviceData.deviceInfo.manufacturer} ${deviceData.deviceInfo.model}\n")
-        prompt.append("OS: Android ${deviceData.deviceInfo.osVersion} (API ${deviceData.deviceInfo.sdkVersion})\n")
+        // Add device details - more compact format
+        prompt.append("Device: ${deviceData.deviceInfo.manufacturer} ${deviceData.deviceInfo.model}, ")
+        prompt.append("Android ${deviceData.deviceInfo.osVersion}, ")
+        prompt.append("Battery: ${deviceData.battery.level}%, ")
+        prompt.append("Memory: ${deviceData.memory.availableRam / (1024 * 1024)}/${deviceData.memory.totalRam / (1024 * 1024)} MB\n")
         
-        // Battery information
-        prompt.append("\nBattery: ${deviceData.battery.level}%, ")
-        prompt.append("Temperature: ${deviceData.battery.temperature}°C, ")
-        prompt.append("Charging: ${if (deviceData.battery.isCharging) "Yes" else "No"}\n")
-        
-        // Memory information
-        val availableMB = deviceData.memory.availableRam / (1024 * 1024)
-        val totalMB = deviceData.memory.totalRam / (1024 * 1024)
-        prompt.append("Memory: $availableMB MB available out of $totalMB MB\n")
-        
-        // App information
-        prompt.append("\nTop Battery-Using Apps:\n")
+        // Top battery using apps - limit to 3 instead of 5
+        prompt.append("Top Battery Apps: ")
         deviceData.apps
             .sortedByDescending { it.batteryUsage }
-            .take(5)
+            .take(3)
             .forEach { app ->
-                prompt.append("- ${app.appName}: Battery usage ${app.batteryUsage}%, ")
-                prompt.append("Foreground: ${app.foregroundTime / 60000} min, ")
-                prompt.append("Background: ${app.backgroundTime / 60000} min\n")
+                prompt.append("${app.appName} (${app.batteryUsage}%), ")
             }
+        prompt.append("\n")
         
-        prompt.append("\nTop Data-Using Apps:\n")
+        // Top data using apps - limit to 3 instead of 5
+        prompt.append("Top Data Apps: ")
         deviceData.apps
             .sortedByDescending { it.dataUsage.background + it.dataUsage.foreground }
-            .take(5)
+            .take(3)
             .forEach { app ->
                 val dataMB = (app.dataUsage.background + app.dataUsage.foreground) / (1024 * 1024)
-                prompt.append("- ${app.appName}: ${dataMB} MB, ")
-                prompt.append("Background: ${app.dataUsage.background / (1024 * 1024)} MB\n")
+                prompt.append("${app.appName} (${dataMB} MB), ")
             }
+        prompt.append("\n")
         
-        // Include the user's goal if provided
+        // Include user goal if provided
         deviceData.prompt?.let {
-            prompt.append("\nUser goal: $it\n")
+            prompt.append("User goal: $it\n")
         }
         
-        // Instructions for JSON format
-        prompt.append("\nAnalyze this information and respond with a JSON object containing:\n")
-        prompt.append("1. Overall battery, data, and performance scores (0-100)\n")
-        prompt.append("2. Actionable optimizations for specific apps\n")
-        prompt.append("3. General insights about device state\n")
-        prompt.append("4. Estimated savings from optimizations\n\n")
-        
-        prompt.append("Use the following JSON format:\n")
+        // Instructions for JSON format - simplified
+        prompt.append("\nRespond with JSON:\n")
         prompt.append("""
             {
               "success": true,
@@ -299,35 +302,13 @@ class GemmaRepository @Inject constructor(
               "dataScore": 90,
               "performanceScore": 75,
               "insights": [
-                {
-                  "type": "BATTERY|DATA|PERFORMANCE",
-                  "title": "Insight title",
-                  "description": "Detailed description",
-                  "severity": "LOW|MEDIUM|HIGH"
-                }
+                {"type": "BATTERY", "title": "Title", "description": "Brief insight", "severity": "LOW"}
               ],
               "actionable": [
-                {
-                  "id": "uuid",
-                  "type": "RESTRICT_DATA|OPTIMIZE_BATTERY|OPTIMIZE_MEMORY|KILL_APP",
-                  "packageName": "com.example.app",
-                  "description": "Human-readable description",
-                  "reason": "Why this action is recommended",
-                  "estimatedBatterySavings": 10.5,
-                  "estimatedDataSavings": 25.0,
-                  "severity": 3,
-                  "newMode": "restricted",
-                  "enabled": true,
-                  "throttleLevel": 2,
-                  "parameters": {
-                    "restrictBackground": "true"
-                  }
-                }
+                {"id": "uuid", "type": "RESTRICT_DATA", "packageName": "com.example", "description": "Description", 
+                 "reason": "Reason", "estimatedBatterySavings": 10.5, "estimatedDataSavings": 25.0, "severity": 3}
               ],
-              "estimatedSavings": {
-                "batteryMinutes": 45,
-                "dataMB": 250
-              }
+              "estimatedSavings": {"batteryMinutes": 45, "dataMB": 250}
             }
         """.trimIndent())
         
@@ -476,7 +457,7 @@ class GemmaRepository @Inject constructor(
                         Insight(
                             type = "BATTERY",
                             title = "High Battery Drain: ${app.appName}",
-                            description = "${app.appName} is using significant battery in the background (${app.backgroundTime / 60000} minutes)",
+                            description = "${app.appName} using ${app.backgroundTime / 60000}min of background battery - restrict background usage.",
                             severity = "HIGH"
                         )
                     )
@@ -514,7 +495,7 @@ class GemmaRepository @Inject constructor(
                         Insight(
                             type = "DATA",
                             title = "High Data Usage: ${app.appName}",
-                            description = "${app.appName} used ${app.dataUsage.background / (1024 * 1024)}MB of data recently",
+                            description = "${app.appName} used ${app.dataUsage.background / (1024 * 1024)}MB - restrict background data.",
                             severity = "MEDIUM"
                         )
                     )
@@ -529,7 +510,7 @@ class GemmaRepository @Inject constructor(
                 Insight(
                     type = "PERFORMANCE",
                     title = "Low Available Memory",
-                    description = "Your device is running low on available memory (${deviceData.memory.availableRam / (1024 * 1024)}MB free)",
+                    description = "Only ${deviceData.memory.availableRam / (1024 * 1024)}MB free - close unused apps.",
                     severity = "HIGH"
                 )
             )

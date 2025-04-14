@@ -156,86 +156,155 @@ class GemmaRepository @Inject constructor(
     @SuppressLint("NewApi")
     override suspend fun analyzeDeviceData(deviceData: DeviceData): Result<AnalysisResponse> = withContext(Dispatchers.IO) {
         try {
+            // Create the prompt for debugging purpose
+            val prompt = createAnalysisPrompt(deviceData)
+            
+            // Log the prompt in human-readable format
+            Log.d("SendPromptDebug", "Human-readable prompt:\n$prompt")
+            
+            // Create debug JSON representation of device data
+            val debugJson = JSONObject().apply {
+                put("deviceInfo", JSONObject().apply {
+                    put("manufacturer", deviceData.deviceInfo.manufacturer)
+                    put("model", deviceData.deviceInfo.model)
+                    put("osVersion", deviceData.deviceInfo.osVersion)
+                })
+                put("battery", JSONObject().apply {
+                    put("level", deviceData.battery.level)
+                    put("isCharging", deviceData.battery.isCharging)
+                    put("temperature", deviceData.battery.temperature)
+                })
+                put("memory", JSONObject().apply {
+                    put("availableRam", deviceData.memory.availableRam)
+                    put("totalRam", deviceData.memory.totalRam)
+                    put("lowMemory", deviceData.memory.lowMemory)
+                })
+                put("apps", JSONArray().apply {
+                    deviceData.apps.forEach { app ->
+                        put(JSONObject().apply {
+                            put("appName", app.appName)
+                            put("packageName", app.packageName)
+                            put("batteryUsage", app.batteryUsage)
+                            put("foregroundTime", app.foregroundTime)
+                            put("backgroundTime", app.backgroundTime)
+                            
+                            // Add new metrics - data usage
+                            put("dataUsage", JSONObject().apply {
+                                put("foreground", app.dataUsage.foreground)
+                                put("background", app.dataUsage.background)
+                                put("rxBytes", app.dataUsage.rxBytes)
+                                put("txBytes", app.dataUsage.txBytes)
+                                put("dozeBytes", app.dataUsage.dozeBytes)
+                            })
+                            
+                            // Add wakelock information
+                            put("wakelockInfo", JSONObject().apply {
+                                put("acquireCount", app.wakelockInfo.acquireCount)
+                                put("totalDurationMs", app.wakelockInfo.totalDurationMs)
+                                put("wakelockTypes", JSONObject().apply {
+                                    app.wakelockInfo.wakelockTypes.forEach { (name, count) ->
+                                        put(name, count)
+                                    }
+                                })
+                            })
+                            
+                            // Add socket connection information
+                            put("socketConnections", JSONObject().apply {
+                                put("totalConnections", app.socketConnections.totalConnections)
+                                put("activeConnections", app.socketConnections.activeConnections)
+                                put("totalDurationMs", app.socketConnections.totalDurationMs)
+                                put("tcpConnections", app.socketConnections.tcpConnections)
+                                put("udpConnections", app.socketConnections.udpConnections)
+                            })
+                            
+                            // Add alarm wakeups and priority changes
+                            put("alarmWakeups", app.alarmWakeups)
+                            put("priorityChanges", app.priorityChanges)
+                        })
+                    }
+                })
+                deviceData.prompt?.let { put("userPrompt", it) }
+            }
+            
+            // Log the device data as JSON
+            Log.d("SendPromptDebug", "Raw device data JSON:\n${debugJson.toString(2)}")
+            
+            // Create and log an example expected response
+            val exampleResponseJson = JSONObject().apply {
+                put("success", true)
+                put("batteryScore", 85)
+                put("dataScore", 90)
+                put("performanceScore", 75)
+                put("insights", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("type", "BATTERY")
+                        put("title", "Example Battery Insight")
+                        put("description", "This is an example of what a battery insight would look like")
+                        put("severity", "MEDIUM")
+                    })
+                    put(JSONObject().apply {
+                        put("type", "DATA")
+                        put("title", "Example Data Insight")
+                        put("description", "This is an example of what a data insight would look like")
+                        put("severity", "LOW")
+                    })
+                })
+                put("actionable", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("id", UUID.randomUUID().toString())
+                        put("type", "RESTRICT_DATA")
+                        put("packageName", "com.example.app")
+                        put("description", "Example action description")
+                        put("reason", "Example reason for the action")
+                        put("estimatedBatterySavings", 10.5)
+                        put("estimatedDataSavings", 25.0)
+                        put("severity", 3)
+                    })
+                })
+                put("estimatedSavings", JSONObject().apply {
+                    put("batteryMinutes", 45)
+                    put("dataMB", 250)
+                })
+            }
+            
+            // Log the example expected response format
+            Log.d("SendPromptDebug", "Example expected response format:\n${exampleResponseJson.toString(2)}")
+            
+            // TEMPORARILY BYPASSING SDK CALL
+            Log.d("SendPromptDebug", "Temporarily bypassing SDK call and using simulated response")
+            
             // Check if network is available before using the SDK
             if (!isNetworkAvailable()) {
                 Log.w(TAG, "Network not available, using simulated response")
                 return@withContext Result.success(simulateAnalysisResponse(deviceData))
             }
             
-            ensureSdkInitialized()
+            // TODO : Hitesh
+            // COMMENTED OUT SDK INITIALIZATION AND CALL
+            // ensureSdkInitialized()
+            // 
+            // try {
+            //     val jsonResponse = sdk.generateJsonResponse(prompt, maxTokens = 512, temperature = 0.5f)
+            //     
+            //     if (DEBUG) {
+            //         Log.d(TAG, "Gemma response: $jsonResponse")
+            //     }
+            //     
+            //     val parsedResponse = if (jsonResponse != null) {
+            //         parseGemmaResponse(jsonResponse, deviceData.deviceId)
+            //     } else {
+            //         simulateAnalysisResponse(deviceData)
+            //     }
+            //     
+            //     return@withContext Result.success(parsedResponse)
+            // } catch (e: Exception) {
+            //     // SDK error handling code...
+            // }
             
-            val prompt = createAnalysisPrompt(deviceData)
-            
-            if (DEBUG) {
-                Log.d(TAG, "Gemma prompt: $prompt")
-            }
-            
-            try {
-                val jsonResponse = sdk.generateJsonResponse(prompt, maxTokens = 512, temperature = 0.5f)
-                
-                if (DEBUG) {
-                    Log.d(TAG, "Gemma response: $jsonResponse")
-                }
-                
-                val parsedResponse = if (jsonResponse != null) {
-                    parseGemmaResponse(jsonResponse, deviceData.deviceId)
-                } else {
-                    simulateAnalysisResponse(deviceData)
-                }
-                
-                return@withContext Result.success(parsedResponse)
-            } catch (e: Exception) {
-                // Check if this is a network/connectivity related exception
-                when {
-                    e.message?.contains("MAX_TOKENS") == true -> {
-                        Log.e(TAG, "MAX_TOKENS error: ${e.message}. Trying with reduced token count.", e)
-                        try {
-                            // Retry with smaller token count
-                            val jsonResponse = sdk.generateJsonResponse(prompt, maxTokens = 256, temperature = 0.5f)
-                            
-                            val parsedResponse = if (jsonResponse != null) {
-                                parseGemmaResponse(jsonResponse, deviceData.deviceId)
-                            } else {
-                                simulateAnalysisResponse(deviceData)
-                            }
-                            
-                            return@withContext Result.success(parsedResponse)
-                        } catch (retryEx: Exception) {
-                            Log.e(TAG, "Failed retry after MAX_TOKENS error: ${retryEx.message}", retryEx)
-                            return@withContext Result.success(simulateAnalysisResponse(deviceData))
-                        }
-                    }
-                    e is InvalidAPIKeyException || 
-                    e.cause is InvalidAPIKeyException || 
-                    e.message?.contains("API key") == true -> {
-                        Log.e(TAG, "Invalid API key error: ${e.message}. Please update the API key in gemma_api.properties.", e)
-                        return@withContext Result.success(simulateAnalysisResponse(deviceData).copy(
-                            message = "API key error: Please update the API key in assets/gemma_api.properties. Get a key from https://aistudio.google.com/app/apikey"
-                        ))
-                    }
-                    e.message?.contains("not found for API version") == true ||
-                    e.message?.contains("not supported") == true ||
-                    e.message?.contains("model") == true -> {
-                        Log.e(TAG, "Model not found or not supported: ${e.message}", e)
-                        return@withContext Result.success(simulateAnalysisResponse(deviceData).copy(
-                            message = "Model error: The selected model is not available. Please update the GemmaModule with a supported model."
-                        ))
-                    }
-                    e.cause is NoConnectivityException ||
-                    e is NoConnectivityException ||
-                    e.message?.contains("generativelanguage.googleapis.com") == true ||
-                    e.cause is UnknownHostException -> {
-                        Log.e(TAG, "Network connectivity error in Gemma API: ${e.message}", e)
-                        return@withContext Result.success(simulateAnalysisResponse(deviceData))
-                    }
-                    else -> {
-                        Log.e(TAG, "Unknown error: ${e.message}", e)
-                        return@withContext Result.success(simulateAnalysisResponse(deviceData).copy(
-                            message = "Error: ${e.message}"
-                        ))
-                    }
-                }
-            }
+            // Use simulated response instead
+            return@withContext Result.success(simulateAnalysisResponse(deviceData).copy(
+                message = "DEBUG MODE: Using simulated response (SDK call bypassed)"
+            ))
             
         } catch (e: LifecycleException) {
             Log.e(TAG, "Lifecycle exception while analyzing device data: ${e.message}", e)
@@ -267,30 +336,101 @@ class GemmaRepository @Inject constructor(
         prompt.append("Battery: ${deviceData.battery.level}%, ")
         prompt.append("Memory: ${deviceData.memory.availableRam / (1024 * 1024)}/${deviceData.memory.totalRam / (1024 * 1024)} MB\n")
         
+        // Log device details separately for debugging
+        Log.d("SendPromptDebug", "Device Details: " +
+                "${deviceData.deviceInfo.manufacturer} ${deviceData.deviceInfo.model}, " +
+                "Android ${deviceData.deviceInfo.osVersion}, " +
+                "Battery: ${deviceData.battery.level}%, " +
+                "Memory: ${deviceData.memory.availableRam / (1024 * 1024)}/${deviceData.memory.totalRam / (1024 * 1024)} MB")
+        
         // Top battery using apps - limit to 3 instead of 5
         prompt.append("Top Battery Apps: ")
-        deviceData.apps
+        val topBatteryApps = deviceData.apps
             .sortedByDescending { it.batteryUsage }
             .take(3)
-            .forEach { app ->
-                prompt.append("${app.appName} (${app.batteryUsage}%), ")
-            }
+            
+        topBatteryApps.forEach { app ->
+            prompt.append("${app.appName} (${app.batteryUsage}%), ")
+        }
         prompt.append("\n")
+        
+        // Log battery apps for debugging with additional metrics
+        Log.d("SendPromptDebug", "Top Battery Apps: " + 
+            topBatteryApps.joinToString("\n") { app -> 
+                "${app.appName} (${app.batteryUsage}%), " +
+                "Wakelocks: ${app.wakelockInfo.acquireCount} (${formatDuration(app.wakelockInfo.totalDurationMs)}), " +
+                "Alarm wakeups: ${app.alarmWakeups}"
+            })
         
         // Top data using apps - limit to 3 instead of 5
         prompt.append("Top Data Apps: ")
-        deviceData.apps
+        val topDataApps = deviceData.apps
             .sortedByDescending { it.dataUsage.background + it.dataUsage.foreground }
             .take(3)
-            .forEach { app ->
-                val dataMB = (app.dataUsage.background + app.dataUsage.foreground) / (1024 * 1024)
-                prompt.append("${app.appName} (${dataMB} MB), ")
-            }
+            
+        topDataApps.forEach { app ->
+            val dataMB = (app.dataUsage.background + app.dataUsage.foreground) / (1024 * 1024)
+            prompt.append("${app.appName} (${dataMB} MB), ")
+        }
         prompt.append("\n")
+        
+        // Log data apps for debugging with additional metrics
+        Log.d("SendPromptDebug", "Top Data Apps: " + 
+            topDataApps.joinToString("\n") { app -> 
+                val dataMB = (app.dataUsage.background + app.dataUsage.foreground) / (1024 * 1024)
+                val dozeMB = app.dataUsage.dozeBytes / (1024 * 1024)
+                "${app.appName} (${dataMB} MB), " +
+                "Foreground: ${formatBytes(app.dataUsage.foreground)}, " +
+                "Background: ${formatBytes(app.dataUsage.background)}, " +
+                "Doze mode: ${formatBytes(app.dataUsage.dozeBytes)}, " +
+                "Socket connections: ${app.socketConnections.totalConnections}"
+            })
+        
+        // Add top wakelocks info
+        prompt.append("Top Wakelock Apps: ")
+        val topWakelockApps = deviceData.apps
+            .sortedByDescending { it.wakelockInfo.acquireCount }
+            .filter { it.wakelockInfo.acquireCount > 0 }
+            .take(3)
+        
+        topWakelockApps.forEach { app ->
+            prompt.append("${app.appName} (${app.wakelockInfo.acquireCount} wakelocks), ")
+        }
+        prompt.append("\n")
+        
+        // Log wakelock apps for debugging
+        Log.d("SendPromptDebug", "Top Wakelock Apps: " + 
+            topWakelockApps.joinToString("\n") { app -> 
+                "${app.appName}: ${app.wakelockInfo.acquireCount} wakelocks, " +
+                "duration: ${formatDuration(app.wakelockInfo.totalDurationMs)}, " +
+                "types: ${app.wakelockInfo.wakelockTypes.entries.joinToString(", ") { entry -> "${entry.key}=${entry.value}" }}"
+            })
+        
+        // Add doze mode data usage
+        prompt.append("Apps Using Data in Doze Mode: ")
+        val dozeApps = deviceData.apps
+            .filter { it.dataUsage.dozeBytes > 0 }
+            .sortedByDescending { it.dataUsage.dozeBytes }
+            .take(3)
+        
+        dozeApps.forEach { app ->
+            val dozeMB = app.dataUsage.dozeBytes / (1024 * 1024)
+            prompt.append("${app.appName} (${dozeMB} MB), ")
+        }
+        prompt.append("\n")
+        
+        // Log doze mode apps for debugging
+        Log.d("SendPromptDebug", "Apps Using Data in Doze Mode: " + 
+            dozeApps.joinToString("\n") { app -> 
+                "${app.appName}: ${formatBytes(app.dataUsage.dozeBytes)}, " +
+                "Socket connections: ${app.socketConnections.totalConnections}, " +
+                "Priority changes: ${app.priorityChanges}"
+            })
         
         // Include user goal if provided
         deviceData.prompt?.let {
             prompt.append("User goal: $it\n")
+            Log.d("SendPromptDebug", "User goal: $it")
         }
         
         // Instructions for JSON format - simplified
@@ -313,6 +453,30 @@ class GemmaRepository @Inject constructor(
         """.trimIndent())
         
         return prompt.toString()
+    }
+
+    /**
+     * Helper method to format bytes in a human-readable way
+     */
+    private fun formatBytes(bytes: Long): String {
+        return when {
+            bytes < 1024 -> "$bytes B"
+            bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+            bytes < 1024 * 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
+            else -> "${bytes / (1024 * 1024 * 1024)} GB"
+        }
+    }
+    
+    /**
+     * Helper method to format duration in a human-readable way
+     */
+    private fun formatDuration(millis: Long): String {
+        val seconds = millis / 1000
+        return when {
+            seconds < 60 -> "${seconds}s"
+            seconds < 3600 -> "${seconds / 60}m ${seconds % 60}s"
+            else -> "${seconds / 3600}h ${(seconds % 3600) / 60}m"
+        }
     }
 
     /**

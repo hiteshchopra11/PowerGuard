@@ -22,7 +22,7 @@ object GemmaModule {
     private const val PLACEHOLDER_KEY = "null"
     
     // Standard model names for Gemini API
-    private const val MODEL_GEMINI_PRO = "gemini-1.5-pro-latest"
+    private const val MODEL_GEMINI_PRO = "gemini-2.0-flash"
     
     /**
      * Provides the GemmaConfig with appropriate settings for PowerGuard

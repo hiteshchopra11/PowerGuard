@@ -79,15 +79,26 @@ class ResponseParser(private val config: GemmaConfig) {
      */
     private fun extractJsonFromText(text: String): JSONObject? {
         try {
+            // Check if the response is wrapped in markdown code blocks
+            val markdownPattern = "```(?:json)?([\\s\\S]*?)```"
+            val markdownMatcher = Regex(markdownPattern).find(text)
+
+            // If markdown pattern is found, extract the content between code blocks
+            val processedText = if (markdownMatcher != null) {
+                markdownMatcher.groupValues[1].trim()
+            } else {
+                text
+            }
+
             // Look for text between { and } (with nested braces)
-            val startIndex = text.indexOf('{')
+            val startIndex = processedText.indexOf('{')
             if (startIndex == -1) return null
-            
+
             var openBraces = 0
             var endIndex = -1
-            
-            for (i in startIndex until text.length) {
-                when (text[i]) {
+
+            for (i in startIndex until processedText.length) {
+                when (processedText[i]) {
                     '{' -> openBraces++
                     '}' -> {
                         openBraces--
@@ -98,10 +109,10 @@ class ResponseParser(private val config: GemmaConfig) {
                     }
                 }
             }
-            
+
             if (endIndex == -1) return null
-            
-            val jsonCandidate = text.substring(startIndex, endIndex)
+
+            val jsonCandidate = processedText.substring(startIndex, endIndex)
             return JSONObject(jsonCandidate)
         } catch (e: Exception) {
             logError("JSON extraction failed", e)

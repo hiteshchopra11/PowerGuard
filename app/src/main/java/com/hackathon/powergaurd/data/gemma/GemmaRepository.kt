@@ -609,8 +609,5 @@ class GemmaRepository @Inject constructor(
         if (!sdk.initialize()) {
             throw IllegalStateException("Failed to initialize Gemma SDK")
         }
-        
-        // List available models to help with debugging
-        sdk.listAvailableModels()
     }
 } 

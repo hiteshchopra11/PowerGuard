@@ -20,9 +20,14 @@ else
     GRADLE_CMD="gradle"
 fi
 
-# Clean and build the app
-echo "🔄 Cleaning and building $MODULE..."
-$GRADLE_CMD clean ":$MODULE:assembleDebug"
+# Check if --install-only flag is provided
+if [ "$1" = "--install-only" ]; then
+    echo "🔄 Skipping build, installing existing APK..."
+else
+    # Build the app without clean for faster builds
+    echo "🔄 Building $MODULE..."
+    $GRADLE_CMD :app:assembleDebug
+fi
 
 # Check if adb is available
 ADB_CMD="adb"

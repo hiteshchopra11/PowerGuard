@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:tools="http://schemas.android.com/tools"
+    android:sharedUserMaxSdkVersion="32">
 
     <uses-permission
         android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
@@ -43,8 +44,16 @@
     <uses-permission
         android:name="android.permission.READ_LOGS"
         tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.DUMP"
+        tools:ignore="ProtectedPermissions" />
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission
+        android:name="android.permission.SYSTEM_EXEMPTED_FOREGROUND_SERVICE"
+        tools:ignore="ProtectedPermissions" />
+
 
     <application
         android:name=".PowerGuardApp"
@@ -56,6 +65,10 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.PowerGuard">
+
+        <meta-data
+            android:name="android.app.system_exempted_foreground_service_policy"
+            android:resource="@xml/special_use_foreground_service" />
 
         <activity
             android:name=".MainActivity"
@@ -77,6 +90,7 @@
 
         <service
             android:name=".services.PowerGuardService"
+            android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 

@@ -36,13 +36,8 @@ class StandbyBucketHandler @Inject constructor(@ApplicationContext private val c
 
     // Cache the setAppStandbyBucket method
     private val setAppStandbyBucketMethod: Method? by lazy {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-            return@lazy null
-        }
-
         try {
-            val usageStatsManager =
-                context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val method = UsageStatsManager::class.java.getMethod(
                 "setAppStandbyBucket",
                 String::class.java,
@@ -55,7 +50,6 @@ class StandbyBucketHandler @Inject constructor(@ApplicationContext private val c
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.P)
     private fun getUsageStatsManager(): UsageStatsManager? {
         return try {
             context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
@@ -77,45 +71,15 @@ class StandbyBucketHandler @Inject constructor(@ApplicationContext private val c
         val bucketName = actionable.newMode ?: "restricted"
         val bucketType = getBucketTypeFromName(bucketName)
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-            Log.d(TAG, "App standby buckets not available below Android P (API 28)")
-
-            // Fallback approach for older Android versions
-            return applyFallbackRestriction(packageName)
-        }
-
-        try {
-            Log.d(
-                TAG,
-                "Attempting to set app $packageName to standby bucket: $bucketName ($bucketType)"
-            )
-
-            // Try using reflection - this is the safest approach for hidden/restricted APIs
-            val method = setAppStandbyBucketMethod
-            if (method != null) {
-                try {
-                    val usm = getUsageStatsManager() ?: return false
-                    method.invoke(usm, packageName, bucketType)
-                    Log.d(
-                        TAG,
-                        "Successfully set app $packageName to bucket $bucketName using reflection"
-                    )
-                    return true
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to set app standby bucket via reflection: ${e.message}")
-                }
-            }
-
-            // Both methods failed
-            Log.i(
-                TAG, "ACTION NEEDED: Unable to set app standby bucket directly. " +
-                        "User should manually restrict the app $packageName in Settings > Apps"
-            )
-
-            return applyFallbackRestriction(packageName)
+        // Since we're on Android 15+, we can directly use the API
+        return try {
+            val usageStatsManager = getUsageStatsManager() ?: return false
+            setAppStandbyBucketMethod?.invoke(packageName, bucketType)
+            Log.d(TAG, "Successfully set standby bucket for $packageName to $bucketName")
+            true
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling set standby bucket action", e)
-            return false
+            Log.e(TAG, "Failed to set standby bucket for $packageName: ${e.message}")
+            false
         }
     }
 

@@ -11,13 +11,22 @@ android {
 
     defaultConfig {
         applicationId = "com.hackathon.powergaurd"
-        minSdk = 24
+        minSdk = 35
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+            excludes += listOf()
+            keepDebugSymbols += setOf("**/*.so")
+        }
+    }
+
 
     buildTypes {
         release {
@@ -46,6 +55,12 @@ android {
         unitTests {
             isIncludeAndroidResources = true
         }
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("debug")) {
+        it.packaging.jniLibs.keepDebugSymbols.add("**/*.so")
     }
 }
 

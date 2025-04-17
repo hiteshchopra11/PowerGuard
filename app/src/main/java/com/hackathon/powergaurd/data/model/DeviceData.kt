@@ -41,13 +41,12 @@ data class MemoryInfo(
 )
 
 /**
- * Enhanced CPU information model with wakelock data
+ * Enhanced CPU information model
  */
 data class CpuInfo(
     val usage: Float,
     val temperature: Float,
-    val frequencies: List<Long> = emptyList(),
-    val wakelockInfo: WakelockInfo? = null  // Wakelock information
+    val frequencies: List<Long> = emptyList()
 )
 
 /**
@@ -70,8 +69,7 @@ data class DataUsage(
     val foreground: Long,    // Combined foreground usage
     val background: Long,    // Combined background usage
     val rxBytes: Long,       // Total received bytes
-    val txBytes: Long,       // Total transmitted bytes
-    val dozeBytes: Long = 0L // Data usage during doze mode
+    val txBytes: Long        // Total transmitted bytes
 )
 
 /**
@@ -96,30 +94,8 @@ data class AppInfo(
     val targetSdkVersion: Int = 0,     // Target SDK version
     val installTime: Long = 0L,        // When app was installed
     val updatedTime: Long = 0L,        // When app was last updated
-    val wakelockInfo: WakelockInfo = WakelockInfo(), // Wakelock information
-    val socketConnections: SocketInfo = SocketInfo(), // Socket connection information
     val alarmWakeups: Int = 0,         // Number of alarm wakeups
-    val priorityChanges: Int = 0       // Process priority changes count
-)
-
-/**
- * Wakelock information model
- */
-data class WakelockInfo(
-    val acquireCount: Int = 0,         // Number of times wakelocks acquired
-    val totalDurationMs: Long = 0L,    // Total wakelock duration in ms
-    val wakelockTypes: Map<String, Int> = emptyMap() // Type -> count mapping
-)
-
-/**
- * Socket connection information model
- */
-data class SocketInfo(
-    val totalConnections: Int = 0,     // Total number of socket connections
-    val activeConnections: Int = 0,    // Currently active connections
-    val totalDurationMs: Long = 0L,    // Total connection duration in ms
-    val tcpConnections: Int = 0,       // TCP connection count
-    val udpConnections: Int = 0        // UDP connection count
+    val currentPriority: String = "unknown"  // Current process priority
 )
 
 /**

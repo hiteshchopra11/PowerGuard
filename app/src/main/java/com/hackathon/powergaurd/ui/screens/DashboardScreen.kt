@@ -89,24 +89,19 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.hackathon.powergaurd.PowerGuardOptimizer
 import com.hackathon.powergaurd.ui.components.BottomSheetContent
 import com.hackathon.powergaurd.ui.viewmodels.DashboardUiState
 import com.hackathon.powergaurd.ui.viewmodels.DashboardViewModel
-import com.hackathon.powergaurd.ui.viewmodels.ActionableViewModel
 import kotlinx.coroutines.delay
 import com.hackathon.powergaurd.data.model.AnalysisResponse
 import com.hackathon.powergaurd.data.model.Actionable
 import com.hackathon.powergaurd.data.model.Insight
 import com.hackathon.powergaurd.actionable.ActionableTypes
-import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.material3.Divider
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 @RequiresApi(Build.VERSION_CODES.P)
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     modifier: Modifier = Modifier,
@@ -115,7 +110,6 @@ fun DashboardScreen(
     openPromptInput: Boolean = false
 ) {
     val context = LocalContext.current
-    val optimizer = PowerGuardOptimizer(context)
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
@@ -201,7 +195,6 @@ fun DashboardScreen(
                 uiState = uiState,
                 isRefreshing = isLoading,
                 paddingValues = paddingValues,
-                optimizer = optimizer,
                 showSnackbar = showSnackbar,
                 viewModel = viewModel,
                 openPromptInput = openPromptInput,
@@ -247,11 +240,10 @@ private fun DashboardContent(
     uiState: DashboardUiState,
     isRefreshing: Boolean,
     paddingValues: PaddingValues,
-    optimizer: PowerGuardOptimizer,
     showSnackbar: (String) -> Unit,
     viewModel: DashboardViewModel,
     openPromptInput: Boolean,
-    analysisResponse: com.hackathon.powergaurd.data.model.AnalysisResponse?,
+    analysisResponse: AnalysisResponse?,
     onShowAnalysisDialog: (Boolean, Boolean) -> Unit,
     showActionableDialog: Boolean,
     isAnalyzing: Boolean,
@@ -1531,17 +1523,20 @@ private fun DashboardTopBar(
     onSettings: () -> Unit
 ) {
     TopAppBar(
-        title = { Text(text = title) },
+        title = { Text(title) },
         actions = {
+            // Refresh button
             IconButton(onClick = onRefresh) {
                 Icon(
-                    imageVector = Icons.Filled.Refresh,
+                    imageVector = Icons.Default.Refresh,
                     contentDescription = "Refresh"
                 )
             }
+            
+            // Settings button
             IconButton(onClick = onSettings) {
                 Icon(
-                    imageVector = Icons.Filled.Settings,
+                    imageVector = Icons.Default.Settings,
                     contentDescription = "Settings"
                 )
             }

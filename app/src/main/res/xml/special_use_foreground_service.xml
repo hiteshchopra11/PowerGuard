@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<permissions xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission
+        android:name="android.permission.SYSTEM_EXEMPTED_FOREGROUND_SERVICE"
+        android:description="@string/special_use_foreground_service_reason" />
+</permissions> 

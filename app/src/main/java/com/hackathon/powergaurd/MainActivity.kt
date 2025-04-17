@@ -90,30 +90,17 @@ class MainActivity : ComponentActivity() {
     private fun requestRequiredPermissions() {
         val permissionsToRequest = mutableListOf<String>()
 
-        // Check for runtime permissions
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.FOREGROUND_SERVICE) !=
-                PackageManager.PERMISSION_GRANTED
-            ) {
-                permissionsToRequest.add(Manifest.permission.FOREGROUND_SERVICE)
-            }
+        // Since we're on Android 15+, we always need these permissions
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.FOREGROUND_SERVICE) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionsToRequest.add(Manifest.permission.FOREGROUND_SERVICE)
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-                PackageManager.PERMISSION_GRANTED
-            ) {
-                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val notificationManager = NotificationManagerCompat.from(this)
-            if (!notificationManager.areNotificationsEnabled()) {
-                // Notifications are not enabled, you can prompt the user to enable them
-                // You can use an AlertDialog or a custom UI to prompt the user
-                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                startActivity(intent)
-            }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
         }
 
         // If we have permissions to request, request them
@@ -163,7 +150,10 @@ class MainActivity : ComponentActivity() {
         Log.d("MainActivity", "Starting PowerGuardService")
         val serviceIntent = Intent(this, PowerGuardService::class.java)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        // For Android 12+ (API 31+), we need to be more explicit about foreground service starts
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            startForegroundService(serviceIntent)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
         } else {
             startService(serviceIntent)

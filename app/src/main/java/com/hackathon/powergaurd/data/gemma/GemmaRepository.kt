@@ -194,32 +194,10 @@ class GemmaRepository @Inject constructor(
                                 put("background", app.dataUsage.background)
                                 put("rxBytes", app.dataUsage.rxBytes)
                                 put("txBytes", app.dataUsage.txBytes)
-                                put("dozeBytes", app.dataUsage.dozeBytes)
-                            })
-                            
-                            // Add wakelock information
-                            put("wakelockInfo", JSONObject().apply {
-                                put("acquireCount", app.wakelockInfo.acquireCount)
-                                put("totalDurationMs", app.wakelockInfo.totalDurationMs)
-                                put("wakelockTypes", JSONObject().apply {
-                                    app.wakelockInfo.wakelockTypes.forEach { (name, count) ->
-                                        put(name, count)
-                                    }
-                                })
-                            })
-                            
-                            // Add socket connection information
-                            put("socketConnections", JSONObject().apply {
-                                put("totalConnections", app.socketConnections.totalConnections)
-                                put("activeConnections", app.socketConnections.activeConnections)
-                                put("totalDurationMs", app.socketConnections.totalDurationMs)
-                                put("tcpConnections", app.socketConnections.tcpConnections)
-                                put("udpConnections", app.socketConnections.udpConnections)
                             })
                             
                             // Add alarm wakeups and priority changes
                             put("alarmWakeups", app.alarmWakeups)
-                            put("priorityChanges", app.priorityChanges)
                         })
                     }
                 })
@@ -358,7 +336,6 @@ class GemmaRepository @Inject constructor(
         Log.d("SendPromptDebug", "Top Battery Apps: " + 
             topBatteryApps.joinToString("\n") { app -> 
                 "${app.appName} (${app.batteryUsage}%), " +
-                "Wakelocks: ${app.wakelockInfo.acquireCount} (${formatDuration(app.wakelockInfo.totalDurationMs)}), " +
                 "Alarm wakeups: ${app.alarmWakeups}"
             })
         
@@ -378,54 +355,11 @@ class GemmaRepository @Inject constructor(
         Log.d("SendPromptDebug", "Top Data Apps: " + 
             topDataApps.joinToString("\n") { app -> 
                 val dataMB = (app.dataUsage.background + app.dataUsage.foreground) / (1024 * 1024)
-                val dozeMB = app.dataUsage.dozeBytes / (1024 * 1024)
                 "${app.appName} (${dataMB} MB), " +
                 "Foreground: ${formatBytes(app.dataUsage.foreground)}, " +
-                "Background: ${formatBytes(app.dataUsage.background)}, " +
-                "Doze mode: ${formatBytes(app.dataUsage.dozeBytes)}, " +
-                "Socket connections: ${app.socketConnections.totalConnections}"
+                "Background: ${formatBytes(app.dataUsage.background)}"
             })
-        
-        // Add top wakelocks info
-        prompt.append("Top Wakelock Apps: ")
-        val topWakelockApps = deviceData.apps
-            .sortedByDescending { it.wakelockInfo.acquireCount }
-            .filter { it.wakelockInfo.acquireCount > 0 }
-            .take(3)
-        
-        topWakelockApps.forEach { app ->
-            prompt.append("${app.appName} (${app.wakelockInfo.acquireCount} wakelocks), ")
-        }
-        prompt.append("\n")
-        
-        // Log wakelock apps for debugging
-        Log.d("SendPromptDebug", "Top Wakelock Apps: " + 
-            topWakelockApps.joinToString("\n") { app -> 
-                "${app.appName}: ${app.wakelockInfo.acquireCount} wakelocks, " +
-                "duration: ${formatDuration(app.wakelockInfo.totalDurationMs)}, " +
-                "types: ${app.wakelockInfo.wakelockTypes.entries.joinToString(", ") { entry -> "${entry.key}=${entry.value}" }}"
-            })
-        
-        // Add doze mode data usage
-        prompt.append("Apps Using Data in Doze Mode: ")
-        val dozeApps = deviceData.apps
-            .filter { it.dataUsage.dozeBytes > 0 }
-            .sortedByDescending { it.dataUsage.dozeBytes }
-            .take(3)
-        
-        dozeApps.forEach { app ->
-            val dozeMB = app.dataUsage.dozeBytes / (1024 * 1024)
-            prompt.append("${app.appName} (${dozeMB} MB), ")
-        }
-        prompt.append("\n")
-        
-        // Log doze mode apps for debugging
-        Log.d("SendPromptDebug", "Apps Using Data in Doze Mode: " + 
-            dozeApps.joinToString("\n") { app -> 
-                "${app.appName}: ${formatBytes(app.dataUsage.dozeBytes)}, " +
-                "Socket connections: ${app.socketConnections.totalConnections}, " +
-                "Priority changes: ${app.priorityChanges}"
-            })
+
         
         // Include user goal if provided
         deviceData.prompt?.let {

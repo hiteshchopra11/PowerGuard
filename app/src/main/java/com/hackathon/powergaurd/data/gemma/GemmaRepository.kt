@@ -1,6 +1,9 @@
 package com.hackathon.powergaurd.data.gemma
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Looper
 import android.util.Log
 import com.hackathon.powergaurd.data.model.Actionable
@@ -11,27 +14,19 @@ import com.hackathon.powergaurd.data.model.Insight
 import com.powergaurd.llm.GemmaConfig
 import com.powergaurd.llm.GemmaInferenceSDK
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
+import java.net.UnknownHostException
 import java.util.UUID
-import javax.inject.Inject
-import javax.inject.Singleton
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.annotation.SuppressLint
-import android.os.Build
-import java.io.IOException
-import java.net.UnknownHostException
-import android.os.Handler
-import com.powergaurd.llm.exceptions.NoConnectivityException
-import com.powergaurd.llm.exceptions.InvalidAPIKeyException
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Repository for handling on-device AI inference using GemmaInferenceSDK.
@@ -308,81 +303,144 @@ class GemmaRepository @Inject constructor(
         
         prompt.append("As PowerGuard AI, analyze this device data and provide optimizations:\n\n")
         
-        // Add device details - more compact format
-        prompt.append("Device: ${deviceData.deviceInfo.manufacturer} ${deviceData.deviceInfo.model}, ")
-        prompt.append("Android ${deviceData.deviceInfo.osVersion}, ")
-        prompt.append("Battery: ${deviceData.battery.level}%, ")
-        prompt.append("Memory: ${deviceData.memory.availableRam / (1024 * 1024)}/${deviceData.memory.totalRam / (1024 * 1024)} MB\n")
+        // Device Overview Section
+        prompt.append("=== Device Overview ===\n")
+        prompt.append("Device: ${deviceData.deviceInfo.manufacturer} ${deviceData.deviceInfo.model}\n")
+        prompt.append("Android: ${deviceData.deviceInfo.osVersion} (SDK ${deviceData.deviceInfo.sdkVersion})\n")
+        prompt.append("Screen on time: ${formatDuration(deviceData.deviceInfo.screenOnTime)}\n\n")
         
-        // Log device details separately for debugging
-        Log.d("SendPromptDebug", "Device Details: " +
-                "${deviceData.deviceInfo.manufacturer} ${deviceData.deviceInfo.model}, " +
-                "Android ${deviceData.deviceInfo.osVersion}, " +
-                "Battery: ${deviceData.battery.level}%, " +
-                "Memory: ${deviceData.memory.availableRam / (1024 * 1024)}/${deviceData.memory.totalRam / (1024 * 1024)} MB")
+        // Battery Section
+        prompt.append("=== Battery Status ===\n")
+        prompt.append("Level: ${deviceData.battery.level}%\n")
+        prompt.append("Temperature: ${deviceData.battery.temperature}°C\n")
+        prompt.append("Charging: ${if (deviceData.battery.isCharging) "${deviceData.battery.chargingType}" else "No"}\n")
+        prompt.append("Health: ${deviceData.battery.health}\n")
+        prompt.append("Capacity: ${deviceData.battery.capacity}mAh\n")
+        prompt.append("Current Draw: ${deviceData.battery.currentNow}mA\n\n")
         
-        // Top battery using apps - limit to 3 instead of 5
-        prompt.append("Top Battery Apps: ")
-        val topBatteryApps = deviceData.apps
+        // System Settings Section
+        prompt.append("=== System Settings ===\n")
+        prompt.append("Battery Optimization: ${if (deviceData.settings.batteryOptimization) "Enabled" else "Disabled"}\n")
+        prompt.append("Data Saver: ${if (deviceData.settings.dataSaver) "Enabled" else "Disabled"}\n")
+        prompt.append("Power Save Mode: ${if (deviceData.settings.powerSaveMode) "Enabled" else "Disabled"}\n")
+        prompt.append("Adaptive Battery: ${if (deviceData.settings.adaptiveBattery) "Enabled" else "Disabled"}\n")
+        prompt.append("Auto Sync: ${if (deviceData.settings.autoSync) "Enabled" else "Disabled"}\n\n")
+        
+        // Memory Status Section
+        prompt.append("=== Memory Status ===\n")
+        val memoryUsagePercent = ((deviceData.memory.totalRam - deviceData.memory.availableRam).toFloat() / deviceData.memory.totalRam * 100).toInt()
+        prompt.append("Total RAM: ${formatBytes(deviceData.memory.totalRam)}\n")
+        prompt.append("Available RAM: ${formatBytes(deviceData.memory.availableRam)}\n")
+        prompt.append("Memory Usage: $memoryUsagePercent%\n")
+        prompt.append("Low Memory State: ${deviceData.memory.lowMemory}\n\n")
+        
+        // CPU Status Section
+        prompt.append("=== CPU Status ===\n")
+        prompt.append("CPU Usage: ${deviceData.cpu.usage}%\n")
+        prompt.append("CPU Temperature: ${deviceData.cpu.temperature}°C\n")
+        if (deviceData.cpu.frequencies.isNotEmpty()) {
+            prompt.append("CPU Frequencies: ${deviceData.cpu.frequencies.joinToString(", ") { "${it/1000}MHz" }}\n\n")
+        }
+        
+        // Network Status Section
+        prompt.append("=== Network Status ===\n")
+        prompt.append("Type: ${deviceData.network.type}\n")
+        prompt.append("Signal Strength: ${deviceData.network.strength}\n")
+        prompt.append("Roaming: ${deviceData.network.isRoaming}\n")
+        if (deviceData.network.cellularGeneration.isNotEmpty()) {
+            prompt.append("Mobile Generation: ${deviceData.network.cellularGeneration}\n")
+        }
+        if (deviceData.network.linkSpeed > 0) {
+            prompt.append("Link Speed: ${deviceData.network.linkSpeed}Mbps\n")
+        }
+        prompt.append("Data Usage:\n")
+        prompt.append("- Foreground: ${formatBytes(deviceData.network.dataUsage.foreground)}\n")
+        prompt.append("- Background: ${formatBytes(deviceData.network.dataUsage.background)}\n")
+        prompt.append("- Total Received: ${formatBytes(deviceData.network.dataUsage.rxBytes)}\n")
+        prompt.append("- Total Sent: ${formatBytes(deviceData.network.dataUsage.txBytes)}\n\n")
+        
+        // App Analysis Section
+        prompt.append("=== App Analysis ===\n")
+        
+        // Top battery draining apps
+        prompt.append("Top Battery Draining Apps:\n")
+        deviceData.apps
             .sortedByDescending { it.batteryUsage }
-            .take(3)
-            
-        topBatteryApps.forEach { app ->
-            prompt.append("${app.appName} (${app.batteryUsage}%), ")
-        }
-        prompt.append("\n")
+            .take(5)
+            .forEach { app ->
+                prompt.append("- ${app.appName} (${app.packageName}):\n")
+                prompt.append("  Battery: ${app.batteryUsage}%\n")
+                prompt.append("  Priority: ${app.currentPriority}\n")
+                prompt.append("  Alarm Wakeups: ${app.alarmWakeups}\n")
+                prompt.append("  Foreground Time: ${formatDuration(app.foregroundTime)}\n")
+                prompt.append("  Background Time: ${formatDuration(app.backgroundTime)}\n")
+                prompt.append("  Memory Usage: ${formatBytes(app.memoryUsage)}\n")
+                prompt.append("  CPU Usage: ${app.cpuUsage}%\n\n")
+            }
         
-        // Log battery apps for debugging with additional metrics
-        Log.d("SendPromptDebug", "Top Battery Apps: " + 
-            topBatteryApps.joinToString("\n") { app -> 
-                "${app.appName} (${app.batteryUsage}%), " +
-                "Alarm wakeups: ${app.alarmWakeups}"
-            })
-        
-        // Top data using apps - limit to 3 instead of 5
-        prompt.append("Top Data Apps: ")
-        val topDataApps = deviceData.apps
-            .sortedByDescending { it.dataUsage.background + it.dataUsage.foreground }
-            .take(3)
-            
-        topDataApps.forEach { app ->
-            val dataMB = (app.dataUsage.background + app.dataUsage.foreground) / (1024 * 1024)
-            prompt.append("${app.appName} (${dataMB} MB), ")
-        }
-        prompt.append("\n")
-        
-        // Log data apps for debugging with additional metrics
-        Log.d("SendPromptDebug", "Top Data Apps: " + 
-            topDataApps.joinToString("\n") { app -> 
-                val dataMB = (app.dataUsage.background + app.dataUsage.foreground) / (1024 * 1024)
-                "${app.appName} (${dataMB} MB), " +
-                "Foreground: ${formatBytes(app.dataUsage.foreground)}, " +
-                "Background: ${formatBytes(app.dataUsage.background)}"
-            })
-
+        // Top data consuming apps
+        prompt.append("Top Data Consuming Apps:\n")
+        deviceData.apps
+            .sortedByDescending { it.dataUsage.rxBytes + it.dataUsage.txBytes }
+            .take(5)
+            .forEach { app ->
+                prompt.append("- ${app.appName} (${app.packageName}):\n")
+                prompt.append("  Total Data: ${formatBytes(app.dataUsage.rxBytes + app.dataUsage.txBytes)}\n")
+                prompt.append("  Foreground Data: ${formatBytes(app.dataUsage.foreground)}\n")
+                prompt.append("  Background Data: ${formatBytes(app.dataUsage.background)}\n")
+                prompt.append("  Priority: ${app.currentPriority}\n\n")
+            }
         
         // Include user goal if provided
         deviceData.prompt?.let {
-            prompt.append("User goal: $it\n")
-            Log.d("SendPromptDebug", "User goal: $it")
+            prompt.append("\nUser Goal: $it\n")
         }
         
-        // Instructions for JSON format - simplified
-        prompt.append("\nRespond with JSON:\n")
+        // Analysis Instructions
         prompt.append("""
+            
+            Based on this comprehensive device data, provide a detailed analysis focusing on:
+            1. Battery optimization opportunities
+            2. Data usage optimization
+            3. Performance improvements
+            4. System settings recommendations
+            
+            For each identified issue, provide:
+            - Clear problem description
+            - Impact on device
+            - Specific action to resolve
+            - Expected improvement
+            
+            Respond with JSON in this format:
             {
               "success": true,
-              "batteryScore": 85,
-              "dataScore": 90,
-              "performanceScore": 75,
+              "batteryScore": 0-100,
+              "dataScore": 0-100,
+              "performanceScore": 0-100,
               "insights": [
-                {"type": "BATTERY", "title": "Title", "description": "Brief insight", "severity": "LOW"}
+                {
+                  "type": "BATTERY|DATA|PERFORMANCE",
+                  "title": "Brief title",
+                  "description": "One-line actionable insight",
+                  "severity": "LOW|MEDIUM|HIGH"
+                }
               ],
               "actionable": [
-                {"id": "uuid", "type": "RESTRICT_DATA", "packageName": "com.example", "description": "Description", 
-                 "reason": "Reason", "estimatedBatterySavings": 10.5, "estimatedDataSavings": 25.0, "severity": 3}
+                {
+                  "id": "uuid",
+                  "type": "ACTION_TYPE",
+                  "packageName": "affected.app.package",
+                  "description": "What will be done",
+                  "reason": "Why this is recommended",
+                  "estimatedBatterySavings": float,
+                  "estimatedDataSavings": float,
+                  "severity": 1-5
+                }
               ],
-              "estimatedSavings": {"batteryMinutes": 45, "dataMB": 250}
+              "estimatedSavings": {
+                "batteryMinutes": float,
+                "dataMB": float
+              }
             }
         """.trimIndent())
         

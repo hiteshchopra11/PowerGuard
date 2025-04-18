@@ -79,14 +79,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <receiver
-            android:name=".receivers.BootReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
+        
+        <!-- Add the LLM Test Activity -->
+        <activity
+            android:name=".LLMTestActivity"
+            android:exported="false"
+            android:label="LLM Test"
+            android:theme="@style/Theme.PowerGuard" />
 
         <service
             android:name=".services.PowerGuardService"

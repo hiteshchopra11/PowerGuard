@@ -650,6 +650,40 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
         val cpuUsageMap = collectCpuUsagePerApp()
         Log.v(TAG, "Collected CPU usage for ${cpuUsageMap.size} apps")
 
+        // Get app standby buckets
+        val bucketMap = HashMap<String, String>()
+        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? android.app.usage.UsageStatsManager
+        if (usm != null && hasUsageStatsPermission()) {
+            for (app in installedApps) {
+                try {
+                    @Suppress("DEPRECATION")
+                    val bucketValue = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        // Use reflection to access the method since it's hidden in SDK
+                        val method = usm.javaClass.getMethod("getAppStandbyBucket", String::class.java)
+                        method.invoke(usm, app.packageName) as Int
+                    } else {
+                        UsageStatsManager.STANDBY_BUCKET_ACTIVE // Default for older versions
+                    }
+
+                    val bucketString = when (bucketValue) {
+                        UsageStatsManager.STANDBY_BUCKET_ACTIVE -> "ACTIVE"
+                        UsageStatsManager.STANDBY_BUCKET_WORKING_SET -> "WORKING_SET"
+                        UsageStatsManager.STANDBY_BUCKET_FREQUENT -> "FREQUENT"
+                        UsageStatsManager.STANDBY_BUCKET_RARE -> "RARE"
+                        UsageStatsManager.STANDBY_BUCKET_RESTRICTED -> "RESTRICTED"
+                        50 -> "NEVER" // This is the value for STANDBY_BUCKET_NEVER
+                        else -> "UNKNOWN"
+                    }
+                    bucketMap[app.packageName] = bucketString
+                    Log.v(TAG, "App standby bucket for ${app.packageName}: $bucketString (value: $bucketValue)")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error getting standby bucket for ${app.packageName}: ${e.message}")
+                    bucketMap[app.packageName] = "UNKNOWN"
+                }
+            }
+        }
+        Log.v(TAG, "Collected standby bucket information for ${bucketMap.size} apps")
+
         return installedApps.mapNotNull { appInfo ->
             try {
                 val packageName = appInfo.packageName
@@ -691,7 +725,8 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
                     installTime = packageInfo.firstInstallTime,
                     updatedTime = packageInfo.lastUpdateTime,
                     alarmWakeups = alarmWakeupsMap[packageName] ?: 0,
-                    currentPriority = priorityChangesMap[packageName] ?: "Not Running"
+                    currentPriority = priorityChangesMap[packageName] ?: "Not Running",
+                    bucket = bucketMap[packageName] ?: "UNKNOWN"
                 ).also { Log.v(TAG, "Collected info for app $packageName: $it") }
             } catch (e: Exception) {
                 Log.e(TAG, "Error collecting info for app ${appInfo.packageName}: ${e.message}")

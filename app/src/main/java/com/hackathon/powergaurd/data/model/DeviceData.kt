@@ -95,7 +95,8 @@ data class AppInfo(
     val installTime: Long = 0L,        // When app was installed
     val updatedTime: Long = 0L,        // When app was last updated
     val alarmWakeups: Int = 0,         // Number of alarm wakeups
-    val currentPriority: String = "unknown"  // Current process priority
+    val currentPriority: String = "unknown",  // Current process priority
+    val bucket: String = "UNKNOWN"     // App standby bucket
 )
 
 /**

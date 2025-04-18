@@ -16,6 +16,7 @@ object PromptDebug {
         Log.d(TAG, "  Memory: ${formatBytes(app.memoryUsage)}")
         Log.d(TAG, "  Foreground time: ${formatDuration(app.foregroundTime)}")
         Log.d(TAG, "  Background time: ${formatDuration(app.backgroundTime)}")
+        Log.d(TAG, "  App bucket: ${app.bucket}")
 
         // Log the new metrics we added
         Log.d(TAG, "  -- Additional Metrics --")

@@ -48,13 +48,6 @@ Extended the AppRepository to:
 - Provide methods to identify top battery consumers and network users
 - Track usage patterns over time for AI-powered optimizations
 
-## 5. Boot Receiver Enhancement
-
-Updated the BootReceiver to:
-
-- Start the PowerGuardService on device boot
-- Schedule data collection and analysis tasks
-
 ## 6. MainActivity Updates
 
 Modified the MainActivity to:

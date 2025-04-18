@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".LLMTestActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="LLM Implementation Test"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Enter your query"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/query_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <Button
+            android:id="@+id/run_query_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Run Query"
+            android:layout_marginTop="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Test Categories"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <Button
+                android:id="@+id/category_1_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Test Category 1 - Information"
+                android:layout_marginTop="4dp" />
+
+            <Button
+                android:id="@+id/category_2_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Test Category 2 - Predictive"
+                android:layout_marginTop="4dp" />
+
+            <Button
+                android:id="@+id/category_3_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Test Category 3 - Optimization"
+                android:layout_marginTop="4dp" />
+
+            <Button
+                android:id="@+id/category_4_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Test Category 4 - Monitoring"
+                android:layout_marginTop="4dp" />
+
+            <Button
+                android:id="@+id/all_categories_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Test All Categories"
+                android:layout_marginTop="4dp" />
+
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Results"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="8dp" />
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="4dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:id="@+id/result_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:text="Results will appear here..."
+                android:textSize="14sp"
+                android:minHeight="150dp" />
+
+        </androidx.cardview.widget.CardView>
+
+    </LinearLayout>
+
+</ScrollView> 

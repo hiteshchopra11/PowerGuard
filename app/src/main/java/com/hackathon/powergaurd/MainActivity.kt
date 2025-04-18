@@ -12,20 +12,31 @@ import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.hackathon.powergaurd.services.PowerGuardService
@@ -59,7 +70,10 @@ class MainActivity : ComponentActivity() {
         
         setContent { 
             PowerGuardTheme { 
-                PowerGuardAppUI(openPromptInput = openDashboard) 
+                PowerGuardAppUI(
+                    openPromptInput = openDashboard,
+                    onLlmTestClick = { launchLlmTestActivity() }
+                ) 
             } 
         }
 
@@ -68,6 +82,14 @@ class MainActivity : ComponentActivity() {
         
         // Set up back press handling
         setupBackPressHandling()
+    }
+    
+    /**
+     * Launch the LLM test activity
+     */
+    private fun launchLlmTestActivity() {
+        val intent = Intent(this, LLMTestActivity::class.java)
+        startActivity(intent)
     }
     
     private fun setupBackPressHandling() {
@@ -161,11 +183,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PowerGuardAppUI(openPromptInput: Boolean = false) {
+fun PowerGuardAppUI(openPromptInput: Boolean = false, onLlmTestClick: () -> Unit) {
     // Use remember functions to store the state of the NavController and SnackbarHostState
     val navController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showMenu by remember { mutableStateOf(false) }
 
     // Use rememberCoroutineScope to create a CoroutineScope that is scoped to the composition
     val coroutineScope = rememberCoroutineScope()
@@ -181,6 +205,30 @@ fun PowerGuardAppUI(openPromptInput: Boolean = false) {
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("PowerGuard") },
+                actions = {
+                    Box {
+                        IconButton(onClick = { showMenu = !showMenu }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("LLM Test") },
+                                onClick = {
+                                    showMenu = false
+                                    onLlmTestClick()
+                                }
+                            )
+                        }
+                    }
+                }
+            )
+        },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = { BottomNavBar(navController = navController) }
     ) { innerPadding ->

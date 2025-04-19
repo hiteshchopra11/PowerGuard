@@ -2,11 +2,11 @@ package com.hackathon.powergaurd.di
 
 import android.content.Context
 import com.hackathon.powergaurd.actionable.ActionableExecutor
-import com.hackathon.powergaurd.actionable.KillAppHandler
-import com.hackathon.powergaurd.actionable.ManageWakeLocksHandler
-import com.hackathon.powergaurd.actionable.RestrictBackgroundDataHandler
-import com.hackathon.powergaurd.actionable.SetStandbyBucketHandler
-import com.hackathon.powergaurd.actionable.ThrottleCpuUsageHandler
+import com.hackathon.powergaurd.actionable.battery.KillAppHandler
+import com.hackathon.powergaurd.actionable.battery.ManageWakeLocksHandler
+import com.hackathon.powergaurd.actionable.battery.ThrottleCpuUsageHandler
+import com.hackathon.powergaurd.actionable.data.RestrictBackgroundDataHandler
+import com.hackathon.powergaurd.actionable.battery.SetStandbyBucketHandler
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

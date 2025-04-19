@@ -55,7 +55,7 @@ PowerGuard's actionable system follows a modular architecture:
 
 1. **ActionableTypes**: Defines available actionable types as constants
 2. **ActionableHandler**: Interface implemented by all handlers
-3. **ActionableExecutor**: Central service for processing and executing actionables 
+3. **ActionableExecutor**: Central service for processing and executing actionables
 4. **ActionableUtils**: Utility class with common operations for all handlers
 5. **Individual Handlers**: Implementations for each actionable type
 
@@ -93,4 +93,4 @@ Most actionables require elevated system privileges to function properly:
 
 ## Compatibility
 
-PowerGuard actionables are designed to work across all modern Android versions (API 24+) with progressive enhancement for newer API levels. 
+PowerGuard actionables are designed to work across all modern Android versions (API 24+) with progressive enhancement for newer API levels.

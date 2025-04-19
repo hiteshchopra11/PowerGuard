@@ -35,38 +35,6 @@ data class GemmaConfig(
          * Default configuration for general use
          */
         val DEFAULT = GemmaConfig()
-        
-        /**
-         * Configuration optimized for battery efficiency
-         */
-        val BATTERY_EFFICIENT = GemmaConfig(
-            maxCacheSize = 50 * 1024 * 1024,
-            timeoutMs = 15000,
-            maxTokens = 64,
-            releaseOnBackground = true
-        )
-        
-        /**
-         * Configuration optimized for performance
-         */
-        val PERFORMANCE = GemmaConfig(
-            maxCacheSize = 200 * 1024 * 1024,
-            timeoutMs = 60000,
-            maxTokens = 256,
-            temperature = 0.7f,
-            autoInitialize = true,
-            releaseOnBackground = false
-        )
-        
-        /**
-         * Configuration for offline-only mode (no API calls)
-         */
-        val OFFLINE = GemmaConfig(
-            offlineOnly = true,
-            maxCacheSize = 50 * 1024 * 1024,
-            timeoutMs = 10000,
-            maxTokens = 64,
-            temperature = 0.2f
-        )
+
     }
 } 

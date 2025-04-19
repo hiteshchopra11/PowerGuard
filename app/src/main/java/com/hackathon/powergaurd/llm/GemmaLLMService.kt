@@ -57,45 +57,31 @@ class GemmaLLMService @Inject constructor(
             val sdk = getSDK()
             
             // Enhance the prompt to specifically request JSON
-            val enhancedPrompt = if (prompt.contains("INFORMATION query")) {
-                """
+            val enhancedPrompt = """
                 $prompt
                 
-                IMPORTANT: Response must be JSON with only "insights" array. No "actionable" items.
+                IMPORTANT: You MUST respond with ONLY a valid JSON object. No other text, no markdown, no code blocks.
+                Your response should start with '{' and end with '}' with no other characters before or after.
                 
-                FORMAT:
-                {
-                  "insights": [
-                    {
-                      "type": "Information",
-                      "title": "Brief title",
-                      "description": "Factual data only",
-                      "severity": "info"
-                    }
-                  ]
-                }
+                Example of valid response format:
+                {"key": "value"}
                 
-                RULES:
-                - Facts only, no suggestions
-                - No "restrict background data" phrases
-                - For app queries: just state usage (e.g., "YouTube: 1.2 GB")
-                - For top N queries: exactly N items in descending order
+                Example of INVALID response format:
+                ```json
+                {"key": "value"}
+                ```
+                or
+                Okay, here's the JSON:
+                {"key": "value"}
                 
-                JSON only, no markdown or text.
-                """
-            } else {
-                """
-                $prompt
-                
-                IMPORTANT: Response must be valid JSON. No additional text or markdown.
-                """
-            }.trimIndent()
+                Remember: ONLY the JSON object, nothing else.
+            """.trimIndent()
             
             // Send the prompt to the Gemma SDK and get the response
             var response = sdk.generateResponseSuspend(
                 prompt = enhancedPrompt,
-                maxTokens = 256,  // Reduced from 512 to prevent MAX_TOKENS errors
-                temperature = 0.1f // Lower temperature for more deterministic and concise responses
+                maxTokens = 256,
+                temperature = 0.1f
             )
             
             Log.d(TAG, "Raw response from Gemma LLM: $response")
@@ -118,14 +104,14 @@ class GemmaLLMService @Inject constructor(
      */
     private fun extractValidJson(text: String): String {
         // Try to find JSON content in the response
-        val startBrace = text.indexOf('{')
-        val endBrace = text.lastIndexOf('}')
+        val jsonStart = text.indexOf('{')
+        val jsonEnd = text.lastIndexOf('}')
         
-        if (startBrace != -1 && endBrace != -1 && endBrace > startBrace) {
-            val jsonContent = text.substring(startBrace, endBrace + 1)
+        if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+            val jsonContent = text.substring(jsonStart, jsonEnd + 1)
             try {
                 // Validate that it's parseable
-                val jsonObject = JSONObject(jsonContent)
+                JSONObject(jsonContent)
                 return jsonContent
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to parse extracted JSON", e)

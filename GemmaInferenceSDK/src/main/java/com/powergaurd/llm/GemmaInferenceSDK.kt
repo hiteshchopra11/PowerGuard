@@ -131,7 +131,6 @@ class GemmaInferenceSDK(
             try {
                 val result = inferenceEngine.generateText(
                     prompt = prompt,
-                    maxTokens = maxTokens,
                     temperature = temperature
                 )
                 
@@ -275,7 +274,6 @@ class GemmaInferenceSDK(
                 // Just pass the prompt directly to the inference engine
                 val result = inferenceEngine.generateText(
                     prompt = prompt,
-                    maxTokens = maxTokens,
                     temperature = temperature
                 )
                 

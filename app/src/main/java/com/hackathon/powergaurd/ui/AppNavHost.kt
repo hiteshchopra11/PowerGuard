@@ -1,6 +1,8 @@
 package com.hackathon.powergaurd.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavHostController
@@ -19,7 +21,9 @@ fun AppNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
     showSnackbar: (String) -> Unit,
-    openPromptInput: Boolean = false
+    openPromptInput: Boolean = false,
+    refreshTrigger: Boolean = false,
+    openSettings: Boolean = false
 ) {
     // Initialize HistoryViewModel at the app level to ensure it's available
     // This prevents the "HistoryViewModel not initialized yet" error
@@ -34,7 +38,9 @@ fun AppNavHost(
             DashboardScreen(
                 modifier = modifier,
                 showSnackbar = showSnackbar,
-                openPromptInput = openPromptInput
+                openPromptInput = openPromptInput,
+                refreshTrigger = refreshTrigger,
+                openSettings = openSettings
             ) 
         }
         composable(Screen.Explore.route) { ExploreScreen() }

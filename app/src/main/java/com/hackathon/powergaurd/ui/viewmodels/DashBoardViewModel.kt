@@ -260,7 +260,6 @@ class DashboardViewModel @Inject constructor(
     /**
      * Submits the user's prompt to the API for analysis
      */
-    @RequiresApi(Build.VERSION_CODES.P)
     fun submitPrompt(prompt: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -281,7 +280,7 @@ class DashboardViewModel @Inject constructor(
                     - Memory: ${deviceData.memory.availableRam}/${deviceData.memory.totalRam} bytes
                     - Installed Apps: ${deviceData.apps.size}
                 """.trimIndent())
-                
+
                 // Give more time for data collection to complete
                 delay(800)
                 

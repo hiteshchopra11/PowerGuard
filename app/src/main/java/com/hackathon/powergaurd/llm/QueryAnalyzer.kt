@@ -83,6 +83,51 @@ class QueryAnalyzer @Inject constructor(private val llmService: LLMService) {
                 }
             }
             
+            Query: "Which apps are draining my battery the most?"
+            {
+                "category": 1,
+                "extracted_params": {
+                    "resource_type": ["battery"],
+                    "limit": 3
+                }
+            }
+            
+            Query: "Top 5 data-consuming apps today"
+            {
+                "category": 1,
+                "extracted_params": {
+                    "resource_type": ["data"],
+                    "limit": 5,
+                    "time_period": {
+                        "value": 1,
+                        "unit": "day"
+                    }
+                }
+            }
+            
+            Query: "What's using my battery in the background?"
+            {
+                "category": 1,
+                "extracted_params": {
+                    "resource_type": ["battery"],
+                    "limit": 3,
+                    "context": "background"
+                }
+            }
+            
+            Query: "How much data has YouTube used this week?"
+            {
+                "category": 1,
+                "extracted_params": {
+                    "apps": ["YouTube"],
+                    "resource_type": ["data"],
+                    "time_period": {
+                        "value": 1,
+                        "unit": "week"
+                    }
+                }
+            }
+            
             2. Predictive Query Examples:
             Query: "Can I watch Netflix and use WhatsApp for next 3 hours with current battery?"
             {

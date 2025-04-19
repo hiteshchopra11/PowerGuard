@@ -100,6 +100,8 @@ import com.hackathon.powergaurd.actionable.ActionableTypes
 import androidx.compose.material3.Divider
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.material3.SheetState
 
 @RequiresApi(Build.VERSION_CODES.P)
 @Composable
@@ -107,7 +109,9 @@ fun DashboardScreen(
     modifier: Modifier = Modifier,
     showSnackbar: (String) -> Unit,
     viewModel: DashboardViewModel = hiltViewModel(),
-    openPromptInput: Boolean = false
+    openPromptInput: Boolean = false,
+    refreshTrigger: Boolean = false,
+    openSettings: Boolean = false
 ) {
     val context = LocalContext.current
 
@@ -122,8 +126,26 @@ fun DashboardScreen(
     var promptText by remember { mutableStateOf("") }
     var showSettingsSheet by remember { mutableStateOf(false) }
     
+    // Previous refresh trigger value to detect changes
+    var previousRefreshTrigger by remember { mutableStateOf(refreshTrigger) }
+    
     LaunchedEffect(isLoading, analysisResponse, showActionableDialog, isAnalyzing) {
         Log.d("DashboardScreen", "State changed: isLoading=$isLoading, hasResponse=${analysisResponse != null}, showDialog=$showActionableDialog, isAnalyzing=$isAnalyzing")
+    }
+    
+    // Listen for refresh trigger changes
+    LaunchedEffect(refreshTrigger) {
+        if (refreshTrigger != previousRefreshTrigger) {
+            previousRefreshTrigger = refreshTrigger
+            viewModel.refreshData()
+        }
+    }
+    
+    // Open settings sheet if requested
+    LaunchedEffect(openSettings) {
+        if (openSettings) {
+            showSettingsSheet = true
+        }
     }
     
     // Declare FocusRequester
@@ -166,14 +188,7 @@ fun DashboardScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        contentWindowInsets = WindowInsets(0.dp), // 👈 Makes Scaffold handle insets
-        topBar = {
-            DashboardTopBar(
-                title = "PowerGuard",
-                onRefresh = { viewModel.refreshData() },
-                onSettings = { showSettingsSheet = true }
-            )
-        }
+        contentWindowInsets = WindowInsets(0.dp) // 👈 Makes Scaffold handle insets
     )  { paddingValues ->
    
         if (isLoading && uiState.batteryLevel == 0) {
@@ -270,7 +285,7 @@ private fun DashboardContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             // Show linear progress indicator when refreshing
@@ -584,8 +599,6 @@ fun PromptCard(
     
     // Bottom sheet state
     var showBottomSheet by remember { mutableStateOf(false) }
-    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val coroutineScope = rememberCoroutineScope()
     
     // Rotate the placeholder every 3 seconds
     LaunchedEffect(Unit) {
@@ -687,12 +700,58 @@ fun PromptCard(
         }
     }
     
-    // Show bottom sheet with examples when clicked
+    // Show examples in a bottom sheet when requested
     if (showBottomSheet) {
-        ExamplesBottomSheet(
-            onDismiss = { showBottomSheet = false },
-            sheetState = bottomSheetState
+        // Create a list of example prompts
+        val examples = listOf(
+            "Which apps are draining my battery?",
+            "How can I save data on this device?",
+            "Optimize my device for gaming",
+            "I need to save battery for 4 hours",
+            "Which apps use the most data in background?"
         )
+        
+        BottomSheetContent(
+            title = "Example Prompts",
+            onDismiss = { showBottomSheet = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                examples.forEach { example ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                            .clickable {
+                                onPromptChange(example)
+                                showBottomSheet = false
+                            },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lightbulb,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = example,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    
+                    if (example != examples.last()) {
+                        Divider(
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -705,7 +764,7 @@ fun LoadingAnalysisDialog(onDismissRequest: () -> Unit) {
         while (true) {
             for (i in 0..3) {
                 animatedDots.value = ".".repeat(i)
-                kotlinx.coroutines.delay(500)
+                delay(500)
             }
         }
     }
@@ -757,6 +816,62 @@ fun LoadingAnalysisDialog(onDismissRequest: () -> Unit) {
         },
         properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)
     )
+}
+
+@Composable
+private fun SettingsBottomSheet(
+    viewModel: DashboardViewModel,
+    onDismiss: () -> Unit
+) {
+    val isUsingGemma by viewModel.isUsingGemma.collectAsState()
+
+    BottomSheetContent(
+        title = "Settings",
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Gemma toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "Local AI Inference",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "Use on-device Gemma SDK instead of backend API",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Switch(
+                    checked = isUsingGemma,
+                    onCheckedChange = { viewModel.toggleInferenceMode(it) }
+                )
+            }
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Display current mode
+            Text(
+                text = "Current mode: ${if (isUsingGemma) "Gemma SDK (On-device)" else "Backend API (Cloud)"}",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+
+            // Add more settings items as needed
+        }
+    }
 }
 
 @Composable
@@ -992,8 +1107,14 @@ fun AnalysisDialog(
                             
                             Spacer(modifier = Modifier.height(12.dp))
                             
-                            // Display actionables with apply buttons
-                            response.actionable.forEach { actionable ->
+                            // Display actionables - simplified version showing only a few items for preview
+                            val displayActionables = if (response.actionable.size > 3) {
+                                response.actionable.take(3)
+                            } else {
+                                response.actionable
+                            }
+                            
+                            displayActionables.forEach { actionable ->
                                 val isActionExecuted = executionResults[actionable.id] == true
                                 val isActionFailed = executionResults[actionable.id] == false
                                 
@@ -1026,23 +1147,6 @@ fun AnalysisDialog(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
-                                            
-                                            // Show success or error message if action was executed
-                                            if (isActionExecuted) {
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text(
-                                                    text = "✓ Action applied successfully",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
-                                            } else if (isActionFailed) {
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text(
-                                                    text = "✗ Failed to apply action",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.error
-                                                )
-                                            }
                                         }
                                         
                                         // Apply button for individual actionable
@@ -1056,37 +1160,8 @@ fun AnalysisDialog(
                                                 }
                                             },
                                             enabled = !isExecuting && !isActionExecuted,
-                                            modifier = Modifier
-                                                .padding(start = 8.dp)
-                                                .animateContentSize(
-                                                    animationSpec = tween(
-                                                        durationMillis = 300,
-                                                        easing = FastOutSlowInEasing
-                                                    )
-                                                ),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (isActionExecuted) 
-                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                                                else 
-                                                    MaterialTheme.colorScheme.primary
-                                            )
+                                            modifier = Modifier.padding(start = 8.dp)
                                         ) {
-                                            if (isExecuting && !isActionExecuted && !isActionFailed) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(16.dp),
-                                                    strokeWidth = 2.dp,
-                                                    color = MaterialTheme.colorScheme.onPrimary
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                            } else if (isActionExecuted) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = "Applied",
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onPrimary
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                            }
                                             Text(
                                                 text = if (isActionExecuted) "Applied" else "Apply", 
                                                 style = MaterialTheme.typography.labelLarge
@@ -1094,6 +1169,16 @@ fun AnalysisDialog(
                                         }
                                     }
                                 }
+                            }
+                            
+                            // Show "more actions" message if more than 3
+                            if (response.actionable.size > 3) {
+                                Text(
+                                    text = "And ${response.actionable.size - 3} more actions available...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
                             }
                         }
                     }
@@ -1106,564 +1191,4 @@ fun AnalysisDialog(
             }
         }
     )
-}
-
-// Preview composables for each card component
-@Preview(showBackground = true)
-@Composable
-fun GratificationCardPreview() {
-    MaterialTheme {
-        Surface {
-            GratificationCard()
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun BatteryStatusCardPreview() {
-    MaterialTheme {
-        Surface {
-            BatteryStatusCard(
-                batteryLevel = 75,
-                isCharging = true,
-                chargingType = "AC",
-                batteryTemperature = 32.5f,
-                onOptimize = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun NetworkUsageCardPreview() {
-    MaterialTheme {
-        Surface {
-            NetworkUsageCard(
-                networkType = "WiFi",
-                networkStrength = 3,
-                highUsageApps = listOf("YouTube (250MB)", "Instagram (120MB)"),
-                onOptimize = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PromptCardPreview() {
-    MaterialTheme {
-        Surface {
-            PromptCard(
-                promptText = "",
-                onPromptChange = {},
-                onSubmit = {},
-                focusRequester = remember { FocusRequester() },
-                isLoading = false
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun LoadingAnalysisDialogPreview() {
-    MaterialTheme {
-        LoadingAnalysisDialog(onDismissRequest = {})
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun AnalysisDialogPreview() {
-    val sampleResponse = AnalysisResponse(
-        id = "preview-1",
-        success = true,
-        timestamp = System.currentTimeMillis().toFloat(),
-        message = "Analysis completed successfully",
-        batteryScore = 85f,
-        dataScore = 75f,
-        performanceScore = 90f,
-        estimatedSavings = AnalysisResponse.EstimatedSavings(
-            batteryMinutes = 120f,
-            dataMB = 250f
-        ),
-        insights = listOf(
-            Insight(
-                type = "BATTERY",
-                title = "Battery Usage",
-                description = "Your device's battery health is good",
-                severity = "LOW"
-            ),
-            Insight(
-                type = "DATA",
-                title = "Data Usage",
-                description = "Some apps are consuming high data in background",
-                severity = "MEDIUM"
-            )
-        ),
-        actionable = listOf(
-            Actionable(
-                id = "action-1",
-                type = ActionableTypes.RESTRICT_BACKGROUND_DATA,
-                packageName = "com.example.youtube",
-                description = "Optimize battery usage for YouTube",
-                reason = "High battery consumption in background",
-                estimatedBatterySavings = 10f,
-                estimatedDataSavings = 50f,
-                severity = 3,
-                enabled = true,
-                throttleLevel = 5,
-                newMode = "restricted"
-            ),
-            Actionable(
-                id = "action-2",
-                type = ActionableTypes.SET_STANDBY_BUCKET,
-                packageName = "com.example.instagram",
-                description = "Restrict background data for Instagram",
-                reason = "Excessive data usage in background",
-                estimatedBatterySavings = 5f,
-                estimatedDataSavings = 100f,
-                severity = 4,
-                enabled = true,
-                throttleLevel = null,
-                newMode = "restricted"
-            )
-        )
-    )
-
-    MaterialTheme {
-        Surface {
-            AnalysisDialogPreviewContent(sampleResponse)
-        }
-    }
-}
-
-@Composable
-private fun AnalysisDialogPreviewContent(response: AnalysisResponse) {
-    AlertDialog(
-        onDismissRequest = {},
-        title = {
-            Text(
-                text = "Device Optimization Insights",
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleLarge
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                // INSIGHTS SECTION
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Lightbulb,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Insights:",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        // Display insights with proper bullet points
-                        if (response.insights.isEmpty()) {
-                            Text(
-                                text = "No insights available at this time.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            response.insights.forEach { insight ->
-                                Row(
-                                    verticalAlignment = Alignment.Top,
-                                    modifier = Modifier.padding(bottom = 8.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier.width(24.dp),
-                                        contentAlignment = Alignment.TopStart
-                                    ) {
-                                        Text(
-                                            text = "•", 
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontSize = 18.sp
-                                        )
-                                    }
-                                    Text(
-                                        text = insight.description,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // ACTIONS SECTION - Only show if there are actionables
-                if (response.actionable.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.Assignment,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Suggested Actions:",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                
-                                // Apply All button at the top level (disabled in preview)
-                                Button(
-                                    onClick = {},
-                                    enabled = false,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary
-                                    )
-                                ) {
-                                    Text("Apply All")
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            // Display actionables
-                            response.actionable.forEach { actionable ->
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surface
-                                    )
-                                ) {
-                                    Column(modifier = Modifier.padding(12.dp)) {
-                                        Text(
-                                            text = actionable.description,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = actionable.reason,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        
-                                        // Action button (disabled in preview)
-                                        Button(
-                                            onClick = {},
-                                            enabled = false,
-                                            modifier = Modifier
-                                                .align(Alignment.End)
-                                                .padding(top = 8.dp),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.primary
-                                            )
-                                        ) {
-                                            Text("Apply")
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {}) {
-                Text("Close")
-            }
-        }
-    )
-}
-
-@RequiresApi(Build.VERSION_CODES.P)
-@Preview(showBackground = true)
-@Composable
-fun FullDashboardContentPreview() {
-    MaterialTheme {
-        Surface {
-            // For preview only
-            val previewUiState = DashboardUiState(
-                batteryLevel = 75,
-                isCharging = true,
-                batteryTemperature = 32.5f,
-                chargingType = "AC",
-                networkType = "WiFi",
-                networkStrength = 3,
-                highUsageApps = listOf("YouTube (250MB)", "Instagram (120MB)"),
-                batteryScore = 90,
-                dataScore = 85,
-                performanceScore = 95,
-                insights = emptyList(),
-                aiSummary = "Your device is performing well",
-                inferenceMode = "Gemma SDK"
-            )
-
-            // Simplified preview version of DashboardContent
-            Column {
-                DeviceStatusCard(
-                    batteryLevel = previewUiState.batteryLevel,
-                    isCharging = previewUiState.isCharging,
-                    networkType = previewUiState.networkType,
-                    networkStrength = previewUiState.networkStrength,
-                    isUsingGemma = true
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                BatteryStatusCard(
-                    batteryLevel = previewUiState.batteryLevel,
-                    isCharging = previewUiState.isCharging,
-                    chargingType = previewUiState.chargingType,
-                    batteryTemperature = previewUiState.batteryTemperature,
-                    onOptimize = {}
-                )
-            }
-        }
-    }
-}
-
-// Add Gemma mode toggle to the Settings section of the Dashboard
-@Composable
-private fun SettingsBottomSheet(
-    viewModel: DashboardViewModel,
-    onDismiss: () -> Unit
-) {
-    val isUsingGemma by viewModel.isUsingGemma.collectAsState()
-
-    BottomSheetContent(
-        title = "Settings",
-        onDismiss = onDismiss
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            // Gemma toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "Local AI Inference",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "Use on-device Gemma SDK instead of backend API",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Switch(
-                    checked = isUsingGemma,
-                    onCheckedChange = { viewModel.toggleInferenceMode(it) }
-                )
-            }
-
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-            // Display current mode
-            Text(
-                text = "Current mode: ${if (isUsingGemma) "Gemma SDK (On-device)" else "Backend API (Cloud)"}",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-
-            // Add more settings items as needed
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DashboardTopBar(
-    title: String,
-    onRefresh: () -> Unit,
-    onSettings: () -> Unit
-) {
-    TopAppBar(
-        title = { Text(title) },
-        actions = {
-            // Refresh button
-            IconButton(onClick = onRefresh) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Refresh"
-                )
-            }
-            
-            // Settings button
-            IconButton(onClick = onSettings) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings"
-                )
-            }
-        }
-    )
-}
-
-// Add this function to create the inference mode indicator
-@Composable
-private fun InferenceModeIndicator(isUsingGemma: Boolean) {
-    Surface(
-        modifier = Modifier.padding(8.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = if (isUsingGemma) 
-            MaterialTheme.colorScheme.primaryContainer 
-        else 
-            MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = if (isUsingGemma) 
-            MaterialTheme.colorScheme.onPrimaryContainer 
-        else 
-            MaterialTheme.colorScheme.onSecondaryContainer
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Icon(
-                imageVector = if (isUsingGemma) 
-                    Icons.Filled.PhoneAndroid 
-                else 
-                    Icons.Filled.Cloud,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                text = if (isUsingGemma) "On-device AI" else "Cloud API",
-                style = MaterialTheme.typography.labelMedium
-            )
-        }
-    }
-}
-
-// Modify the existing DeviceStatusCard to add the inference mode indicator
-@Composable
-private fun DeviceStatusCard(
-    batteryLevel: Int,
-    isCharging: Boolean,
-    networkType: String,
-    networkStrength: Int,
-    isUsingGemma: Boolean
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Device Status",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                
-                // Add inference mode indicator
-                InferenceModeIndicator(isUsingGemma = isUsingGemma)
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Battery info
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = if (isCharging) Icons.Filled.BatteryAlert else Icons.Filled.BatteryAlert,
-                    contentDescription = "Battery status"
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("$batteryLevel%${if (isCharging) " (Charging)" else ""}")
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Network info
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Filled.NetworkCheck,
-                    contentDescription = "Network status"
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("$networkType (Signal: $networkStrength)")
-            }
-        }
-    }
-}
-
-// Update the usage in DashboardContent
-@Composable
-private fun DashboardContent(
-    modifier: Modifier = Modifier,
-    viewModel: DashboardViewModel,
-    uiState: DashboardUiState,
-    showExamples: () -> Unit,
-    onActionableClick: (Actionable) -> Unit,
-    isUsingGemma: Boolean
-) {
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 16.dp)
-    ) {
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            DeviceStatusCard(
-                batteryLevel = uiState.batteryLevel,
-                isCharging = uiState.isCharging,
-                networkType = uiState.networkType,
-                networkStrength = uiState.networkStrength,
-                isUsingGemma = isUsingGemma
-            )
-            // ... rest of the existing LazyColumn content
-        }
-        
-        // ... existing items
-    }
 }

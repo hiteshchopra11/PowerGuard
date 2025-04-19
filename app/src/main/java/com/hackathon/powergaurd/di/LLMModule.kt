@@ -25,7 +25,7 @@ abstract class LLMModule {
         @Provides
         @Named("useRealLLM")
         fun provideUseRealLLM(): Boolean {
-            // Set to false for testing, true for real implementation
+            // Set to true to use the real LLM implementation
             return true
         }
         

@@ -22,7 +22,7 @@ object GemmaModule {
     private const val PLACEHOLDER_KEY = "null"
     
     // Standard model names for Gemini API
-    private const val MODEL_GEMINI_PRO = "gemini-2.0-flash"
+    private const val MODEL_GEMINI_PRO = "models/gemini-2.0-flash"
     
     /**
      * Provides the GemmaConfig with appropriate settings for PowerGuard
@@ -64,10 +64,12 @@ object GemmaModule {
             modelName = modelName,
             apiKey = apiKey, 
             enableLogging = true,
-            maxTokens = 512,  // Reduced from 2048 to prevent MAX_TOKENS errors
-            temperature = 0.5f,  // Slightly higher temperature for more varied responses
+            maxTokens = 64,  // Further reduced from 128 to 64 to prevent MAX_TOKENS errors
+            temperature = 0.1f,  // Keep low temperature for deterministic responses
+            topK = 20,  // Reduced from 40 to 20 for more focused token selection
+            topP = 0.7f,  // Reduced from 0.8 to 0.7 for more predictable responses
             autoInitialize = true,
-            releaseOnBackground = isLowEndDevice
+            releaseOnBackground = true  // Always release on background to free resources
         )
     }
 

@@ -57,19 +57,45 @@ class GemmaLLMService @Inject constructor(
             val sdk = getSDK()
             
             // Enhance the prompt to specifically request JSON
-            val enhancedPrompt = """
+            val enhancedPrompt = if (prompt.contains("INFORMATION query")) {
+                """
                 $prompt
                 
-                IMPORTANT: Your response MUST be a valid JSON object with no additional text, markdown, or explanations. 
-                Return ONLY a properly formatted JSON object as described in the instructions above.
-                Do not include backticks, language identifiers like ```json, or any text outside the JSON object.
-            """.trimIndent()
+                IMPORTANT: Response must be JSON with only "insights" array. No "actionable" items.
+                
+                FORMAT:
+                {
+                  "insights": [
+                    {
+                      "type": "Information",
+                      "title": "Brief title",
+                      "description": "Factual data only",
+                      "severity": "info"
+                    }
+                  ]
+                }
+                
+                RULES:
+                - Facts only, no suggestions
+                - No "restrict background data" phrases
+                - For app queries: just state usage (e.g., "YouTube: 1.2 GB")
+                - For top N queries: exactly N items in descending order
+                
+                JSON only, no markdown or text.
+                """
+            } else {
+                """
+                $prompt
+                
+                IMPORTANT: Response must be valid JSON. No additional text or markdown.
+                """
+            }.trimIndent()
             
             // Send the prompt to the Gemma SDK and get the response
             var response = sdk.generateResponseSuspend(
                 prompt = enhancedPrompt,
-                maxTokens = 512,  // Adjust token count as needed
-                temperature = 0.2f // Lower temperature for more deterministic responses
+                maxTokens = 256,  // Reduced from 512 to prevent MAX_TOKENS errors
+                temperature = 0.1f // Lower temperature for more deterministic and concise responses
             )
             
             Log.d(TAG, "Raw response from Gemma LLM: $response")

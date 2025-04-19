@@ -87,6 +87,13 @@
             android:label="LLM Test"
             android:theme="@style/Theme.PowerGuard" />
 
+        <!-- Add the Information Query Test Activity -->
+        <activity
+            android:name=".InfoQueryTestActivity"
+            android:exported="false"
+            android:label="Information Query Test"
+            android:theme="@style/Theme.PowerGuard" />
+
         <service
             android:name=".services.PowerGuardService"
             android:enabled="true"

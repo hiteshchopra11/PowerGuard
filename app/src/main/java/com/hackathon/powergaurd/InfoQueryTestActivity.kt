@@ -3,8 +3,6 @@ package com.hackathon.powergaurd
 import android.os.Bundle
 import android.util.Log
 import android.view.MenuItem
-import android.view.WindowInsets
-import android.view.WindowInsetsController
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -18,35 +16,30 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
-import com.hackathon.powergaurd.llm.LLMTest
-import com.hackathon.powergaurd.llm.QueryProcessor
+import com.hackathon.powergaurd.llm.InformationQueryTest
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
- * Test Activity for LLM implementation
- * This activity allows testing different categories of queries
+ * Activity for testing Information Queries with real LLM
  */
 @AndroidEntryPoint
-class LLMTestActivity : AppCompatActivity() {
+class InfoQueryTestActivity : AppCompatActivity() {
     
-    private val viewModel: LLMTest by viewModels()
-    
-    @Inject
-    lateinit var queryProcessor: QueryProcessor
+    private val viewModel: InformationQueryTest by viewModels()
     
     private val logMessages = MutableStateFlow<List<String>>(emptyList())
-    private val maxLogLines = 20
+    private val maxLogLines = 100 // Increased for more output
     
     private lateinit var queryInput: EditText
     private lateinit var resultText: TextView
     private lateinit var mainLayout: LinearLayout
+    private lateinit var resultsScrollView: ScrollView
     
     companion object {
-        private const val TAG = "PowerGuard-LLMTestActivity"
+        private const val TAG = "PowerGuard-InfoQueryTestAct"
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,9 +50,9 @@ class LLMTestActivity : AppCompatActivity() {
         
         // Enable the back button in the action bar
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "LLM Query Testing"
+        supportActionBar?.title = "Information Query Test"
         
-        // Create layout programmatically since XML is having issues
+        // Create layout programmatically
         createLayout()
         
         // Setup insets handling for edge-to-edge display
@@ -71,14 +64,14 @@ class LLMTestActivity : AppCompatActivity() {
         }
         
         // Log that the activity is ready
-        Log.d(TAG, "LLM Test Activity ready")
-        addLogMessage("LLM Test Activity ready")
-        addLogMessage("Select a category to test or enter a custom query")
+        Log.d(TAG, "Info Query Test Activity ready")
+        addLogMessage("Info Query Test Activity ready")
+        addLogMessage("This activity tests information queries with the REAL LLM")
     }
     
     private fun setupEdgeToEdgeInsets() {
         // Apply window insets padding to the main layout
-        ViewCompat.setOnApplyWindowInsetsListener(mainLayout) { view, windowInsets ->
+        ViewCompat.setOnApplyWindowInsetsListener(mainLayout) { _, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             
             // Apply padding based on insets
@@ -112,7 +105,7 @@ class LLMTestActivity : AppCompatActivity() {
         
         // Create title
         val titleText = TextView(this)
-        titleText.text = "LLM Implementation Test"
+        titleText.text = "Information Query Test (Real LLM)"
         titleText.textSize = 24f
         titleText.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -124,7 +117,7 @@ class LLMTestActivity : AppCompatActivity() {
         
         // Create query input
         queryInput = EditText(this)
-        queryInput.hint = "Enter your query"
+        queryInput.hint = "Enter your information query"
         queryInput.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
@@ -133,76 +126,37 @@ class LLMTestActivity : AppCompatActivity() {
         
         // Create run query button
         val runQueryButton = Button(this)
-        runQueryButton.text = "Run Query"
+        runQueryButton.text = "Run Single Query"
         runQueryButton.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            topMargin = 16
-            bottomMargin = 32
-        }
-        runQueryButton.setOnClickListener {
-            val query = queryInput.text.toString().trim()
-            if (query.isNotEmpty()) {
-                addLogMessage("Running query: $query")
-                runQuery(query)
-            }
-        }
-        mainLayout.addView(runQueryButton)
-        
-        // Create categories section title
-        val categoriesTitle = TextView(this)
-        categoriesTitle.text = "Test Categories"
-        categoriesTitle.textSize = 18f
-        categoriesTitle.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply {
             topMargin = 16
             bottomMargin = 16
         }
-        mainLayout.addView(categoriesTitle)
-        
-        // Create category buttons
-        val buttonLabels = listOf(
-            "Test Category 1 - Information",
-            "Test Category 2 - Predictive",
-            "Test Category 3 - Optimization",
-            "Test Category 4 - Monitoring",
-            "Test All Categories",
-            "Test Information Query Format"
-        )
-        
-        for ((index, label) in buttonLabels.withIndex()) {
-            val button = Button(this)
-            button.text = label
-            button.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = 8
+        runQueryButton.setOnClickListener {
+            val query = queryInput.text.toString().trim()
+            if (query.isNotEmpty()) {
+                addLogMessage("Running query: $query")
+                viewModel.runSingleTest(query)
             }
-            
-            button.setOnClickListener {
-                when (index) {
-                    4 -> {
-                        addLogMessage("Testing all categories")
-                        viewModel.testAllCategories()
-                    }
-                    5 -> {
-                        addLogMessage("Testing information query format")
-                        viewModel.testInformationQueries()
-                    }
-                    else -> {
-                        val category = index + 1
-                        addLogMessage("Testing Category $category")
-                        viewModel.testCategory(category)
-                    }
-                }
-            }
-            
-            mainLayout.addView(button)
         }
+        mainLayout.addView(runQueryButton)
+        
+        // Create run all tests button
+        val runAllButton = Button(this)
+        runAllButton.text = "Run All Test Cases"
+        runAllButton.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            bottomMargin = 32
+        }
+        runAllButton.setOnClickListener {
+            addLogMessage("Running all test cases")
+            viewModel.runAllTests()
+        }
+        mainLayout.addView(runAllButton)
         
         // Create results section title
         val resultsTitle = TextView(this)
@@ -212,13 +166,12 @@ class LLMTestActivity : AppCompatActivity() {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply {
-            topMargin = 32
             bottomMargin = 16
         }
         mainLayout.addView(resultsTitle)
         
         // Create a nested scroll view for results
-        val resultsScrollView = ScrollView(this)
+        resultsScrollView = ScrollView(this)
         resultsScrollView.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
@@ -226,6 +179,8 @@ class LLMTestActivity : AppCompatActivity() {
             height = 600 // Set a fixed height for scrolling
         }
         resultsScrollView.setBackgroundColor(ContextCompat.getColor(this, android.R.color.darker_gray))
+        resultsScrollView.isVerticalScrollBarEnabled = true // Enable vertical scrollbar
+        resultsScrollView.isSmoothScrollingEnabled = true // Enable smooth scrolling
         
         // Create results text view inside the nested scroll view
         resultText = TextView(this)
@@ -235,9 +190,19 @@ class LLMTestActivity : AppCompatActivity() {
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
         resultText.setPadding(16, 16, 16, 16)
+        resultText.isVerticalScrollBarEnabled = true
         
-        // Add the TextView to the nested ScrollView
-        resultsScrollView.addView(resultText)
+        // Create a linear layout to hold the text within the scroll view
+        val textContainer = LinearLayout(this)
+        textContainer.orientation = LinearLayout.VERTICAL
+        textContainer.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        textContainer.addView(resultText)
+        
+        // Add the text container to the ScrollView
+        resultsScrollView.addView(textContainer)
         
         // Add the nested ScrollView to the main layout
         mainLayout.addView(resultsScrollView)
@@ -253,13 +218,18 @@ class LLMTestActivity : AppCompatActivity() {
             logMessages.collectLatest { messages ->
                 val logText = messages.joinToString("\n")
                 resultText.text = logText
+                
+                // After updating text, scroll to the bottom
+                resultsScrollView.post {
+                    resultsScrollView.fullScroll(ScrollView.FOCUS_DOWN)
+                }
             }
         }
     }
     
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
-            finish() // Use finish() instead of deprecated onBackPressed()
+            finish()
             return true
         }
         return super.onOptionsItemSelected(item)
@@ -267,19 +237,5 @@ class LLMTestActivity : AppCompatActivity() {
     
     private fun addLogMessage(message: String) {
         logMessages.value = (logMessages.value + message).takeLast(maxLogLines)
-    }
-    
-    private fun runQuery(query: String) {
-        lifecycleScope.launch {
-            try {
-                Log.d(TAG, "Running query: $query")
-                val result = queryProcessor.processQuery(query)
-                Log.d(TAG, "Result: $result")
-                addLogMessage("RESULT: $result")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error processing query", e)
-                addLogMessage("ERROR: ${e.message}")
-            }
-        }
     }
 } 

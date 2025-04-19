@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import org.json.JSONObject
 
 /**
  * Generates recommendations based on query analysis and device data
@@ -40,11 +41,41 @@ class RecommendationEngine @Inject constructor(
         // Category-specific instructions
         private val INFORMATION_INSTRUCTIONS = """
             This is an INFORMATION query. The user wants specific statistics or rankings.
-            - Provide clear, factual information based on the device data
-            - Include exact numbers and percentages when available
-            - For top-N queries, show exactly N results in ranked order
-            - If time period is specified, limit your analysis to that period
-            - Keep your response concise and focused on the statistics requested
+            
+            FORMAT YOUR RESPONSE AS A JSON OBJECT WITH ONLY THE "insights" ARRAY:
+            {
+              "insights": [
+                {
+                  "type": "Information",
+                  "title": "Clear title summarizing the information",
+                  "description": "ONLY factual information with specific numbers",
+                  "severity": "info"
+                }
+              ]
+            }
+            
+            SPECIFIC RESPONSE GUIDELINES:
+            1. For "top N" queries (e.g., "Top 5 data-consuming apps today"):
+               - Return exactly N apps in descending order
+               - If N is not specified, default to top 3
+               - Format: "1. App Name (specific usage amount)\n2. App Name (specific usage amount)..."
+            
+            2. For "which apps" questions (e.g., "Which apps are draining my battery the most?"):
+               - Return the top 3 apps in descending order
+               - Format: "1. App Name (specific usage percentage)\n2. App Name (specific usage percentage)..."
+            
+            3. For specific app queries (e.g., "How much data has YouTube used this week?"):
+               - If the app exists in the dataset, return ONLY its exact usage, for example: "YouTube has used 1.2 GB of data in the past week."
+               - If not, return "No data usage reported by [app name]"
+               - Do NOT include any recommendations or suggestions
+            
+            4. For background usage queries (e.g., "What's using my battery in the background?"):
+               - Return top 3 battery-consuming background apps
+            
+            DO NOT INCLUDE ANY ACTIONABLE ITEMS OR SUGGESTIONS. This is an information-only response.
+            NEVER suggest to "restrict background data" or include any recommendations.
+            JUST PROVIDE THE FACTS - numbers, statistics, and factual information only.
+            Use exact numbers from the device data whenever possible.
         """.trimIndent()
         
         private val PREDICTION_INSTRUCTIONS = """
@@ -105,7 +136,66 @@ class RecommendationEngine @Inject constructor(
             val prompt = BASE_PROMPT.format(deviceDataJson, analysisJson, instructions)
             
             // Get the recommendation from the LLM
-            llmService.getCompletion(prompt)
+            val llmResponse = llmService.getCompletion(prompt)
+            
+            // For information queries (category 1), ensure we have the correct response format
+            if (analysis.category == 1) {
+                try {
+                    // Try to parse the response as JSON
+                    val responseJson = try {
+                        // If it's already JSON, keep it as is
+                        if (llmResponse.trim().startsWith("{") && llmResponse.trim().endsWith("}")) {
+                            // Parse the JSON and ensure it only contains insights, not actionables
+                            try {
+                                val jsonObject = JSONObject(llmResponse)
+                                // If it contains actionables, remove them
+                                if (jsonObject.has("actionable")) {
+                                    jsonObject.remove("actionable")
+                                    jsonObject.toString()
+                                } else {
+                                    llmResponse
+                                }
+                            } catch (e: Exception) {
+                                llmResponse
+                            }
+                        } else {
+                            // If not JSON, wrap it in a simple JSON structure
+                            """
+                            {
+                              "insights": [
+                                {
+                                  "type": "Information",
+                                  "title": "Usage Information",
+                                  "description": "${llmResponse.replace("\"", "\\\"").replace("\n", "\\n")}",
+                                  "severity": "info"
+                                }
+                              ]
+                            }
+                            """.trimIndent()
+                        }
+                    } catch (e: Exception) {
+                        // If there's any issue, ensure we have a valid response
+                        """
+                        {
+                          "insights": [
+                            {
+                              "type": "Information",
+                              "title": "Usage Information",
+                              "description": "Could not retrieve the requested information.",
+                              "severity": "info"
+                            }
+                          ]
+                        }
+                        """.trimIndent()
+                    }
+                    
+                    return@withContext responseJson
+                } catch (e: Exception) {
+                    return@withContext llmResponse
+                }
+            }
+            
+            llmResponse
         }
     }
 } 

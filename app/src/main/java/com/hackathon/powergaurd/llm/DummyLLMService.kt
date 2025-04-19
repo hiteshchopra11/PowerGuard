@@ -311,14 +311,129 @@ class DummyLLMService @Inject constructor() : LLMService {
                     """.trimIndent()
                 }
             }
-            prompt.contains("INFORMATION query") -> {
-                // This is an information query response
-                if (prompt.contains("data")) {
-                    "The top data-consuming apps are: 1. YouTube (450MB), 2. TikTok (320MB), 3. Chrome (180MB), 4. Instagram (120MB), 5. Spotify (90MB)."
-                } else if (prompt.contains("memory")) {
-                    "Your phone used an average of 3.2GB of memory in the last 24 hours. Top memory users: Chrome (420MB), Facebook (350MB), Maps (280MB)."
-                } else {
-                    "The top battery-consuming apps are: 1. TikTok (15%), 2. Chrome (12%), 3. Maps (8%), 4. Facebook (6%), 5. Gmail (4%)."
+            prompt.contains("INFORMATION query") && prompt.contains("device data") -> {
+                // This is the second LLM query (RecommendationEngine) for information queries
+                val lowercasePrompt = prompt.lowercase()
+                
+                // Return responses based on the specific information query type
+                when {
+                    // Top N data-consuming apps today
+                    lowercasePrompt.contains("top") && lowercasePrompt.contains("data") -> {
+                        // Check if a specific limit is mentioned
+                        val limitPattern = "limit\":\\s*(\\d+)".toRegex()
+                        val limitMatch = limitPattern.find(prompt)
+                        val limit = limitMatch?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 3
+                        
+                        // Build a description with the appropriate number of apps
+                        val appsList = when (limit) {
+                            1 -> "1. YouTube (450 MB)"
+                            2 -> "1. YouTube (450 MB)\n2. Chrome (120 MB)"
+                            3 -> "1. YouTube (450 MB)\n2. Chrome (120 MB)\n3. Instagram (87 MB)"
+                            4 -> "1. YouTube (450 MB)\n2. Chrome (120 MB)\n3. Instagram (87 MB)\n4. Spotify (45 MB)"
+                            else -> "1. YouTube (450 MB)\n2. Chrome (120 MB)\n3. Instagram (87 MB)\n4. Spotify (45 MB)\n5. Gmail (23 MB)"
+                        }
+                        
+                        // Log that we're returning a specific number of items
+                        Log.d(TAG, "Returning top $limit data consuming apps")
+                        
+                        """
+                        {
+                          "insights": [
+                            {
+                              "type": "Information",
+                              "title": "Top ${limit} Data-Consuming Apps",
+                              "description": "$appsList",
+                              "severity": "info"
+                            }
+                          ]
+                        }
+                        """.trimIndent()
+                    }
+                    
+                    // Top battery-draining apps
+                    lowercasePrompt.contains("which") && lowercasePrompt.contains("battery") -> {
+                        """
+                        {
+                          "insights": [
+                            {
+                              "type": "Information",
+                              "title": "Top Battery-Consuming Apps",
+                              "description": "1. TikTok (26%)\n2. Google Maps (18%)\n3. WhatsApp (12%)",
+                              "severity": "info"
+                            }
+                          ]
+                        }
+                        """.trimIndent()
+                    }
+                    
+                    // Specific app data usage
+                    lowercasePrompt.contains("how much data") && lowercasePrompt.contains("youtube") -> {
+                        """
+                        {
+                          "insights": [
+                            {
+                              "type": "Information",
+                              "title": "YouTube Data Usage",
+                              "description": "YouTube has used 1.2 GB of data in the past week.",
+                              "severity": "info"
+                            }
+                          ]
+                        }
+                        """.trimIndent()
+                    }
+                    
+                    // Specific app data usage - no data available
+                    lowercasePrompt.contains("how much data") && !lowercasePrompt.contains("youtube") -> {
+                        // Extract the app name
+                        val appPattern = "apps\":\\s*\\[\"([^\"]+)\"\\]".toRegex()
+                        val appMatch = appPattern.find(prompt)
+                        val app = appMatch?.groupValues?.getOrNull(1) ?: "The app"
+                        
+                        """
+                        {
+                          "insights": [
+                            {
+                              "type": "Information",
+                              "title": "$app Data Usage",
+                              "description": "No data usage reported by $app.",
+                              "severity": "info"
+                            }
+                          ]
+                        }
+                        """.trimIndent()
+                    }
+                    
+                    // Background battery usage
+                    lowercasePrompt.contains("background") && lowercasePrompt.contains("battery") -> {
+                        """
+                        {
+                          "insights": [
+                            {
+                              "type": "Information",
+                              "title": "Background Battery Usage",
+                              "description": "1. Google Services (8%)\n2. Gmail (5%)\n3. Weather (3%)",
+                              "severity": "info"
+                            }
+                          ]
+                        }
+                        """.trimIndent()
+                    }
+                    
+                    // Default information response
+                    else -> {
+                        """
+                        {
+                          "insights": [
+                            {
+                              "type": "Information",
+                              "title": "Usage Information",
+                              "description": "Could not retrieve the specific information requested.",
+                              "severity": "info"
+                            }
+                          ]
+                        }
+                        """.trimIndent()
+                    }
                 }
             }
             prompt.contains("PREDICTIVE query") -> {

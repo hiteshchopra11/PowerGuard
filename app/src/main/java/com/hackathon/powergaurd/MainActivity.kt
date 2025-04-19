@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
@@ -19,6 +18,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +30,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +40,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.navigation.compose.rememberNavController
 import com.hackathon.powergaurd.services.PowerGuardService
 import com.hackathon.powergaurd.theme.PowerGuardTheme
@@ -45,9 +48,11 @@ import com.hackathon.powergaurd.ui.AppNavHost
 import com.hackathon.powergaurd.ui.BottomNavBar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             val allGranted = permissions.values.all { it }
@@ -65,6 +70,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Enable edge-to-edge display
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        
         // Check if we need to focus on the prompt input
         val openDashboard = intent.getBooleanExtra("OPEN_DASHBOARD", false)
         
@@ -72,7 +80,10 @@ class MainActivity : ComponentActivity() {
             PowerGuardTheme { 
                 PowerGuardAppUI(
                     openPromptInput = openDashboard,
-                    onLlmTestClick = { launchLlmTestActivity() }
+                    onLlmTestClick = { launchLlmTestActivity() },
+                    onInfoQueryTestClick = { launchInfoQueryTestActivity() },
+                    onRefreshData = { refreshDeviceData() },
+                    onOpenSettings = { openSettings() }
                 ) 
             } 
         }
@@ -89,6 +100,36 @@ class MainActivity : ComponentActivity() {
      */
     private fun launchLlmTestActivity() {
         val intent = Intent(this, LLMTestActivity::class.java)
+        startActivity(intent)
+    }
+    
+    /**
+     * Launch the Information Query test activity for real LLM testing
+     */
+    private fun launchInfoQueryTestActivity() {
+        val intent = Intent(this, InfoQueryTestActivity::class.java)
+        startActivity(intent)
+    }
+    
+    /**
+     * Refresh device data in the app
+     */
+    private fun refreshDeviceData() {
+        // We can't directly access the ViewModel here because it's tied to the Compose lifecycle
+        // Instead, we'll pass a "refresh" flag through the NavController if needed,
+        // or just show a toast message for now
+        Toast.makeText(this, "Refreshing device data...", Toast.LENGTH_SHORT).show()
+    }
+    
+    /**
+     * Open settings for the app
+     */
+    private fun openSettings() {
+        // Navigate to the dashboard screen and open settings
+        val intent = Intent(this, MainActivity::class.java).apply {
+            putExtra("OPEN_DASHBOARD", true)
+            putExtra("OPEN_SETTINGS", true)
+        }
         startActivity(intent)
     }
     
@@ -173,24 +214,35 @@ class MainActivity : ComponentActivity() {
         val serviceIntent = Intent(this, PowerGuardService::class.java)
 
         // For Android 12+ (API 31+), we need to be more explicit about foreground service starts
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            startForegroundService(serviceIntent)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            startService(serviceIntent)
-        }
+        startForegroundService(serviceIntent)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PowerGuardAppUI(openPromptInput: Boolean = false, onLlmTestClick: () -> Unit) {
-    // Use remember functions to store the state of the NavController and SnackbarHostState
+fun PowerGuardAppUI(
+    openPromptInput: Boolean = false,
+    onLlmTestClick: () -> Unit,
+    onInfoQueryTestClick: () -> Unit,
+    onRefreshData: () -> Unit,
+    onOpenSettings: () -> Unit,
+    openSettings: Boolean = false
+) {
+    // Store NavController in a variable so we can use it
     val navController = rememberNavController()
-    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // State for whether the menu is shown
     var showMenu by remember { mutableStateOf(false) }
-
+    
+    // State for the SnackbarHostState
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // State for triggering refreshes
+    var refreshTrigger by remember { mutableStateOf(false) }
+    
+    // Get the local context to access resources
+    val context = LocalContext.current
+    
     // Use rememberCoroutineScope to create a CoroutineScope that is scoped to the composition
     val coroutineScope = rememberCoroutineScope()
     
@@ -209,6 +261,36 @@ fun PowerGuardAppUI(openPromptInput: Boolean = false, onLlmTestClick: () -> Unit
             TopAppBar(
                 title = { Text("PowerGuard") },
                 actions = {
+                    // Refresh button
+                    IconButton(onClick = { 
+                        // Toggle refresh trigger to notify DashboardScreen
+                        refreshTrigger = !refreshTrigger
+                        onRefreshData()
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Refreshing data...")
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh"
+                        )
+                    }
+                    
+                    // Settings button
+                    IconButton(onClick = { 
+                        // Just call the function from the Activity
+                        onOpenSettings()
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Opening settings...")
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings"
+                        )
+                    }
+                    
+                    // More options menu
                     Box {
                         IconButton(onClick = { showMenu = !showMenu }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "Menu")
@@ -224,9 +306,26 @@ fun PowerGuardAppUI(openPromptInput: Boolean = false, onLlmTestClick: () -> Unit
                                     onLlmTestClick()
                                 }
                             )
+                            DropdownMenuItem(
+                                text = { Text("Info Query Test (Real LLM)") },
+                                onClick = {
+                                    showMenu = false
+                                    onInfoQueryTestClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("About") },
+                                onClick = {
+                                    showMenu = false
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("PowerGuard v1.0.0")
+                                    }
+                                }
+                            )
                         }
                     }
-                }
+                },
+                scrollBehavior = null
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -238,7 +337,9 @@ fun PowerGuardAppUI(openPromptInput: Boolean = false, onLlmTestClick: () -> Unit
             showSnackbar = { message ->
                 coroutineScope.launch { snackbarHostState.showSnackbar(message) }
             },
-            openPromptInput = openPromptInput
+            openPromptInput = openPromptInput,
+            refreshTrigger = refreshTrigger,
+            openSettings = openSettings
         )
     }
 }

@@ -203,9 +203,9 @@ class DashboardViewModel @Inject constructor(
                     reason = "Immediate resource optimization"
                 )
                 
-                val result = actionableExecutor.executeActionable(listOf(actionable))
+                val result = actionableExecutor.executeActionables(listOf(actionable))
                 
-                if (result.values.first()) {
+                if (result.values.first().success) {
                     Log.d("DashboardViewModel", "Successfully killed app: $packageName")
                 } else {
                     Log.e("DashboardViewModel", "Failed to kill app: $packageName")
@@ -320,7 +320,7 @@ class DashboardViewModel @Inject constructor(
                             // Execute actionables from the response
                             if (response.actionable.isNotEmpty()) {
                                 Log.d("DashboardViewModel", "Executing ${response.actionable.size} actionables from analysis")
-                                actionableExecutor.executeActionable(response.actionable)
+                                actionableExecutor.executeActionables(response.actionable)
                             }
                         } else {
                             Log.w("DashboardViewModel", "Analysis returned success but null response")
@@ -462,8 +462,8 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _isExecuting.value = true
             try {
-                val result = actionableExecutor.executeActionable(listOf(actionable))
-                val success = result.values.firstOrNull() ?: false
+                val result = actionableExecutor.executeActionables(listOf(actionable))
+                val success = result.values.firstOrNull()?.success ?: false
                 
                 // Update execution results
                 _executionResults.value = mapOf(actionable.id to success)
@@ -485,12 +485,10 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _isExecuting.value = true
             try {
-                val results = actionableExecutor.executeActionable(actionables)
+                val results = actionableExecutor.executeActionables(actionables)
                 
-                // Convert to ID-based map
-                val idResults = results.entries.associate { (actionable, success) ->
-                    actionable.id to success
-                }
+                // Convert to ID-based map with success boolean value
+                val idResults = results.mapValues { (_, result) -> result.success }
                 
                 // Update execution results
                 _executionResults.value = idResults

@@ -1,43 +1,43 @@
 package com.hackathon.powergaurd.actionable
 
 import com.hackathon.powergaurd.data.model.Actionable
+import com.hackathon.powergaurd.actionable.model.ActionableResult
 
 /**
- * Interface for handling different types of actionables received from the backend or user requests.
- * 
- * The ActionableHandler is part of a strategy pattern implementation that allows PowerGuard
- * to perform various optimization actions in a consistent manner. Each concrete handler 
- * implements this interface to provide specialized behavior for a specific actionable type.
- * 
- * Handlers are registered with the ActionableExecutor, which routes actionable requests
- * to the appropriate handler based on the actionable's type.
- * 
- * Each handler should:
- * 1. Provide a unique actionable type identifier
- * 2. Implement error handling and fallback mechanisms
- * 3. Follow a consistent logging pattern
- * 4. Use ActionableUtils for common operations
+ * Interface for all actionable handlers that implement specific optimization strategies.
+ * Each handler is responsible for executing a specific type of actionable.
  */
 interface ActionableHandler {
-
-    /** 
-     * The unique type identifier for actionables this handler can process.
-     * This must match one of the constants defined in ActionableTypes.
+    /**
+     * The type of actionable this handler supports.
+     * Should match one of the constants in [ActionableTypes].
      */
     val actionableType: String
 
     /**
-     * Processes and executes the actionable.
+     * Executes the specified actionable.
      *
-     * This method should:
-     * - Validate the incoming actionable
-     * - Apply the necessary system changes
-     * - Handle errors gracefully
-     * - Provide appropriate fallback mechanisms
-     * - Log the operation result
-     *
-     * @param actionable The actionable to process
-     * @return true if the actionable was successfully executed, false otherwise
+     * @param actionable The actionable to execute
+     * @return An [ActionableResult] indicating success or failure and any additional information
      */
-    suspend fun handleActionable(actionable: Actionable): Boolean
+    suspend fun execute(actionable: Actionable): ActionableResult
+
+    /**
+     * Reverts the effect of a previously executed actionable.
+     * Not all actionables support reversal.
+     *
+     * @param actionable The actionable to revert
+     * @return An [ActionableResult] indicating success or failure of the revert operation
+     */
+    suspend fun revert(actionable: Actionable): ActionableResult
+
+    /**
+     * Checks if this handler can execute the specified actionable.
+     * Handlers should verify permissions and device compatibility.
+     *
+     * @param actionable The actionable to check
+     * @return true if this handler can execute the actionable, false otherwise
+     */
+    fun canHandle(actionable: Actionable): Boolean =
+        actionable.type == actionableType
 }

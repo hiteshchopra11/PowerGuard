@@ -2,7 +2,6 @@ package com.powergaurd.llm
 
 import android.content.Context
 import android.os.BatteryManager
-import androidx.test.core.app.ApplicationProvider
 import com.google.ai.client.generativeai.GenerativeModel
 import io.mockk.coEvery
 import io.mockk.every
@@ -56,7 +55,7 @@ class GemmaInferenceSDKTest {
         // Set up mock behavior
         coEvery { mockModelManager.initialize() } returns Unit
         coEvery { mockModelManager.getModel() } returns mockk<GenerativeModel>()
-        coEvery { mockInferenceEngine.generateText(any(), any(), any()) } returns "Test response"
+        coEvery { mockInferenceEngine.generateText(any(), any()) } returns "Test response"
         
         // Set up battery level mock
         val batteryManager = mockk<BatteryManager>()
@@ -76,7 +75,7 @@ class GemmaInferenceSDKTest {
     fun `generateResponse returns text when initialized`() = runTest {
         // Setup
         coEvery { mockModelManager.initialize() } returns Unit
-        coEvery { mockInferenceEngine.generateText(any(), any(), any()) } returns "Test response"
+        coEvery { mockInferenceEngine.generateText(any(), any()) } returns "Test response"
         
         // Initialize SDK
         sdk.initialize()
@@ -90,7 +89,7 @@ class GemmaInferenceSDKTest {
     fun `generateJsonResponse parses response to JSON`() = runTest {
         // Setup
         coEvery { mockModelManager.initialize() } returns Unit
-        coEvery { mockInferenceEngine.generateText(any(), any(), any()) } returns """{"key":"value"}"""
+        coEvery { mockInferenceEngine.generateText(any(), any()) } returns """{"key":"value"}"""
         coEvery { mockResponseParser.parseJsonResponse(any()) } returns JSONObject("""{"key":"value"}""")
         
         // Initialize SDK
@@ -111,7 +110,7 @@ class GemmaInferenceSDKTest {
         )
         
         coEvery { mockModelManager.initialize() } returns Unit
-        coEvery { mockInferenceEngine.generateText(any(), any(), any()) } returns """{"result":"success"}"""
+        coEvery { mockInferenceEngine.generateText(any(), any()) } returns """{"result":"success"}"""
         coEvery { mockResponseParser.parseJsonResponse(any()) } returns JSONObject("""{"result":"success"}""")
         
         // Initialize SDK
@@ -134,7 +133,7 @@ class GemmaInferenceSDKTest {
         sdk.shutdown()
         
         // Test that generateResponse after shutdown returns null
-        coEvery { mockInferenceEngine.generateText(any(), any(), any()) } returns null
+        coEvery { mockInferenceEngine.generateText(any(), any()) } returns null
         
         val response = sdk.generateResponse("Test prompt")
         assertNull("Response after shutdown should be null", response)

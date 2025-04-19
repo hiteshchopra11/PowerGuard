@@ -64,7 +64,7 @@ object GemmaModule {
             modelName = modelName,
             apiKey = apiKey, 
             enableLogging = true,
-            maxTokens = 64,  // Further reduced from 128 to 64 to prevent MAX_TOKENS errors
+            maxTokens = 50000,  // Further reduced from 128 to 64 to prevent MAX_TOKENS errors
             temperature = 0.1f,  // Keep low temperature for deterministic responses
             topK = 20,  // Reduced from 40 to 20 for more focused token selection
             topP = 0.7f,  // Reduced from 0.8 to 0.7 for more predictable responses

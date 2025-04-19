@@ -3,9 +3,7 @@ package com.powergaurd.llm
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.os.Build
 import android.util.Log
-import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.GenerationConfig
 import com.google.ai.client.generativeai.type.content
 import kotlinx.coroutines.Dispatchers
@@ -25,22 +23,15 @@ class InferenceEngine(
 ) {
     private val tag = "GemmaSDK_InferenceEngine"
     
-    private suspend fun checkNetworkConnectivity(): Boolean {
+    private fun checkNetworkConnectivity(): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val network = connectivityManager.activeNetwork
-            val capabilities = connectivityManager.getNetworkCapabilities(network)
-            return capabilities != null && 
-                   (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || 
-                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
-                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))
-        } else {
-            @Suppress("DEPRECATION")
-            val networkInfo = connectivityManager.activeNetworkInfo
-            @Suppress("DEPRECATION")
-            return networkInfo != null && networkInfo.isConnected
-        }
+
+        val network = connectivityManager.activeNetwork
+        val capabilities = connectivityManager.getNetworkCapabilities(network)
+        return capabilities != null &&
+               (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))
     }
 
     /**
@@ -53,7 +44,6 @@ class InferenceEngine(
      */
     suspend fun generateText(
         prompt: String,
-        maxTokens: Int = config.maxTokens,
         temperature: Float = config.temperature
     ): String? {
         if (!isOnlineMode()) {
@@ -70,14 +60,14 @@ class InferenceEngine(
         }
 
         return withContext(Dispatchers.Default) {
-            logDebug("Generating text for prompt: ${prompt.take(50)}...")
+            logDebug("Generating text for prompt: ${prompt}")
             
             try {
                 // Use timeout to prevent long-running inference
                 withTimeoutOrNull(config.timeoutMs) {
                     // Create a generation config
                     val generationConfig = GenerationConfig.builder().apply {
-                        maxOutputTokens = maxTokens
+                        maxOutputTokens = 20000
                         this.temperature = temperature
                         topK = config.topK
                         topP = config.topP
@@ -119,7 +109,6 @@ class InferenceEngine(
     suspend fun generateTextEfficient(prompt: String): String? {
         return generateText(
             prompt = prompt,
-            maxTokens = config.maxTokens / 2,
             temperature = 0.1f
         )
     }

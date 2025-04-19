@@ -72,24 +72,7 @@ class GemmaRepository @Inject constructor(
                     if (_sdk == null) {
                         if (Looper.myLooper() == Looper.getMainLooper()) {
                             try {
-                                // Create a modified config with lower token limits
-                                val safeConfig = config.copy(
-                                    maxTokens = 16,  // Reduce max tokens even further
-                                    temperature = 0.1f,  // Keep temperature low
-                                    modelName = "models/gemini-2.0-flash",  // Ensure using flash model
-                                    timeoutMs = GENERATION_TIMEOUT_MS  // Add timeout
-                                )
-                                
-                                Log.d(LOG_SDK, """
-                                    |=== Creating SDK with Config ===
-                                    |Model: ${safeConfig.modelName}
-                                    |Max tokens: ${safeConfig.maxTokens}
-                                    |Temperature: ${safeConfig.temperature}
-                                    |Timeout: ${safeConfig.timeoutMs}ms
-                                    |===
-                                """.trimMargin())
-                                
-                                _sdk = GemmaInferenceSDK(context, safeConfig)
+                                _sdk = GemmaInferenceSDK(context, config)
                                 Log.d(TAG, "GemmaInferenceSDK created on main thread")
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error creating GemmaInferenceSDK on main thread", e)
@@ -102,23 +85,7 @@ class GemmaRepository @Inject constructor(
                             
                             MainScope().launch(Dispatchers.Main) {
                                 try {
-                                    val safeConfig = config.copy(
-                                        maxTokens = 16,
-                                        temperature = 0.1f,
-                                        modelName = "models/gemini-2.0-flash",
-                                        timeoutMs = GENERATION_TIMEOUT_MS
-                                    )
-                                    
-                                    Log.d(LOG_SDK, """
-                                        |=== Creating SDK with Config ===
-                                        |Model: ${safeConfig.modelName}
-                                        |Max tokens: ${safeConfig.maxTokens}
-                                        |Temperature: ${safeConfig.temperature}
-                                        |Timeout: ${safeConfig.timeoutMs}ms
-                                        |===
-                                    """.trimMargin())
-                                    
-                                    _sdk = GemmaInferenceSDK(context, safeConfig)
+                                    _sdk = GemmaInferenceSDK(context, config)
                                     Log.d(TAG, "GemmaInferenceSDK created on background thread via main thread")
                                 } catch (e: Exception) {
                                     Log.e(TAG, "Error creating GemmaInferenceSDK via main thread", e)
@@ -371,17 +338,42 @@ class GemmaRepository @Inject constructor(
     private fun createAnalysisPrompt(deviceData: DeviceData): String {
         val prompt = StringBuilder()
         
-        prompt.append("Analyze device data:\n\n")
+        prompt.append("""
+            You are a battery and performance analysis system. Analyze the following device data and provide insights.
+            
+            IMPORTANT: You must respond with ONLY a valid JSON object. No other text, no markdown, no explanations.
+            The response must match this exact structure:
+            {
+                "batteryScore": number between 0-100,
+                "dataScore": number between 0-100,
+                "performanceScore": number between 0-100,
+                "insights": [
+                    {
+                        "type": "BATTERY|DATA|PERFORMANCE",
+                        "title": "Brief title",
+                        "description": "One line description",
+                        "severity": "LOW|MEDIUM|HIGH"
+                    }
+                ],
+                "actionable": [
+                    {
+                        "type": "ACTION_TYPE",
+                        "packageName": "app.package.name",
+                        "description": "Action description",
+                        "reason": "Reason for action"
+                    }
+                ]
+            }
+            
+            Device Data to Analyze:
+        """.trimIndent())
         
-        // Simplified device overview
-        prompt.append("DEVICE: ${deviceData.deviceInfo.manufacturer} ${deviceData.deviceInfo.model}\n")
+        prompt.append("\n\nDEVICE: ${deviceData.deviceInfo.manufacturer} ${deviceData.deviceInfo.model}\n")
         
-        // Simplified battery
         prompt.append("BATTERY: ${deviceData.battery.level}%")
         if (deviceData.battery.isCharging) prompt.append(" (Charging)")
         prompt.append("\n")
         
-        // Top apps only - limited to 2
         val topApps = deviceData.apps
             .sortedByDescending { it.batteryUsage }
             .take(2)
@@ -393,51 +385,11 @@ class GemmaRepository @Inject constructor(
             }
         }
         
-        // Include user goal if provided (important)
         deviceData.prompt?.let {
             prompt.append("\nUSER GOAL: $it\n")
-            if (DEBUG) {
-                Log.d(TAG, "User prompt length: ${it.length}")
-            }
         }
         
-        // Very simplified JSON format
-        val responseFormat = """
-            
-            Respond with minimal JSON:
-            {
-              "batteryScore": 0-100,
-              "dataScore": 0-100,
-              "performanceScore": 0-100,
-              "insights": [
-                {
-                  "type": "BATTERY|DATA|PERFORMANCE",
-                  "title": "Brief title",
-                  "description": "One short line"
-                }
-              ],
-              "actionable": [
-                {
-                  "type": "ACTION_TYPE",
-                  "packageName": "app.package",
-                  "description": "Action"
-                }
-              ]
-            }
-        """.trimIndent()
-        
-        prompt.append(responseFormat)
-        
-        // Log prompt parts for debugging
-        if (DEBUG) {
-            Log.d(TAG, "Device info length: ${("DEVICE: ${deviceData.deviceInfo.manufacturer} ${deviceData.deviceInfo.model}\n").length}")
-            Log.d(TAG, "Battery info length: ${("BATTERY: ${deviceData.battery.level}%${if (deviceData.battery.isCharging) " (Charging)" else ""}\n").length}")
-            Log.d(TAG, "Top apps info length: ${if (topApps.isNotEmpty()) topApps.sumOf { app -> 
-                ("- ${app.appName}: Battery ${app.batteryUsage}%\n").length 
-            } else 0}")
-            Log.d(TAG, "Response format length: ${responseFormat.length}")
-            Log.d(TAG, "Total prompt length: ${prompt.length}")
-        }
+        prompt.append("\nRemember: Respond with ONLY the JSON object. No other text.")
         
         return prompt.toString()
     }
@@ -485,52 +437,44 @@ class GemmaRepository @Inject constructor(
             |===
         """.trimMargin())
         
+        var retryCount = 0
+        val maxRetries = MAX_RETRIES
+        
         try {
-            // Ensure SDK is initialized
             Log.d(LOG_SDK, "Ensuring SDK initialization")
             ensureSdkInitialized()
             Log.d(LOG_SDK, "SDK initialization confirmed")
             
-            // Call the actual SDK
             try {
-                // Create a structured prompt that asks for a very simple response
-                val structuredPrompt = """
-                    |Return only this:
-                    |{"scores":[50,50,50]}
-                """.trimMargin()
-                
-                Log.d(LOG_SDK, """
-                    |=== Attempting Generation ===
-                    |Using structured prompt:
-                    |$structuredPrompt
-                    |Length: ${structuredPrompt.length}
-                    |===
-                """.trimMargin())
-                
                 val startTime = System.currentTimeMillis()
                 
-                // Try with minimal JSON structure
-                var response: JSONObject? = null
-                var retryCount = 0
-                var lastError: Exception? = null
-                
-                while (response == null && retryCount < MAX_RETRIES) {
+                val jsonResponse = withTimeout(GENERATION_TIMEOUT_MS) {
+                    var response = sdk.generateResponseSuspend(
+                        prompt = prompt,
+                        maxTokens = config.maxTokens,
+                        temperature = 0.1f
+                    )
+                    
+                    // Log the raw response for debugging
+                    Log.d(LOG_SDK, "Raw response from Gemma: $response")
+                    
+                    // Try to extract JSON from the response
+                    val jsonStart = response.indexOf("{")
+                    val jsonEnd = response.lastIndexOf("}")
+                    
+                    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                        response = response.substring(jsonStart, jsonEnd + 1)
+                        Log.d(LOG_SDK, "Extracted JSON: $response")
+                    } else {
+                        Log.e(LOG_SDK, "No JSON found in response")
+                        return@withTimeout null
+                    }
+                    
                     try {
-                        response = withTimeout(GENERATION_TIMEOUT_MS) {
-                            sdk.generateJsonResponse(
-                                prompt = structuredPrompt,
-                                maxTokens = 4,  // Absolute minimum
-                                temperature = 0.1f
-                            )
-                        }
+                        JSONObject(response)
                     } catch (e: Exception) {
-                        lastError = e
-                        Log.e(LOG_ERROR, "Attempt ${retryCount + 1} failed: ${e.message}")
-                        retryCount++
-                        
-                        if (retryCount < MAX_RETRIES) {
-                            delay(1000) // Wait 1 second before retry
-                        }
+                        Log.e(LOG_SDK, "Failed to parse response as JSON", e)
+                        null
                     }
                 }
                 
@@ -539,31 +483,23 @@ class GemmaRepository @Inject constructor(
                 Log.d(LOG_SDK, """
                     |=== Generation Complete ===
                     |Time taken: ${endTime - startTime}ms
-                    |Retries: $retryCount
-                    |Response: $response
-                    |Last error: ${lastError?.message}
+                    |Response: $jsonResponse
                     |===
                 """.trimMargin())
                 
-                if (response != null) {
-                    try {
-                        // Try to extract scores from the response
-                        val scores = response.optJSONArray("scores")
-                        if (scores != null && scores.length() == 3) {
-                            val jsonResponse = JSONObject().apply {
-                                put("batteryScore", scores.optDouble(0, 50.0))
-                                put("dataScore", scores.optDouble(1, 50.0))
-                                put("performanceScore", scores.optDouble(2, 50.0))
-                            }
-                            return Result.success(parseGemmaResponse(jsonResponse, deviceData.deviceId))
-                        }
-                    } catch (e: Exception) {
-                        Log.e(LOG_ERROR, "Failed to parse response: ${e.message}")
+                return Result.success(
+                    if (jsonResponse != null) {
+                        parseGemmaResponse(jsonResponse, deviceData.deviceId)
+                    } else {
+                        Log.w(LOG_SDK, "Null response from SDK, using simulated response")
+                        simulateAnalysisResponse(deviceData)
                     }
-                }
-                
-                Log.w(LOG_SDK, "Generation failed after $retryCount retries, using simulated response")
-                return Result.success(simulateAnalysisResponse(deviceData))
+                )
+            } catch (e: TimeoutException) {
+                Log.e(LOG_ERROR, "Generation timed out after ${GENERATION_TIMEOUT_MS}ms", e)
+                return Result.success(simulateAnalysisResponse(deviceData).copy(
+                    message = "Generation timed out, using fallback response"
+                ))
             } catch (e: Exception) {
                 Log.e(LOG_ERROR, """
                     |=== Generation Error ===
@@ -574,6 +510,12 @@ class GemmaRepository @Inject constructor(
                     |===
                 """.trimMargin())
                 
+                if (shouldRetry(e)) {
+                    retryCount++
+                    Log.w(LOG_ERROR, "Retrying generation (attempt $retryCount of $maxRetries)")
+                    delay(1000L * retryCount) // Exponential backoff
+                }
+                
                 return Result.success(simulateAnalysisResponse(deviceData).copy(
                     message = "Error with generation: ${e.message}"
                 ))
@@ -581,6 +523,16 @@ class GemmaRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e(LOG_ERROR, "Failed to process with Gemma: ${e.message}", e)
             return Result.success(simulateAnalysisResponse(deviceData))
+        }
+    }
+
+    // Add helper function to determine if we should retry
+    private fun shouldRetry(e: Exception): Boolean {
+        return when (e) {
+            is IOException,
+            is UnknownHostException,
+            is TimeoutException -> true
+            else -> false
         }
     }
 

@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -28,7 +29,6 @@ import java.util.concurrent.TimeoutException
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withTimeout
 
 /**
  * Repository for handling on-device AI inference using GemmaInferenceSDK.
@@ -42,15 +42,23 @@ class GemmaRepository @Inject constructor(
     companion object {
         private const val TAG = "GemmaRepository"
         private const val DEBUG = true // Use this instead of BuildConfig.DEBUG
-        
+
         // Add log tags for better filtering
         private const val LOG_SDK = "GemmaSDK_Debug"
         private const val LOG_PROMPT = "GemmaPrompt_Debug"
+        private const val LOG_QUERY = "GemmaQuery_Debug"
         private const val LOG_ERROR = "GemmaError_Debug"
-        
+
         // Constants for timeouts and retries
         private const val GENERATION_TIMEOUT_MS = 10000L // 10 seconds
         private const val MAX_RETRIES = 2
+
+        // Query categories
+        private const val CATEGORY_INFORMATION = 1  // Information queries
+        private const val CATEGORY_PREDICTIVE = 2   // Predictive queries
+        private const val CATEGORY_OPTIMIZATION = 3 // Optimization requests
+        private const val CATEGORY_MONITORING = 4   // Monitoring triggers
+        private const val CATEGORY_INVALID = 0      // Invalid or uncategorizable query
     }
 
     /**
@@ -63,7 +71,7 @@ class GemmaRepository @Inject constructor(
      * This property is open for testing purposes.
      */
     private var _sdk: GemmaInferenceSDK? = null
-    
+
     open val sdk: GemmaInferenceSDK
         get() {
             if (_sdk == null) {
@@ -82,7 +90,7 @@ class GemmaRepository @Inject constructor(
                             // Post to main thread and wait for completion
                             val latch = CountDownLatch(1)
                             var error: Exception? = null
-                            
+
                             MainScope().launch(Dispatchers.Main) {
                                 try {
                                     _sdk = GemmaInferenceSDK(context, config)
@@ -94,7 +102,7 @@ class GemmaRepository @Inject constructor(
                                     latch.countDown()
                                 }
                             }
-                            
+
                             try {
                                 // Wait with timeout to prevent potential deadlocks
                                 val success = latch.await(5, TimeUnit.SECONDS)
@@ -148,9 +156,9 @@ class GemmaRepository @Inject constructor(
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val networkCapabilities = connectivityManager.activeNetwork ?: return false
         val actNw = connectivityManager.getNetworkCapabilities(networkCapabilities) ?: return false
-        
+
         return actNw.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-               actNw.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                actNw.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
     /**
@@ -165,10 +173,27 @@ class GemmaRepository @Inject constructor(
             // Log SDK state
             Log.d(LOG_SDK, "Starting analyzeDeviceData")
             Log.d(LOG_SDK, "SDK instance: ${_sdk != null}")
-            
+
+            // Check if there's a user query to categorize
+            val userQuery = deviceData.prompt
+            var queryCategory = CATEGORY_INVALID
+            var dataToProcess = deviceData
+
+            if (!userQuery.isNullOrBlank()) {
+                // Categorize the query using LLM
+                queryCategory = categorizeQuery(userQuery)
+                Log.d(LOG_QUERY, "User query: $userQuery")
+                Log.d(LOG_QUERY, "Categorized as: $queryCategory")
+
+                // Create a device data copy with the categorized query information
+                dataToProcess = deviceData.copy(
+                    prompt = "QUERY_CATEGORY:$queryCategory - $userQuery"
+                )
+            }
+
             // Create the prompt for debugging purpose
-            val prompt = createAnalysisPrompt(deviceData)
-            
+            val prompt = createAnalysisPrompt(dataToProcess)
+
             // Log detailed prompt information
             Log.d(LOG_PROMPT, """
                 |=== Prompt Details ===
@@ -176,17 +201,18 @@ class GemmaRepository @Inject constructor(
                 |Approx tokens: ${prompt.length / 4}
                 |Contains user goal: ${deviceData.prompt != null}
                 |User goal length: ${deviceData.prompt?.length ?: 0}
+                |Query category: $queryCategory
                 |===
                 |Full Prompt:
                 |$prompt
                 |===
             """.trimMargin())
-            
+
             // Check prompt length and potentially use simplified version if too long
             val approxTokenCount = prompt.length / 4
             if (approxTokenCount > 500) {
                 Log.w(LOG_PROMPT, "Prompt appears too long (approx tokens: $approxTokenCount). Using simplified version.")
-                val simplifiedPrompt = createSimplifiedPrompt(deviceData)
+                val simplifiedPrompt = createSimplifiedPrompt(dataToProcess)
                 val simplifiedTokenCount = simplifiedPrompt.length / 4
                 Log.d(LOG_PROMPT, """
                     |=== Simplified Prompt Details ===
@@ -200,109 +226,23 @@ class GemmaRepository @Inject constructor(
                     |$simplifiedPrompt
                     |===
                 """.trimMargin())
-                
+
                 if (simplifiedTokenCount < approxTokenCount * 0.7) {
                     Log.d(LOG_PROMPT, "Using simplified prompt instead")
-                    return@withContext processPromptWithGemma(simplifiedPrompt, deviceData)
+                    return@withContext processPromptWithGemma(simplifiedPrompt, dataToProcess)
                 }
             }
-            
-            // Create debug JSON representation of device data
-            val debugJson = JSONObject().apply {
-                put("deviceInfo", JSONObject().apply {
-                    put("manufacturer", deviceData.deviceInfo.manufacturer)
-                    put("model", deviceData.deviceInfo.model)
-                    put("osVersion", deviceData.deviceInfo.osVersion)
-                })
-                put("battery", JSONObject().apply {
-                    put("level", deviceData.battery.level)
-                    put("isCharging", deviceData.battery.isCharging)
-                    put("temperature", deviceData.battery.temperature)
-                })
-                put("memory", JSONObject().apply {
-                    put("availableRam", deviceData.memory.availableRam)
-                    put("totalRam", deviceData.memory.totalRam)
-                    put("lowMemory", deviceData.memory.lowMemory)
-                })
-                put("apps", JSONArray().apply {
-                    deviceData.apps.forEach { app ->
-                        put(JSONObject().apply {
-                            put("appName", app.appName)
-                            put("packageName", app.packageName)
-                            put("batteryUsage", app.batteryUsage)
-                            put("foregroundTime", app.foregroundTime)
-                            put("backgroundTime", app.backgroundTime)
-                            
-                            // Add new metrics - data usage
-                            put("dataUsage", JSONObject().apply {
-                                put("foreground", app.dataUsage.foreground)
-                                put("background", app.dataUsage.background)
-                                put("rxBytes", app.dataUsage.rxBytes)
-                                put("txBytes", app.dataUsage.txBytes)
-                            })
-                            
-                            // Add alarm wakeups and priority changes
-                            put("alarmWakeups", app.alarmWakeups)
-                        })
-                    }
-                })
-                deviceData.prompt?.let { put("userPrompt", it) }
-            }
-            
-            // Log the device data as JSON
-            Log.d("SendPromptDebug", "Raw device data JSON:\n${debugJson.toString(2)}")
-            
-            // Create and log an example expected response
-            val exampleResponseJson = JSONObject().apply {
-                put("success", true)
-                put("batteryScore", 85)
-                put("dataScore", 90)
-                put("performanceScore", 75)
-                put("insights", JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("type", "BATTERY")
-                        put("title", "Example Battery Insight")
-                        put("description", "This is an example of what a battery insight would look like")
-                        put("severity", "MEDIUM")
-                    })
-                    put(JSONObject().apply {
-                        put("type", "DATA")
-                        put("title", "Example Data Insight")
-                        put("description", "This is an example of what a data insight would look like")
-                        put("severity", "LOW")
-                    })
-                })
-                put("actionable", JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("id", UUID.randomUUID().toString())
-                        put("type", "RESTRICT_DATA")
-                        put("packageName", "com.example.app")
-                        put("description", "Example action description")
-                        put("reason", "Example reason for the action")
-                        put("estimatedBatterySavings", 10.5)
-                        put("estimatedDataSavings", 25.0)
-                        put("severity", 3)
-                    })
-                })
-                put("estimatedSavings", JSONObject().apply {
-                    put("batteryMinutes", 45)
-                    put("dataMB", 250)
-                })
-            }
-            
-            // Log the example expected response format
-            Log.d("SendPromptDebug", "Example expected response format:\n${exampleResponseJson.toString(2)}")
-            
+
             // Check if network is available before using the SDK
             if (!isNetworkAvailable()) {
                 Log.w(LOG_SDK, "Network not available, using simulated response")
-                return@withContext Result.success(simulateAnalysisResponse(deviceData))
+                return@withContext Result.success(simulateAnalysisResponse(dataToProcess))
             }
-            
+
             // Enable real LLM inference
             try {
                 Log.d(LOG_SDK, "Starting Gemma processing")
-                val result = processPromptWithGemma(prompt, deviceData)
+                val result = processPromptWithGemma(prompt, dataToProcess)
                 Log.d(LOG_SDK, "Gemma processing completed successfully")
                 return@withContext result
             } catch (e: Exception) {
@@ -314,11 +254,11 @@ class GemmaRepository @Inject constructor(
                     |${e.stackTrace.joinToString("\n")}
                     |===
                 """.trimMargin())
-                return@withContext Result.success(simulateAnalysisResponse(deviceData).copy(
+                return@withContext Result.success(simulateAnalysisResponse(dataToProcess).copy(
                     message = "Error with prompt processing: ${e.message}"
                 ))
             }
-            
+
         } catch (e: Exception) {
             Log.e(LOG_ERROR, """
                 |=== Fatal Error ===
@@ -333,11 +273,115 @@ class GemmaRepository @Inject constructor(
     }
 
     /**
+     * Categorizes a user query using LLM into one of four categories:
+     * 1. Information Queries
+     * 2. Predictive Queries
+     * 3. Optimization Requests
+     * 4. Monitoring Triggers
+     * 0. Invalid Query (if it doesn't fit into any category)
+     *
+     * @param query The user query to categorize
+     * @return The category number (1-4, or 0 for invalid)
+     */
+    private suspend fun categorizeQuery(query: String): Int {
+        try {
+            Log.d(LOG_QUERY, "Categorizing query: $query")
+
+            val categorizePrompt = """
+                You are a query categorization system that helps users identify the type of battery and data usage queries.
+                I'll give you a user query, and you need to categorize it into one of these categories:
+                
+                1. Information Queries
+                   - Direct questions about usage statistics
+                   - Format: "Show me [metric] for [optional: time period]"
+                   - Examples:
+                     - "Which apps are draining my battery the most?"
+                     - "Top 5 data-consuming apps today"
+                     - "What's using my battery in the background?"
+                     - "How much data has YouTube used this week?"
+                
+                2. Predictive Queries
+                   - Estimate resource availability for specific scenarios
+                   - Format: "Can I use [app] for [duration] with current [resource]?"
+                   - Examples:
+                     - "Can I watch Netflix for 3 hours with my current battery?"
+                     - "Will I have enough data to use Maps for my 2-hour commute?"
+                     - "Is my battery sufficient to play Call of Duty for 45 minutes?"
+                     - "Can I stream Spotify for 5 hours without depleting my data plan?"
+                
+                3. Optimization Requests
+                   - Provide actionable recommendations for specific scenarios
+                   - Format: "I want to [activity] for [duration], optimize [resource]"
+                   - Examples:
+                     - "I'm traveling for 6 hours and need Maps and WhatsApp, optimize battery"
+                     - "Need to make my data last for 3 more days while keeping messaging apps working"
+                     - "I want to use Instagram but save battery"
+                     - "Optimize my phone for a 12-hour flight with occasional gaming"
+                
+                4. Monitoring Triggers
+                   - Set conditional alerts based on resource thresholds
+                   - Format: "Notify me when [condition] while [optional: context]"
+                   - Examples:
+                     - "Notify me when battery reaches 20% while using Spotify"
+                     - "Alert me if my data usage exceeds 3GB today"
+                     - "Warn me if any app is using excessive battery in the background"
+                     - "Notify me when TikTok has used more than 500MB of data"
+                
+                0. Invalid Query
+                   - Use this if the query doesn't fit into any of the above categories
+                   - Examples:
+                     - "What's the weather like today?"
+                     - "Tell me a joke"
+                     - Other queries not related to battery/data usage or device optimization
+                
+                VERY IMPORTANT: Your response must be ONLY the category number (0, 1, 2, 3, or 4). No other text or explanation.
+                
+                User query: "$query"
+                Category number (0-4):
+            """.trimIndent()
+
+            // Ensure SDK is initialized
+            ensureSdkInitialized()
+
+            // Generate the response with a short timeout
+            val response = withTimeout(5000) {
+                sdk.generateResponseSuspend(
+                    prompt = categorizePrompt,
+                    maxTokens = 5, // Very short response needed
+                    temperature = 0.1f // Low temperature for consistent results
+                )
+            }
+
+            // Parse the response to extract the category number
+            val categoryNumber = response.trim().toIntOrNull()
+
+            return categoryNumber?.let {
+                if (it in 0..4) {
+                    Log.d(LOG_QUERY, "Successfully categorized query as: $it")
+                    it
+                } else {
+                    // Number outside valid range
+                    Log.w(LOG_QUERY, "Invalid category number from response: '$it', returning INVALID")
+                    CATEGORY_INVALID
+                }
+            } ?: run {
+                // Could not parse a valid number
+                Log.w(LOG_QUERY, "Failed to parse category number from response: '$response', returning INVALID")
+                CATEGORY_INVALID
+            }
+        } catch (e: Exception) {
+            Log.e(LOG_QUERY, "Error categorizing query: ${e.message}", e)
+            // Return invalid category in case of error
+            return CATEGORY_INVALID
+        }
+    }
+
+    /**
      * Creates a prompt for analysis based on device data
      */
     private fun createAnalysisPrompt(deviceData: DeviceData): String {
         val prompt = StringBuilder()
-        
+
         prompt.append("""
             You are a battery and performance analysis system. Analyze the following device data and provide insights.
             
@@ -367,30 +411,30 @@ class GemmaRepository @Inject constructor(
             
             Device Data to Analyze:
         """.trimIndent())
-        
+
         prompt.append("\n\nDEVICE: ${deviceData.deviceInfo.manufacturer} ${deviceData.deviceInfo.model}\n")
-        
+
         prompt.append("BATTERY: ${deviceData.battery.level}%")
         if (deviceData.battery.isCharging) prompt.append(" (Charging)")
         prompt.append("\n")
-        
+
         val topApps = deviceData.apps
             .sortedByDescending { it.batteryUsage }
             .take(2)
-        
+
         if (topApps.isNotEmpty()) {
             prompt.append("TOP APPS:\n")
             topApps.forEach { app ->
                 prompt.append("- ${app.appName}: Battery ${app.batteryUsage}%\n")
             }
         }
-        
+
         deviceData.prompt?.let {
             prompt.append("\nUSER GOAL: $it\n")
         }
-        
+
         prompt.append("\nRemember: Respond with ONLY the JSON object. No other text.")
-        
+
         return prompt.toString()
     }
 
@@ -399,10 +443,10 @@ class GemmaRepository @Inject constructor(
      */
     private fun createSimplifiedPrompt(deviceData: DeviceData): String {
         val prompt = StringBuilder()
-        
+
         // Ultra minimal prompt
         prompt.append("Device: ${deviceData.deviceInfo.model}, Battery: ${deviceData.battery.level}%\n")
-        
+
         // User goal if provided (important) - but truncate aggressively
         deviceData.prompt?.let {
             if (it.length > 50) {
@@ -412,19 +456,19 @@ class GemmaRepository @Inject constructor(
                 prompt.append("Goal: $it\n")
             }
         }
-        
+
         // Use an extremely compact response format
         prompt.append("""
             JSON:{"batteryScore":NUM,"dataScore":NUM,"performanceScore":NUM,"insights":[{"type":"T","title":"T"}]}
         """.trimIndent())
-        
+
         if (DEBUG) {
             Log.d(TAG, "Simplified prompt total length: ${prompt.length}")
         }
-        
+
         return prompt.toString()
     }
-    
+
     /**
      * Processes a prompt with the Gemma model
      */
@@ -436,32 +480,32 @@ class GemmaRepository @Inject constructor(
             |Length: ${prompt.length}
             |===
         """.trimMargin())
-        
+
         var retryCount = 0
         val maxRetries = MAX_RETRIES
-        
+
         try {
             Log.d(LOG_SDK, "Ensuring SDK initialization")
             ensureSdkInitialized()
             Log.d(LOG_SDK, "SDK initialization confirmed")
-            
+
             try {
                 val startTime = System.currentTimeMillis()
-                
+
                 val jsonResponse = withTimeout(GENERATION_TIMEOUT_MS) {
                     var response = sdk.generateResponseSuspend(
                         prompt = prompt,
                         maxTokens = config.maxTokens,
                         temperature = 0.1f
                     )
-                    
+
                     // Log the raw response for debugging
                     Log.d(LOG_SDK, "Raw response from Gemma: $response")
-                    
+
                     // Try to extract JSON from the response
                     val jsonStart = response.indexOf("{")
                     val jsonEnd = response.lastIndexOf("}")
-                    
+
                     if (jsonStart >= 0 && jsonEnd > jsonStart) {
                         response = response.substring(jsonStart, jsonEnd + 1)
                         Log.d(LOG_SDK, "Extracted JSON: $response")
@@ -469,7 +513,7 @@ class GemmaRepository @Inject constructor(
                         Log.e(LOG_SDK, "No JSON found in response")
                         return@withTimeout null
                     }
-                    
+
                     try {
                         JSONObject(response)
                     } catch (e: Exception) {
@@ -477,16 +521,16 @@ class GemmaRepository @Inject constructor(
                         null
                     }
                 }
-                
+
                 val endTime = System.currentTimeMillis()
-                
+
                 Log.d(LOG_SDK, """
                     |=== Generation Complete ===
                     |Time taken: ${endTime - startTime}ms
                     |Response: $jsonResponse
                     |===
                 """.trimMargin())
-                
+
                 return Result.success(
                     if (jsonResponse != null) {
                         parseGemmaResponse(jsonResponse, deviceData.deviceId)
@@ -509,13 +553,13 @@ class GemmaRepository @Inject constructor(
                     |${e.stackTrace.joinToString("\n")}
                     |===
                 """.trimMargin())
-                
+
                 if (shouldRetry(e)) {
                     retryCount++
                     Log.w(LOG_ERROR, "Retrying generation (attempt $retryCount of $maxRetries)")
                     delay(1000L * retryCount) // Exponential backoff
                 }
-                
+
                 return Result.success(simulateAnalysisResponse(deviceData).copy(
                     message = "Error with generation: ${e.message}"
                 ))
@@ -547,7 +591,7 @@ class GemmaRepository @Inject constructor(
             else -> "${bytes / (1024 * 1024 * 1024)} GB"
         }
     }
-    
+
     /**
      * Helper method to format duration in a human-readable way
      */
@@ -569,11 +613,11 @@ class GemmaRepository @Inject constructor(
             val batteryScore = jsonObject.optDouble("batteryScore", 50.0).toFloat()
             val dataScore = jsonObject.optDouble("dataScore", 50.0).toFloat()
             val performanceScore = jsonObject.optDouble("performanceScore", 50.0).toFloat()
-            
+
             // Parse insights
             val insightsArray = jsonObject.optJSONArray("insights") ?: JSONArray()
             val insights = mutableListOf<Insight>()
-            
+
             for (i in 0 until insightsArray.length()) {
                 val insightJson = insightsArray.getJSONObject(i)
                 insights.add(
@@ -581,36 +625,36 @@ class GemmaRepository @Inject constructor(
                         type = insightJson.optString("type", "UNKNOWN"),
                         title = insightJson.optString("title", "Insight"),
                         description = insightJson.optString("description", ""),
-                        severity = "MEDIUM" // Default severity
+                        severity = insightJson.optString("severity", "MEDIUM")
                     )
                 )
             }
-            
+
             // Parse actionables
             val actionablesArray = jsonObject.optJSONArray("actionable") ?: JSONArray()
             val actionables = mutableListOf<Actionable>()
-            
+
             for (i in 0 until actionablesArray.length()) {
                 val actionableJson = actionablesArray.getJSONObject(i)
-                
+
                 actionables.add(
                     Actionable(
-                        id = UUID.randomUUID().toString(), // Generate new ID 
+                        id = UUID.randomUUID().toString(), // Generate new ID
                         type = actionableJson.optString("type", "UNKNOWN"),
                         packageName = actionableJson.optString("packageName", ""),
                         description = actionableJson.optString("description", ""),
-                        reason = "AI recommended", // Default reason
-                        estimatedBatterySavings = 5.0f, // Default value
-                        estimatedDataSavings = 5.0f, // Default value
-                        severity = 3, // Default medium severity
+                        reason = actionableJson.optString("reason", "AI recommended"),
+                        estimatedBatterySavings = actionableJson.optDouble("estimatedBatterySavings", 5.0).toFloat(),
+                        estimatedDataSavings = actionableJson.optDouble("estimatedDataSavings", 5.0).toFloat(),
+                        severity = actionableJson.optInt("severity", 3),
                         parameters = emptyMap(), // No parameters
-                        enabled = true, // Default to enabled
-                        newMode = "restricted", // Default mode
-                        throttleLevel = 2 // Default throttle level
+                        enabled = actionableJson.optBoolean("enabled", true),
+                        newMode = actionableJson.optString("newMode", "restricted"),
+                        throttleLevel = actionableJson.optInt("throttleLevel", 2)
                     )
                 )
             }
-            
+
             return AnalysisResponse(
                 id = deviceId,
                 timestamp = System.currentTimeMillis().toFloat(),
@@ -622,8 +666,8 @@ class GemmaRepository @Inject constructor(
                 dataScore = dataScore,
                 performanceScore = performanceScore,
                 estimatedSavings = AnalysisResponse.EstimatedSavings(
-                    batteryMinutes = 15f,  // Default estimate
-                    dataMB = 100f          // Default estimate
+                    batteryMinutes = jsonObject.optJSONObject("estimatedSavings")?.optInt("batteryMinutes", 15)?.toFloat() ?: 15f,
+                    dataMB = jsonObject.optJSONObject("estimatedSavings")?.optInt("dataMB", 100)?.toFloat() ?: 100f
                 )
             )
         } catch (e: Exception) {
@@ -649,6 +693,15 @@ class GemmaRepository @Inject constructor(
     private fun simulateAnalysisResponse(deviceData: DeviceData): AnalysisResponse {
         val actionable = mutableListOf<Actionable>()
         val insights = mutableListOf<Insight>()
+
+        // Extract query category if available
+        var queryCategory = CATEGORY_INVALID
+        deviceData.prompt?.let { prompt ->
+            if (prompt.startsWith("QUERY_CATEGORY:")) {
+                val categoryStr = prompt.substringAfter("QUERY_CATEGORY:").substringBefore(" ")
+                queryCategory = categoryStr.toIntOrNull() ?: CATEGORY_INVALID
+            }
+        }
 
         // Initialize scores
         var batteryScore = 85
@@ -735,7 +788,7 @@ class GemmaRepository @Inject constructor(
         // Check for low memory
         if (deviceData.memory.availableRam < deviceData.memory.totalRam * 0.2) { // Less than 20% free
             performanceScore -= 15
-            
+
             insights.add(
                 Insight(
                     type = "PERFORMANCE",
@@ -744,7 +797,7 @@ class GemmaRepository @Inject constructor(
                     severity = "HIGH"
                 )
             )
-            
+
             // Find memory-hungry apps
             deviceData.apps
                 .sortedByDescending { it.foregroundTime }
@@ -771,6 +824,16 @@ class GemmaRepository @Inject constructor(
                 }
         }
 
+        // Add response message based on query category if available
+        val categoryMessage = when (queryCategory) {
+            CATEGORY_INFORMATION -> "Information analysis"
+            CATEGORY_PREDICTIVE -> "Predictive analysis"
+            CATEGORY_OPTIMIZATION -> "Optimization recommendations"
+            CATEGORY_MONITORING -> "Monitoring configuration"
+            CATEGORY_INVALID -> "Invalid query format"
+            else -> "Analysis (simulated)"
+        }
+
         return AnalysisResponse(
             id = deviceData.deviceId,
             timestamp = System.currentTimeMillis().toFloat(),
@@ -780,7 +843,7 @@ class GemmaRepository @Inject constructor(
             insights = insights,
             actionable = actionable,
             success = true,
-            message = "Analysis (simulated)",
+            message = categoryMessage,
             estimatedSavings = AnalysisResponse.EstimatedSavings(
                 batteryMinutes = 17f,
                 dataMB = 1200f
@@ -791,19 +854,13 @@ class GemmaRepository @Inject constructor(
     private fun generateRandomId(): String {
         return UUID.randomUUID().toString()
     }
-    
+
     /**
      * Releases resources used by the SDK
      */
     fun shutdown() {
-        sdk.shutdown()
-    }
-
-    private fun requiresNetwork(): Boolean {
-        // TODO: Determine if the SDK requires network access
-        // This may need to be hard-coded based on the SDK documentation
-        // or determined through configuration/experimentation
-        return true // Assume it requires network by default
+        _sdk?.shutdown()
+        _sdk = null
     }
 
     /**
@@ -816,9 +873,9 @@ class GemmaRepository @Inject constructor(
             // The sdk getter will initialize _sdk if it's null
             sdk // This will trigger the getter which initializes _sdk
         }
-        
+
         if (!sdk.initialize()) {
             throw IllegalStateException("Failed to initialize Gemma SDK")
         }
     }
-} 
+}

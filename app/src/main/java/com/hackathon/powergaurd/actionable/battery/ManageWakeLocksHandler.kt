@@ -23,23 +23,22 @@ class ManageWakeLocksHandler @Inject constructor(
     private val context: Context
 ) : ActionableHandler {
 
-    private val TAG = "ManageWakeLocksHandler"
-
     override val actionableType: String = ActionableTypes.MANAGE_WAKE_LOCKS
-
-    // AppOpsManager operation codes
-    private val OP_WAKE_LOCK = 40 // AppOpsManager.OP_WAKE_LOCK
-
-    // String constants for operation names
-    private val OPSTR_WAKE_LOCK = "WAKE_LOCK" // AppOpsManager.OPSTR_WAKE_LOCK
-
-    // AppOpsManager.MODE constants
-    private val MODE_ALLOWED = 0  // AppOpsManager.MODE_ALLOWED
-    private val MODE_IGNORED = 1  // AppOpsManager.MODE_IGNORED
 
     // Cache AppOpsManager instance
     private val appOpsManager: AppOpsManager by lazy {
         context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+    }
+
+    companion object {
+        private const val TAG = "ManageWakeLocksHandler"
+
+        // AppOpsManager operation codes
+        private const val OP_WAKE_LOCK = 40 // AppOpsManager.OP_WAKE_LOCK
+
+        // AppOpsManager.MODE constants
+        private const val MODE_ALLOWED = 0  // AppOpsManager.MODE_ALLOWED
+        private const val MODE_IGNORED = 1  // AppOpsManager.MODE_IGNORED
     }
 
     override suspend fun execute(actionable: Actionable): ActionableResult {
@@ -72,7 +71,7 @@ class ManageWakeLocksHandler @Inject constructor(
             }
 
             // Check the current mode
-            val currentMode = getWakeLockMode(uid)
+            val currentMode = getWakeLockMode(uid, packageName)
             val newMode = if (actionable.enabled == false) MODE_ALLOWED else MODE_IGNORED
 
             // Set the new mode
@@ -133,20 +132,54 @@ class ManageWakeLocksHandler @Inject constructor(
      * Gets the current wake lock mode for a UID.
      *
      * @param uid The UID to check
+     * @param packageName The package name (needed for some API levels)
      * @return The current mode (MODE_ALLOWED or MODE_IGNORED)
      */
-    private fun getWakeLockMode(uid: Int): Int {
+    private fun getWakeLockMode(uid: Int, packageName: String): Int {
         return try {
-            ActionableUtils.callMethodSafely<Int>(
-                appOpsManager,
-                "unsafeCheckOpNoThrow",
-                arrayOf(String::class.java, Int::class.java, String::class.java),
-                OPSTR_WAKE_LOCK,
-                uid,
-                null
-            ) ?: MODE_ALLOWED
+            // Try with numeric code first - we know this works from logs
+            try {
+                val result = ActionableUtils.callMethodSafely<Int>(
+                    appOpsManager,
+                    "checkOpNoThrow",
+                    arrayOf(Int::class.java, Int::class.java, String::class.java),
+                    OP_WAKE_LOCK,
+                    uid,
+                    packageName
+                )
+
+                if (result != null) {
+                    Log.d(TAG, "Got wake lock mode using int op code")
+                    return result
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "checkOpNoThrow with int op failed: ${e.message}")
+            }
+
+            // Try the noteOp method as fallback
+            try {
+                val method = appOpsManager.javaClass.getDeclaredMethod(
+                    "noteOp",
+                    Int::class.java,
+                    Int::class.java,
+                    String::class.java
+                )
+                method.isAccessible = true
+                val result = method.invoke(appOpsManager, OP_WAKE_LOCK, uid, packageName)
+
+                if (result is Int) {
+                    Log.d(TAG, "Got wake lock mode using noteOp through reflection")
+                    return result
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "noteOp failed: ${e.message}")
+            }
+
+            Log.d(TAG, "All wake lock mode check methods failed, defaulting to MODE_ALLOWED")
+            MODE_ALLOWED
+
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to get wake lock mode for UID $uid", e)
+            Log.e(TAG, "Failed to get wake lock mode for UID $uid: ${e.message}", e)
             MODE_ALLOWED
         }
     }
@@ -159,20 +192,71 @@ class ManageWakeLocksHandler @Inject constructor(
      * @return true if the operation was successful, false otherwise
      */
     private fun setWakeLockMode(uid: Int, mode: Int): Boolean {
-        return try {
-            ActionableUtils.callMethodSafely<Void>(
-                appOpsManager,
-                "setUidMode",
-                arrayOf(String::class.java, Int::class.java, Int::class.java),
-                OPSTR_WAKE_LOCK,
-                uid,
-                mode
-            )
-
-            Log.d(TAG, "Set wake lock mode for UID $uid to $mode")
-            true
+        // Get the package name from the UID for logging
+        val packageName = try {
+            context.packageManager.getNameForUid(uid) ?: "Unknown"
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to set wake lock mode for UID $uid", e)
+            "Unknown"
+        }
+
+        return try {
+            // First, check if we have root access
+            val hasRoot = checkRootAccess()
+
+            if (hasRoot) {
+                // Use shell command to set the app ops mode
+                val modeStr = if (mode == MODE_ALLOWED) "allow" else "ignore"
+                val command = "appops set --uid $uid WAKE_LOCK $modeStr"
+
+                Log.d(TAG, "Executing root command: $command")
+                val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
+                val exitCode = process.waitFor()
+
+                if (exitCode == 0) {
+                    Log.d(TAG, "Successfully set wake lock mode for $packageName (UID: $uid) to $mode using root")
+                    return true
+                } else {
+                    Log.e(TAG, "Root command failed with exit code $exitCode")
+                }
+            } else {
+                Log.d(TAG, "No root access available, trying alternative approaches")
+
+                // Try using adb shell command if available
+                try {
+                    val command = "appops set --uid $uid WAKE_LOCK ${if (mode == MODE_ALLOWED) "allow" else "ignore"}"
+                    val process = Runtime.getRuntime().exec(command)
+                    val exitCode = process.waitFor()
+
+                    if (exitCode == 0) {
+                        Log.d(TAG, "Successfully set wake lock mode for $packageName to $mode using adb shell")
+                        return true
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Shell command failed: ${e.message}")
+                }
+
+                // If we reached here, neither root nor adb worked
+                Log.e(TAG, "Failed to set wake lock mode for $packageName: No permission")
+                return false
+            }
+
+            false
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting wake lock mode for $packageName: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * Checks if the application has root access.
+     */
+    private fun checkRootAccess(): Boolean {
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
+            val exitValue = process.waitFor()
+            exitValue == 0
+        } catch (e: Exception) {
+            Log.d(TAG, "Root check failed: ${e.message}")
             false
         }
     }

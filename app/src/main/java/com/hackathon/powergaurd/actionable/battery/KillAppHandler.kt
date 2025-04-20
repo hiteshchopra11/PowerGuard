@@ -101,7 +101,7 @@ class KillAppHandler @Inject constructor(
     private fun forceStopPackage(packageName: String): Boolean {
         return try {
             // Try using reflection to call the hidden forceStopPackage method
-            val result = ActionableUtils.callMethodSafely<Void>(
+            ActionableUtils.callMethodSafely<Void>(
                 activityManager,
                 "forceStopPackage",
                 arrayOf(String::class.java),

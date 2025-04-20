@@ -13,7 +13,9 @@ data class DeviceData(
     val apps: List<AppInfo>,
     val settings: SettingsInfo,
     val deviceInfo: DeviceInfo,
-    val prompt: String? = null
+    val prompt: String? = null,
+    val currentDataMb: Float = 0f,
+    val totalDataMb: Float = 0f
 )
 
 /**

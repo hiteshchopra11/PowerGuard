@@ -110,6 +110,18 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/power_guard_widget_info" />
         </receiver>
+        
+        <!-- Battery alert receiver -->
+        <receiver
+            android:name=".receivers.BatteryAlertReceiver"
+            android:exported="false">
+        </receiver>
+        
+        <!-- Data usage alert receiver -->
+        <receiver
+            android:name=".receivers.DataAlertReceiver"
+            android:exported="false">
+        </receiver>
 
         <provider
             android:name="androidx.startup.InitializationProvider"

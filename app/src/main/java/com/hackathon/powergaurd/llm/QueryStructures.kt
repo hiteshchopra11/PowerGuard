@@ -54,5 +54,10 @@ data class QueryAnalysis(
     val category: Int, // 1-4
     
     @SerializedName("extracted_params")
-    val extractedParams: ExtractedParameters
+    val extractedParams: ExtractedParameters,
+    
+    /**
+     * The original user query that was analyzed
+     */
+    val originalQuery: String = ""
 ) 

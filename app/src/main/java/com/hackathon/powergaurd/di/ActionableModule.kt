@@ -1,5 +1,6 @@
 package com.hackathon.powergaurd.di
 
+import android.app.AlarmManager
 import android.content.Context
 import com.hackathon.powergaurd.actionable.ActionableExecutor
 import com.hackathon.powergaurd.actionable.battery.KillAppHandler
@@ -7,6 +8,8 @@ import com.hackathon.powergaurd.actionable.battery.ManageWakeLocksHandler
 import com.hackathon.powergaurd.actionable.battery.ThrottleCpuUsageHandler
 import com.hackathon.powergaurd.actionable.data.RestrictBackgroundDataHandler
 import com.hackathon.powergaurd.actionable.battery.SetStandbyBucketHandler
+import com.hackathon.powergaurd.actionable.monitoring.BatteryAlertHandler
+import com.hackathon.powergaurd.actionable.monitoring.DataAlertHandler
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -63,6 +66,33 @@ object ActionableModule {
         return ThrottleCpuUsageHandler(context)
     }
 
+    /** Provides the AlarmManager for monitoring handlers. */
+    @Provides
+    @Singleton
+    fun provideAlarmManager(@ApplicationContext context: Context): AlarmManager {
+        return context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    }
+
+    /** Provides the BatteryAlertHandler as a singleton. */
+    @Provides
+    @Singleton
+    fun provideBatteryAlertHandler(
+        @ApplicationContext context: Context,
+        alarmManager: AlarmManager
+    ): BatteryAlertHandler {
+        return BatteryAlertHandler(context, alarmManager)
+    }
+
+    /** Provides the DataAlertHandler as a singleton. */
+    @Provides
+    @Singleton
+    fun provideDataAlertHandler(
+        @ApplicationContext context: Context,
+        alarmManager: AlarmManager
+    ): DataAlertHandler {
+        return DataAlertHandler(context, alarmManager)
+    }
+
     /** Provides the ActionableExecutor as a singleton. */
     @Provides
     @Singleton
@@ -71,14 +101,18 @@ object ActionableModule {
         manageWakeLocksHandler: ManageWakeLocksHandler,
         restrictBackgroundDataHandler: RestrictBackgroundDataHandler,
         setStandbyBucketHandler: SetStandbyBucketHandler,
-        throttleCpuUsageHandler: ThrottleCpuUsageHandler
+        throttleCpuUsageHandler: ThrottleCpuUsageHandler,
+        batteryAlertHandler: BatteryAlertHandler,
+        dataAlertHandler: DataAlertHandler
     ): ActionableExecutor {
         return ActionableExecutor(
             killAppHandler,
             manageWakeLocksHandler,
             restrictBackgroundDataHandler,
             setStandbyBucketHandler,
-            throttleCpuUsageHandler
+            throttleCpuUsageHandler,
+            batteryAlertHandler,
+            dataAlertHandler
         )
     }
 }

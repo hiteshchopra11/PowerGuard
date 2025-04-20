@@ -7,6 +7,8 @@ import com.hackathon.powergaurd.actionable.battery.SetStandbyBucketHandler
 import com.hackathon.powergaurd.actionable.battery.ThrottleCpuUsageHandler
 import com.hackathon.powergaurd.actionable.data.RestrictBackgroundDataHandler
 import com.hackathon.powergaurd.actionable.model.ActionableResult
+import com.hackathon.powergaurd.actionable.monitoring.BatteryAlertHandler
+import com.hackathon.powergaurd.actionable.monitoring.DataAlertHandler
 import com.hackathon.powergaurd.data.model.Actionable
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,7 +25,9 @@ class ActionableExecutor @Inject constructor(
     private val manageWakeLocksHandler: ManageWakeLocksHandler,
     private val restrictBackgroundDataHandler: RestrictBackgroundDataHandler,
     private val setStandbyBucketHandler: SetStandbyBucketHandler,
-    private val throttleCpuUsageHandler: ThrottleCpuUsageHandler
+    private val throttleCpuUsageHandler: ThrottleCpuUsageHandler,
+    private val batteryAlertHandler: BatteryAlertHandler,
+    private val dataAlertHandler: DataAlertHandler
 ) {
     private val TAG = "ActionableExecutor"
 
@@ -33,7 +37,9 @@ class ActionableExecutor @Inject constructor(
         ActionableTypes.MANAGE_WAKE_LOCKS to manageWakeLocksHandler,
         ActionableTypes.RESTRICT_BACKGROUND_DATA to restrictBackgroundDataHandler,
         ActionableTypes.SET_STANDBY_BUCKET to setStandbyBucketHandler,
-        ActionableTypes.THROTTLE_CPU_USAGE to throttleCpuUsageHandler
+        ActionableTypes.THROTTLE_CPU_USAGE to throttleCpuUsageHandler,
+        ActionableTypes.SET_BATTERY_ALERT to batteryAlertHandler,
+        ActionableTypes.SET_DATA_ALERT to dataAlertHandler
     )
 
     /**

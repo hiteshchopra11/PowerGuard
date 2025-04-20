@@ -6,6 +6,8 @@ import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -15,8 +17,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
@@ -40,11 +41,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.NetworkCheck
-import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -53,27 +51,25 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,28 +78,19 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hackathon.powergaurd.data.model.AnalysisResponse
 import com.hackathon.powergaurd.ui.components.BottomSheetContent
 import com.hackathon.powergaurd.ui.viewmodels.DashboardUiState
 import com.hackathon.powergaurd.ui.viewmodels.DashboardViewModel
 import kotlinx.coroutines.delay
-import com.hackathon.powergaurd.data.model.AnalysisResponse
-import com.hackathon.powergaurd.data.model.Actionable
-import com.hackathon.powergaurd.data.model.Insight
-import com.hackathon.powergaurd.actionable.ActionableTypes
-import androidx.compose.material3.Divider
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.material3.SheetState
 
-@RequiresApi(Build.VERSION_CODES.P)
 @Composable
 fun DashboardScreen(
     modifier: Modifier = Modifier,
@@ -124,7 +111,6 @@ fun DashboardScreen(
     var showActionableDialog by remember { mutableStateOf(false) }
     var isAnalyzing by remember { mutableStateOf(false) }
     var promptText by remember { mutableStateOf("") }
-    var showSettingsSheet by remember { mutableStateOf(false) }
     
     // Previous refresh trigger value to detect changes
     var previousRefreshTrigger by remember { mutableStateOf(refreshTrigger) }
@@ -138,13 +124,6 @@ fun DashboardScreen(
         if (refreshTrigger != previousRefreshTrigger) {
             previousRefreshTrigger = refreshTrigger
             viewModel.refreshData()
-        }
-    }
-    
-    // Open settings sheet if requested
-    LaunchedEffect(openSettings) {
-        if (openSettings) {
-            showSettingsSheet = true
         }
     }
     
@@ -228,14 +207,6 @@ fun DashboardScreen(
         }
     }
     
-    // Show the bottom sheets when appropriate
-    if (showSettingsSheet) {
-        SettingsBottomSheet(
-            viewModel = viewModel,
-            onDismiss = { showSettingsSheet = false }
-        )
-    }
-
     // Auto-refresh data every 5 minutes
     LaunchedEffect(Unit) {
         // Initial data load to populate UI (this just fetches device data, no LLM call)
@@ -249,7 +220,6 @@ fun DashboardScreen(
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.P)
 @Composable
 private fun DashboardContent(
     uiState: DashboardUiState,
@@ -317,7 +287,8 @@ private fun DashboardContent(
                     }
                 },
                 focusRequester = focusRequester,
-                isLoading = isRefreshing
+                isLoading = isRefreshing,
+                viewModel = viewModel
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -333,7 +304,8 @@ private fun DashboardContent(
                     // Call API with exact prompt "Optimize battery"
                     viewModel.submitPrompt("Optimize Battery")
                     onShowAnalysisDialog(true, true) // Show dialog in analyzing state
-                }
+                },
+                viewModel = viewModel
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -348,7 +320,8 @@ private fun DashboardContent(
                     Log.d("PROMPT_DEBUG", "Button Pressed Optimize Data")
                     viewModel.submitPrompt("Optimize Data")
                     onShowAnalysisDialog(true, true) // Show dialog in analyzing state
-                }
+                },
+                viewModel = viewModel
             )
             
             // Add bottom padding
@@ -404,8 +377,13 @@ fun BatteryStatusCard(
     isCharging: Boolean,
     chargingType: String,
     batteryTemperature: Float,
-    onOptimize: () -> Unit
+    onOptimize: () -> Unit,
+    viewModel: DashboardViewModel? = null
 ) {
+    // Get custom battery level if available and greater than 0
+    val customBatteryLevel = viewModel?.customBatteryLevel?.collectAsState()?.value ?: 0
+    val displayBatteryLevel = if (customBatteryLevel > 0) customBatteryLevel else batteryLevel
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -447,7 +425,14 @@ fun BatteryStatusCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text("Current level: $batteryLevel%")
+            Text("Current level: $displayBatteryLevel%")
+            if (customBatteryLevel > 0) {
+                Text(
+                    "(Custom battery level set in settings)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             Text("Status: ${if (isCharging) "Charging ($chargingType)" else "Discharging"}")
             Text("Temperature: ${batteryTemperature}°C")
         }
@@ -459,13 +444,14 @@ fun NetworkUsageCard(
     networkType: String,
     networkStrength: Int,
     highUsageApps: List<String>,
-    onOptimize: () -> Unit
+    onOptimize: () -> Unit,
+    viewModel: DashboardViewModel? = null
 ) {
     var networkSectionExpanded by remember { mutableStateOf(false) }
     val arrowRotation by animateFloatAsState(targetValue = if (networkSectionExpanded) 180f else 0f)
     
     // Create a simulated network speed that changes
-    var networkSpeed by remember { mutableStateOf(0f) }
+    var networkSpeed by remember { mutableFloatStateOf(0f) }
     
     // Update the network speed every few seconds
     LaunchedEffect(Unit) {
@@ -581,7 +567,8 @@ fun PromptCard(
     onPromptChange: (String) -> Unit,
     onSubmit: () -> Unit,
     focusRequester: FocusRequester,
-    isLoading: Boolean = false
+    isLoading: Boolean = false,
+    viewModel: DashboardViewModel? = null
 ) {
     // Create a list of rotating placeholder texts
     val placeholders = listOf(
@@ -618,11 +605,24 @@ fun PromptCard(
                 .padding(16.dp)
                 .fillMaxWidth()
         ) {
-            Text(
-                "Ask PowerGuard",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Ask PowerGuard",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                
+                IconButton(onClick = { showBottomSheet = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings"
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -712,7 +712,7 @@ fun PromptCard(
         )
         
         BottomSheetContent(
-            title = "Example Prompts",
+            title = "Settings",
             onDismiss = { showBottomSheet = false }
         ) {
             Column(
@@ -720,35 +720,116 @@ fun PromptCard(
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
-                examples.forEach { example ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                            .clickable {
-                                onPromptChange(example)
-                                showBottomSheet = false
-                            },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Lightbulb,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = example,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                    
-                    if (example != examples.last()) {
-                        Divider(
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    }
+                // Data Settings Section
+                Text(
+                    text = "Data Settings",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                
+                // Get current values from viewModel if available
+                val currentTotalDataMb = viewModel?.totalDataMb?.collectAsState()?.value ?: 0f
+                val currentCurrentDataMb = viewModel?.currentDataMb?.collectAsState()?.value ?: 0f
+                val currentBatteryLevel = viewModel?.customBatteryLevel?.collectAsState()?.value ?: 0
+                
+                // Total Data MB text field
+                var totalDataMb by remember { 
+                    mutableStateOf(if (currentTotalDataMb > 0f) currentTotalDataMb.toString() else "") 
+                }
+                
+                OutlinedTextField(
+                    value = totalDataMb,
+                    onValueChange = { 
+                        // Accept only numbers and decimals
+                        if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
+                            totalDataMb = it
+                        }
+                    },
+                    label = { Text("Total Data MB") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    ),
+                    singleLine = true
+                )
+                
+                // Current Data MB text field
+                var currentDataMb by remember { 
+                    mutableStateOf(if (currentCurrentDataMb > 0f) currentCurrentDataMb.toString() else "") 
+                }
+                
+                OutlinedTextField(
+                    value = currentDataMb,
+                    onValueChange = { 
+                        // Accept only numbers and decimals
+                        if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
+                            currentDataMb = it
+                        }
+                    },
+                    label = { Text("Current Data MB") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    ),
+                    singleLine = true
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                
+                // Battery Settings Section
+                Text(
+                    text = "Battery Settings",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                
+                // Custom Battery Level text field
+                var batteryLevel by remember { 
+                    mutableStateOf(if (currentBatteryLevel > 0) currentBatteryLevel.toString() else "") 
+                }
+                
+                OutlinedTextField(
+                    value = batteryLevel,
+                    onValueChange = { 
+                        // Accept only numbers between 1-100
+                        if (it.isEmpty() || (it.matches(Regex("^\\d+$")) && it.toIntOrNull()?.let { num -> num in 1..100 } == true)) {
+                            batteryLevel = it
+                        }
+                    },
+                    label = { Text("Custom Battery Level (1-100)") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    ),
+                    singleLine = true
+                )
+                
+                // Button to save the settings
+                Button(
+                    onClick = {
+                        val totalValue = totalDataMb.toFloatOrNull() ?: 0f
+                        val currentValue = currentDataMb.toFloatOrNull() ?: 0f
+                        val batteryValue = batteryLevel.toIntOrNull() ?: 0
+                        viewModel?.updateDataSettings(totalValue, currentValue)
+                        
+                        if (batteryValue in 1..100) {
+                            viewModel?.updateCustomBatteryLevel(batteryValue)
+                        }
+                        
+                        onPromptChange(promptText) // Refresh the prompt text
+                        showBottomSheet = false
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Text("Save Settings")
                 }
             }
         }
@@ -819,64 +900,8 @@ fun LoadingAnalysisDialog(onDismissRequest: () -> Unit) {
 }
 
 @Composable
-private fun SettingsBottomSheet(
-    viewModel: DashboardViewModel,
-    onDismiss: () -> Unit
-) {
-    val isUsingGemma by viewModel.isUsingGemma.collectAsState()
-
-    BottomSheetContent(
-        title = "Settings",
-        onDismiss = onDismiss
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            // Gemma toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "Local AI Inference",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "Use on-device Gemma SDK instead of backend API",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Switch(
-                    checked = isUsingGemma,
-                    onCheckedChange = { viewModel.toggleInferenceMode(it) }
-                )
-            }
-
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-            // Display current mode
-            Text(
-                text = "Current mode: ${if (isUsingGemma) "Gemma SDK (On-device)" else "Backend API (Cloud)"}",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-
-            // Add more settings items as needed
-        }
-    }
-}
-
-@Composable
 fun AnalysisDialog(
-    response: com.hackathon.powergaurd.data.model.AnalysisResponse,
+    response: AnalysisResponse,
     onDismissRequest: () -> Unit,
     viewModel: DashboardViewModel
 ) {

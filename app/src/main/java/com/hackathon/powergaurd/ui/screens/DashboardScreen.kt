@@ -1132,14 +1132,8 @@ fun AnalysisDialog(
                             
                             Spacer(modifier = Modifier.height(12.dp))
                             
-                            // Display actionables - simplified version showing only a few items for preview
-                            val displayActionables = if (response.actionable.size > 3) {
-                                response.actionable.take(3)
-                            } else {
-                                response.actionable
-                            }
-                            
-                            displayActionables.forEach { actionable ->
+                            // Display actionables - show all actionables instead of limiting to 3
+                            response.actionable.forEach { actionable ->
                                 val isActionExecuted = executionResults[actionable.id] == true
                                 val isActionFailed = executionResults[actionable.id] == false
                                 
@@ -1172,6 +1166,12 @@ fun AnalysisDialog(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
+                                            // Display actionable type for debugging
+                                            Text(
+                                                text = "Type: ${actionable.type}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
                                         }
                                         
                                         // Apply button for individual actionable
@@ -1194,16 +1194,6 @@ fun AnalysisDialog(
                                         }
                                     }
                                 }
-                            }
-                            
-                            // Show "more actions" message if more than 3
-                            if (response.actionable.size > 3) {
-                                Text(
-                                    text = "And ${response.actionable.size - 3} more actions available...",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 8.dp)
-                                )
                             }
                         }
                     }

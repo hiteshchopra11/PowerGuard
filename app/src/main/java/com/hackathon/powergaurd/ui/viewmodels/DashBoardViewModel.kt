@@ -87,6 +87,27 @@ class DashboardViewModel @Inject constructor(
 
     init {
         _isUsingGemma.value = analysisRepository.isUsingGemma()
+        Log.d("TEST12345","Testing actionable KillAppHandler")
+        viewModelScope.launch {
+            actionableExecutor.executeActionable(
+                Actionable(
+                    id = "-1",
+                    type = ActionableTypes.MANAGE_WAKE_LOCKS,
+                    packageName ="com.inmobi.weather",
+                    description = "This app is using a lot of data",
+                    reason = "High data usage detected",
+                    newMode = "restricted",
+                    estimatedBatterySavings = 5.0f,
+                    estimatedDataSavings =0f,
+                    severity = 3,
+                    enabled = false,
+                    throttleLevel = 2,
+                    parameters = mapOf(
+                        "restrictBackgroundData" to "true"
+                    )
+                )
+            )
+        }
         // Don't automatically call refreshData() on initialization
         // This prevents automatic LLM API calls on app startup
     }

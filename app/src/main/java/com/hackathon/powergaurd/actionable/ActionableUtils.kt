@@ -91,7 +91,7 @@ object ActionableUtils {
      * @param methodName The name of the method to call
      * @param parameterTypes The parameter types of the method
      * @param args The arguments to pass to the method
-     * @return The result of the method call, or null if the call fails
+     * @return The result of the method call cast to type T, or null if the call fails
      */
     @Suppress("UNCHECKED_CAST")
     fun <T> callMethodSafely(
@@ -101,11 +101,16 @@ object ActionableUtils {
         vararg args: Any?
     ): T? {
         return try {
-            val method = target.javaClass.getMethod(methodName, *parameterTypes)
+            // Use getDeclaredMethod to access non-public methods
+            val method = target.javaClass.getDeclaredMethod(methodName, *parameterTypes)
             method.isAccessible = true
-            method.invoke(target, *args) as? T
+
+            // Invoke the method and cast the result
+            val result = method.invoke(target, *args)
+            result as? T
         } catch (e: Exception) {
-            Log.e(TAG, "Error calling method $methodName: ${e.message}", e)
+            // Log the detailed error for debugging
+            Log.e(TAG, "Error calling method $methodName: ${e.cause?.message ?: e.message}", e)
             null
         }
     }

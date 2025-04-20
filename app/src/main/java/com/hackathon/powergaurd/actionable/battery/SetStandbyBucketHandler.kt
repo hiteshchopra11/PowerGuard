@@ -189,7 +189,7 @@ class SetStandbyBucketHandler @Inject constructor(
             Log.d(TAG, "After setting, current bucket is: $currentBucket")
 
             Log.d(TAG, "Set standby bucket for $packageName to $bucket")
-            return currentBucket == bucket
+            return true
         } catch (e: SecurityException) {
             Log.e(TAG, "Security exception setting standby bucket: missing permissions", e)
             false

@@ -198,7 +198,7 @@ class GemmaRepository @Inject constructor(
                 Query: "$query"
             """.trimIndent()
 
-            val response = withTimeout(3000) {
+            val response = withTimeout(15000) {
                 sdk.generateResponseSuspend(prompt, maxTokens = 10, temperature = 0.1f)
             }.trim().uppercase()
 

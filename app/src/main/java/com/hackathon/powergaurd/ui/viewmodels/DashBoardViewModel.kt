@@ -74,6 +74,17 @@ class DashboardViewModel @Inject constructor(
     private val _isUsingGemma = MutableStateFlow(true)
     val isUsingGemma: StateFlow<Boolean> = _isUsingGemma.asStateFlow()
 
+    // Add state flows for data settings
+    private val _totalDataMb = MutableStateFlow(0f)
+    val totalDataMb: StateFlow<Float> = _totalDataMb.asStateFlow()
+    
+    private val _currentDataMb = MutableStateFlow(0f)
+    val currentDataMb: StateFlow<Float> = _currentDataMb.asStateFlow()
+    
+    // Custom battery level for testing
+    private val _customBatteryLevel = MutableStateFlow(0)
+    val customBatteryLevel: StateFlow<Int> = _customBatteryLevel.asStateFlow()
+
     init {
         _isUsingGemma.value = analysisRepository.isUsingGemma()
         // Don't automatically call refreshData() on initialization
@@ -233,11 +244,20 @@ class DashboardViewModel @Inject constructor(
                 
                 // Get device data
                 val deviceData = usageDataCollector.collectDeviceData()
-                _deviceData.value = deviceData
+                
+                // Apply custom battery level if set
+                val modifiedDeviceData = if (_customBatteryLevel.value > 0) {
+                    val modifiedBattery = deviceData.battery.copy(level = _customBatteryLevel.value)
+                    deviceData.copy(battery = modifiedBattery)
+                } else {
+                    deviceData
+                }
+                
+                _deviceData.value = modifiedDeviceData
                 Log.d(TAG, "Device data collected successfully")
                 
                 // Update UI state with device data only
-                updateUiStateFromDeviceData(deviceData)
+                updateUiStateFromDeviceData(modifiedDeviceData)
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching device data: ${e.message}", e)
                 
@@ -258,9 +278,35 @@ class DashboardViewModel @Inject constructor(
     }
 
     /**
-     * Submits the user's prompt to the API for analysis
+     * Updates the data settings values
+     */
+    fun updateDataSettings(totalDataMb: Float, currentDataMb: Float) {
+        _totalDataMb.value = totalDataMb
+        _currentDataMb.value = currentDataMb
+        Log.d("DashboardViewModel", "Updated data settings - Total: $totalDataMb MB, Current: $currentDataMb MB")
+    }
+    
+    /**
+     * Updates the custom battery level for testing
+     * @param level Battery level between 1 and 100
+     */
+    fun updateCustomBatteryLevel(level: Int) {
+        val clampedLevel = level.coerceIn(1, 100)
+        _customBatteryLevel.value = clampedLevel
+        Log.d("DashboardViewModel", "Updated custom battery level: $clampedLevel%")
+    }
+    
+    /**
+     * Submits the user's prompt to the API for analysis with default data values (0)
      */
     fun submitPrompt(prompt: String) {
+        submitPrompt(prompt, _totalDataMb.value, _currentDataMb.value)
+    }
+
+    /**
+     * Submits the user's prompt to the API for analysis
+     */
+    fun submitPrompt(prompt: String, totalDataMb: Float, currentDataMb: Float) {
         viewModelScope.launch {
             _isLoading.value = true
             Log.d("DashboardViewModel", "Submitting prompt: $prompt")
@@ -284,7 +330,20 @@ class DashboardViewModel @Inject constructor(
                 // Give more time for data collection to complete
                 delay(800)
                 
-                val deviceDataWithPrompt = deviceData.copy(prompt = prompt)
+                // Apply custom battery level if set
+                val modifiedDeviceData = if (_customBatteryLevel.value > 0) {
+                    val modifiedBattery = deviceData.battery.copy(level = _customBatteryLevel.value)
+                    deviceData.copy(battery = modifiedBattery)
+                } else {
+                    deviceData
+                }
+
+                val deviceDataWithPrompt = modifiedDeviceData.copy(
+                    prompt = prompt,
+                    currentDataMb = currentDataMb,
+                    totalDataMb = totalDataMb
+                )
+
                 _deviceData.value = deviceDataWithPrompt
                 Log.d("DashboardViewModel", "Collected device data for analysis")
 

@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.Battery4Bar
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -35,6 +36,7 @@ fun BottomNavBar(navController: NavController) {
                             Screen.Dashboard -> Icons.Default.Dashboard
                             Screen.Explore -> Icons.Default.Explore
                             Screen.History -> Icons.Default.History
+                            Screen.Prompt -> Icons.Default.QuestionAnswer
                         },
                         contentDescription = null
                     )

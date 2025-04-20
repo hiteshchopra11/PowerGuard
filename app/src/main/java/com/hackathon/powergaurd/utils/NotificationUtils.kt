@@ -12,7 +12,7 @@ import com.hackathon.powergaurd.R
 
 object NotificationUtils {
 
-    private const val CHANNEL_ID = "power_guard_channel"
+    const val CHANNEL_ID = "power_guard_channel"
     private const val OPTIMIZATION_NOTIFICATION_ID = 1001
 
     fun createNotificationChannels(context: Context) {

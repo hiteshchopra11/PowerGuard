@@ -212,7 +212,10 @@ class QueryAnalyzer @Inject constructor(private val llmService: LLMService) {
                 
                 try {
                     // Try to parse the JSON response
-                    gson.fromJson(llmResponse, QueryAnalysis::class.java)
+                    val analysis = gson.fromJson(llmResponse, QueryAnalysis::class.java)
+                    // Attach the original query to the analysis
+                    val updatedAnalysis = analysis.copy(originalQuery = userQuery)
+                    updatedAnalysis
                 } catch (e: Exception) {
                     // If parsing fails, log the error and create a fallback response
                     val errorMsg = "Failed to parse LLM response: ${e.message}"
@@ -261,7 +264,8 @@ class QueryAnalyzer @Inject constructor(private val llmService: LLMService) {
         
         return QueryAnalysis(
             category = category,
-            extractedParams = ExtractedParameters(resourceType = resourceType)
+            extractedParams = ExtractedParameters(resourceType = resourceType),
+            originalQuery = userQuery
         )
     }
 }

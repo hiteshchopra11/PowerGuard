@@ -63,4 +63,26 @@ object ActionableTypes {
      * Requires: System privileges or root access for full functionality.
      */
     const val THROTTLE_CPU_USAGE = "throttle_cpu_usage"
+    
+    /**
+     * Sets up a battery level alert that will notify the user when battery reaches a specified threshold.
+     *
+     * Uses BatteryManager to monitor battery level and shows a notification when the threshold is met.
+     *
+     * Impact: Helps users manage battery life by providing timely alerts.
+     * User experience: Allows proactive battery management without constantly checking levels.
+     * Requires: No special permissions beyond standard notification permissions.
+     */
+    const val SET_BATTERY_ALERT = "set_battery_alert"
+    
+    /**
+     * Sets up a data usage alert that will notify the user when data usage reaches a specified threshold.
+     *
+     * Uses NetworkStatsManager to monitor data usage and shows a notification when the threshold is met.
+     *
+     * Impact: Helps users manage data usage by providing timely alerts.
+     * User experience: Prevents unexpected data overages by warning when approaching limits.
+     * Requires: READ_PHONE_STATE and ACCESS_NETWORK_STATE permissions.
+     */
+    const val SET_DATA_ALERT = "set_data_alert"
 }

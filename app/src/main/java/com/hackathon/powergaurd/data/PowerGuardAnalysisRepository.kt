@@ -128,6 +128,6 @@ class PowerGuardAnalysisRepository @Inject constructor(
      * Releases resources used by the Gemma SDK.
      */
     fun shutdownGemma() {
-        gemmaRepository.shutdown()
+
     }
 } 

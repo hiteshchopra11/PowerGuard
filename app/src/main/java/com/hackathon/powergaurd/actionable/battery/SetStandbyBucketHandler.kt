@@ -90,7 +90,7 @@ class SetStandbyBucketHandler @Inject constructor(
 
             if (success) {
                 ActionableResult.success(
-                    "Successfully set app $packageName to standby bucket $bucketName",
+                    "Successfully set app $packageName to standby bucket ${bucketName}",
                     mapOf(
                         "packageName" to packageName,
                         "previousBucket" to (BUCKET_VALUE_TO_NAME[currentBucket] ?: "unknown"),
@@ -172,22 +172,44 @@ class SetStandbyBucketHandler @Inject constructor(
         return try {
             // The method name changed in some API versions, try using reflection to be safe
             val manager = usageStatsManager ?: return false
+            Log.d(TAG, "UsageStatsManager obtained: $manager")
 
             val method = manager.javaClass.getMethod(
                 "setAppStandbyBucket",
                 String::class.java,
                 Int::class.java
             )
-            method.invoke(manager, packageName, bucket)
+            Log.d(TAG, "Found method: $method")
+
+            val result = method.invoke(manager, packageName, bucket)
+            Log.d(TAG, "Method invocation result: $result")
+
+            // Check if the bucket actually changed
+            val currentBucket = getCurrentBucket(packageName)
+            Log.d(TAG, "After setting, current bucket is: $currentBucket")
 
             Log.d(TAG, "Set standby bucket for $packageName to $bucket")
-            true
+            return currentBucket == bucket
         } catch (e: SecurityException) {
             Log.e(TAG, "Security exception setting standby bucket: missing permissions", e)
             false
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to set standby bucket for $packageName", e)
+            Log.e(TAG, "Failed to set standby bucket for $packageName: ${e.message}", e)
             false
+        }
+    }
+
+    private fun getCurrentBucket(packageName: String): Int {
+        return try {
+            val manager = usageStatsManager ?: return -1
+            val method = manager.javaClass.getMethod(
+                "getAppStandbyBucket",
+                String::class.java
+            )
+            method.invoke(manager, packageName) as Int
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get current bucket: ${e.message}", e)
+            -1
         }
     }
 }

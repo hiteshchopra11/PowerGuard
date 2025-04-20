@@ -5,7 +5,6 @@ import android.content.Context
 import com.hackathon.powergaurd.actionable.ActionableExecutor
 import com.hackathon.powergaurd.actionable.battery.KillAppHandler
 import com.hackathon.powergaurd.actionable.battery.ManageWakeLocksHandler
-import com.hackathon.powergaurd.actionable.battery.ThrottleCpuUsageHandler
 import com.hackathon.powergaurd.actionable.data.RestrictBackgroundDataHandler
 import com.hackathon.powergaurd.actionable.battery.SetStandbyBucketHandler
 import com.hackathon.powergaurd.actionable.monitoring.BatteryAlertHandler
@@ -56,16 +55,6 @@ object ActionableModule {
         return SetStandbyBucketHandler(context)
     }
 
-
-    /** Provides the ThrottleCpuUsageHandler as a singleton. */
-    @Provides
-    @Singleton
-    fun provideThrottleCpuUsageHandler(
-        @ApplicationContext context: Context
-    ): ThrottleCpuUsageHandler {
-        return ThrottleCpuUsageHandler(context)
-    }
-
     /** Provides the AlarmManager for monitoring handlers. */
     @Provides
     @Singleton
@@ -101,7 +90,6 @@ object ActionableModule {
         manageWakeLocksHandler: ManageWakeLocksHandler,
         restrictBackgroundDataHandler: RestrictBackgroundDataHandler,
         setStandbyBucketHandler: SetStandbyBucketHandler,
-        throttleCpuUsageHandler: ThrottleCpuUsageHandler,
         batteryAlertHandler: BatteryAlertHandler,
         dataAlertHandler: DataAlertHandler
     ): ActionableExecutor {
@@ -110,7 +98,6 @@ object ActionableModule {
             manageWakeLocksHandler,
             restrictBackgroundDataHandler,
             setStandbyBucketHandler,
-            throttleCpuUsageHandler,
             batteryAlertHandler,
             dataAlertHandler
         )

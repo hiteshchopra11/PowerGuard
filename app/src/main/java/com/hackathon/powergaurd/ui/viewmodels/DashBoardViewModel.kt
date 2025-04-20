@@ -1,14 +1,14 @@
 package com.hackathon.powergaurd.ui.viewmodels
 
 import android.annotation.SuppressLint
-import android.os.Build
-import androidx.annotation.RequiresApi
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hackathon.powergaurd.actionable.ActionableExecutor
 import com.hackathon.powergaurd.actionable.ActionableTypes
 import com.hackathon.powergaurd.collector.UsageDataCollector
 import com.hackathon.powergaurd.data.PowerGuardAnalysisRepository
+import com.hackathon.powergaurd.data.gemma.GemmaRepository.Companion.RESTRICT_BACKGROUND_DATA
 import com.hackathon.powergaurd.data.local.entity.DeviceInsightEntity
 import com.hackathon.powergaurd.data.model.Actionable
 import com.hackathon.powergaurd.data.model.AnalysisResponse
@@ -17,15 +17,14 @@ import com.hackathon.powergaurd.domain.usecase.AnalyzeDeviceDataUseCase
 import com.hackathon.powergaurd.domain.usecase.GetAllActionableUseCase
 import com.hackathon.powergaurd.domain.usecase.GetCurrentInsightsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
-import android.util.Log
-import kotlinx.coroutines.delay
 import java.util.UUID
+import javax.inject.Inject
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -87,24 +86,22 @@ class DashboardViewModel @Inject constructor(
 
     init {
         _isUsingGemma.value = analysisRepository.isUsingGemma()
-        Log.d("TEST12345","Testing actionable KillAppHandler")
+        Log.d("TEST12345","Testing actionable RestrictDataHandler")
         viewModelScope.launch {
             actionableExecutor.executeActionable(
                 Actionable(
-                    id = "-1",
-                    type = ActionableTypes.MANAGE_WAKE_LOCKS,
-                    packageName ="com.inmobi.weather",
-                    description = "This app is using a lot of data",
-                    reason = "High data usage detected",
-                    newMode = "restricted",
-                    estimatedBatterySavings = 5.0f,
-                    estimatedDataSavings =0f,
+                    id = UUID.randomUUID().toString(),
+                    type = RESTRICT_BACKGROUND_DATA,
+                    packageName = "com.inmobi.weather",
+                    description = "",
+                    reason = "Optimization",
+                    estimatedBatterySavings =  0.0f,
+                    estimatedDataSavings = 0.0f,
                     severity = 3,
-                    enabled = false,
-                    throttleLevel = 2,
-                    parameters = mapOf(
-                        "restrictBackgroundData" to "true"
-                    )
+                    parameters = emptyMap(),
+                    enabled = true,
+                    newMode = "",
+                    throttleLevel = 0
                 )
             )
         }

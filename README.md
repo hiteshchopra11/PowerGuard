@@ -40,15 +40,6 @@ Controls apps keeping the device awake via wake locks.
 - **Requirements**: Android M (API 23) or higher
 - **Impact**: Targets one of the most common battery drain sources
 
-### 5. Throttle CPU Usage (`throttle_cpu_usage`)
-
-Limits CPU resources allocated to specific apps.
-
-- **Implementation**: Uses process groups and cgroups when available
-- **Scaling**: Configurable throttle levels (1-10) for fine-tuned control
-- **Requirements**: System privileges or root access for cgroups
-- **Impact**: Allows granular balancing between performance and battery life
-
 ## Architecture
 
 PowerGuard's actionable system follows a modular architecture:
@@ -70,10 +61,9 @@ val actionableExecutor: ActionableExecutor = // injected via Dagger
 // Create an actionable
 val action = Actionable(
     id = "unique_id",
-    type = ActionableTypes.THROTTLE_CPU_USAGE,
-    description = "Throttle Facebook to save battery",
-    packageName = "com.facebook.katana",
-    throttleLevel = 7
+    type = ActionableTypes.KILL_APP,
+    description = "Force stop Facebook to save battery",
+    packageName = "com.facebook.katana"
 )
 
 // Execute the actionable

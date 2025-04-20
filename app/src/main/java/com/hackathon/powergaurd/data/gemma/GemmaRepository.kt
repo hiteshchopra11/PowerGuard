@@ -6,7 +6,11 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Looper
 import android.util.Log
-import com.hackathon.powergaurd.data.model.*
+import com.hackathon.powergaurd.data.model.Actionable
+import com.hackathon.powergaurd.data.model.AnalysisRepository
+import com.hackathon.powergaurd.data.model.AnalysisResponse
+import com.hackathon.powergaurd.data.model.DeviceData
+import com.hackathon.powergaurd.data.model.Insight
 import com.powergaurd.llm.GemmaConfig
 import com.powergaurd.llm.GemmaInferenceSDK
 import kotlinx.coroutines.Dispatchers
@@ -61,9 +65,17 @@ class GemmaRepository @Inject constructor(
         const val RESTRICT_BACKGROUND_DATA = "restrict_background_data"
         const val KILL_APP = "kill_app"
         const val MANAGE_WAKE_LOCKS = "manage_wake_locks"
-        const val THROTTLE_CPU_USAGE = "throttle_cpu_usage"
         const val SET_NOTIFICATION = "set_notification"
         const val SET_ALARM = "set_alarm"
+
+        private val ALLOWED_ACTIONABLE_TYPES = listOf(
+            SET_STANDBY_BUCKET,
+            RESTRICT_BACKGROUND_DATA,
+            KILL_APP,
+            MANAGE_WAKE_LOCKS,
+            SET_NOTIFICATION,
+            SET_ALARM
+        )
     }
 
     private var _sdk: GemmaInferenceSDK? = null
@@ -122,57 +134,62 @@ class GemmaRepository @Inject constructor(
      * 4. Return JSON response with insights and actionables.
      */
     @SuppressLint("NewApi")
-    override suspend fun analyzeDeviceData(deviceData: DeviceData): Result<AnalysisResponse> = withContext(Dispatchers.IO) {
-        try {
-            val userQuery = deviceData.prompt
-            var resourceType = RESOURCE_OTHER
-            var queryCategory = CATEGORY_INVALID
-            var dataToProcess = deviceData
+    override suspend fun analyzeDeviceData(deviceData: DeviceData): Result<AnalysisResponse> =
+        withContext(Dispatchers.IO) {
+            try {
+                val userQuery = deviceData.prompt
+                var resourceType = RESOURCE_OTHER
+                var queryCategory = CATEGORY_INVALID
+                var dataToProcess = deviceData
 
-            if (!userQuery.isNullOrBlank()) {
-                // Step 1: Determine resource type
-                resourceType = determineResourceType(userQuery)
-                Log.d(LOG_QUERY, "Resource type: $resourceType")
+                if (!userQuery.isNullOrBlank()) {
+                    resourceType = determineResourceType(userQuery)
+                    Log.d(LOG_QUERY, "Resource type: $resourceType")
+                    queryCategory = categorizeQuery(userQuery, resourceType)
+                    Log.d(LOG_QUERY, "User query: $userQuery, Categorized as: $queryCategory")
+                    dataToProcess = deviceData.copy(
+                        prompt = "RESOURCE:$resourceType QUERY_CATEGORY:$queryCategory - $userQuery"
+                    )
+                }
 
-                // Step 2: Categorize query
-                queryCategory = categorizeQuery(userQuery, resourceType)
-                Log.d(LOG_QUERY, "User query: $userQuery, Categorized as: $queryCategory")
+                val prompt = createAnalysisPrompt(dataToProcess, resourceType, queryCategory)
+                Log.d(LOG_PROMPT, "Full Prompt:\n$prompt")
 
-                // Step 3: Modify device data with resource type and category
-                dataToProcess = deviceData.copy(
-                    prompt = "RESOURCE:$resourceType QUERY_CATEGORY:$queryCategory - $userQuery"
+                if (!isNetworkAvailable()) {
+                    Log.w(LOG_SDK, "Network unavailable, using simulated response")
+                    return@withContext Result.success(
+                        simulateAnalysisResponse(
+                            dataToProcess,
+                            resourceType,
+                            queryCategory
+                        )
+                    )
+                }
+
+                try {
+                    val result = processPromptWithGemma(prompt, dataToProcess)
+                    Log.d(LOG_SDK, "LLM processing completed")
+                    return@withContext result
+                } catch (e: Exception) {
+                    Log.e(LOG_ERROR, "LLM error: ${e.message}", e)
+                    return@withContext Result.success(
+                        simulateAnalysisResponse(dataToProcess, resourceType, queryCategory).copy(
+                            message = "LLM error: ${e.message}"
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(LOG_ERROR, "Fatal error: ${e.message}", e)
+                return@withContext Result.success(
+                    simulateAnalysisResponse(
+                        deviceData,
+                        RESOURCE_OTHER,
+                        CATEGORY_INVALID
+                    )
                 )
             }
-
-            // Step 4: Create analysis prompt
-            val prompt = createAnalysisPrompt(dataToProcess, resourceType, queryCategory)
-            Log.d(LOG_PROMPT, "Full Prompt:\n$prompt")
-
-            // Step 5: Process with LLM or fallback
-            if (!isNetworkAvailable()) {
-                Log.w(LOG_SDK, "Network unavailable, using simulated response")
-                return@withContext Result.success(simulateAnalysisResponse(dataToProcess, resourceType, queryCategory))
-            }
-
-            try {
-                val result = processPromptWithGemma(prompt, dataToProcess)
-                Log.d(LOG_SDK, "LLM processing completed")
-                return@withContext result
-            } catch (e: Exception) {
-                Log.e(LOG_ERROR, "LLM error: ${e.message}", e)
-                return@withContext Result.success(simulateAnalysisResponse(dataToProcess, resourceType, queryCategory).copy(
-                    message = "LLM error: ${e.message}"
-                ))
-            }
-        } catch (e: Exception) {
-            Log.e(LOG_ERROR, "Fatal error: ${e.message}", e)
-            return@withContext Result.success(simulateAnalysisResponse(deviceData, RESOURCE_OTHER, CATEGORY_INVALID))
         }
-    }
 
-    /**
-     * Determines if the query is about battery, data, or other.
-     */
     private suspend fun determineResourceType(query: String): String {
         try {
             val prompt = """
@@ -195,9 +212,6 @@ class GemmaRepository @Inject constructor(
         }
     }
 
-    /**
-     * Categorizes the query based on resource type.
-     */
     private suspend fun categorizeQuery(query: String, resourceType: String): Int {
         try {
             val categorizePrompt = """
@@ -211,7 +225,7 @@ class GemmaRepository @Inject constructor(
                 Query: "$query"
             """.trimIndent()
 
-            val response = withTimeout(5000) {
+            val response = withTimeout(15000) {
                 sdk.generateResponseSuspend(categorizePrompt, maxTokens = 5, temperature = 0.1f)
             }.trim().toIntOrNull()
 
@@ -222,31 +236,53 @@ class GemmaRepository @Inject constructor(
         }
     }
 
-    /**
-     * Creates a tailored prompt based on resource type and category.
-     */
-    private fun createAnalysisPrompt(deviceData: DeviceData, resourceType: String, queryCategory: Int): String {
+    private fun createAnalysisPrompt(
+        deviceData: DeviceData,
+        resourceType: String,
+        queryCategory: Int
+    ): String {
         val prompt = StringBuilder()
         val userQuery = deviceData.prompt?.substringAfter("- ")?.trim() ?: ""
 
-        prompt.append("""
-            You are a battery and performance analysis system. Analyze the device data and user query below.
+        prompt.append(
+            """
+            You are a battery and data analysis/saver system. Analyze the device data and user query below.
             Respond with ONLY a valid JSON object matching this structure:
             {
                 "batteryScore": number between 0-100,
                 "dataScore": number between 0-100,
                 "performanceScore": number between 0-100,
-                "insights": [{"type": "BATTERY|DATA|PERFORMANCE", "title": "string", "description": "string", "severity": "LOW|MEDIUM|HIGH"}],
+                "insights": [{"type": "BATTERY|DATA", "title": "string", "description": "string", "severity": "LOW|MEDIUM|HIGH"}],
                 "actionable": [{"type": "string", "description": "string", "parameters": {}}]
             }
+
+            IMPORTANT: The "actionable" array must only contain objects with "type" being one of the following, with their purposes:
+    - $SET_STANDBY_BUCKET: Limits an app’s background activity by placing it in a standby bucket (e.g., restricted), saving battery and data.
+    - $RESTRICT_BACKGROUND_DATA: Prevents an app from using data in the background, reducing data consumption.
+    - $KILL_APP: Force stops an app to immediately reduce resource usage, though it may restart later.
+    - $MANAGE_WAKE_LOCKS: Restricts an app from keeping the device awake, reducing battery drain.
+    - $SET_NOTIFICATION: Sets a notification to alert the user when a condition is met (e.g., low battery).
+    - $SET_ALARM: Configures an alarm to trigger when a condition is met (e.g., data threshold reached).
+    Do not create or use any other actionable types.
+
+    When including actionables, ensure to provide the necessary parameters:
+    - For $SET_STANDBY_BUCKET: "packageName" and "newMode", newMode should be one of the "active", "working_set" or "frequent" where frequent is the most aggressive mode
+    - For $RESTRICT_BACKGROUND_DATA: "packageName"
+    - For $KILL_APP: "packageName"
+    - For $MANAGE_WAKE_LOCKS: "packageName"
+    - For $SET_NOTIFICATION and $SET_ALARM: "condition" and "message"
+
             Device Data (last 24 hours):
             DEVICE: ${deviceData.deviceInfo.manufacturer} ${deviceData.deviceInfo.model}
             BATTERY: ${deviceData.battery.level}%${if (deviceData.battery.isCharging) " (Charging)" else ""}
             DATA: Current ${deviceData.currentDataMb}MB, Total ${deviceData.totalDataMb}MB
-        """.trimIndent())
+        """.trimIndent()
+        )
 
         val topBatteryApps = deviceData.apps.sortedByDescending { it.batteryUsage }.take(10)
-        val topDataApps = deviceData.apps.sortedByDescending { it.dataUsage.rxBytes + it.dataUsage.txBytes }.take(10)
+        val topDataApps =
+            deviceData.apps.sortedByDescending { it.dataUsage.rxBytes + it.dataUsage.txBytes }
+                .take(10)
 
         if (topBatteryApps.isNotEmpty()) {
             prompt.append("\nTOP BATTERY APPS:\n")
@@ -269,55 +305,73 @@ class GemmaRepository @Inject constructor(
             CATEGORY_INFORMATION -> {
                 val numMatch = "\\b(\\d+)\\b".toRegex().find(userQuery)
                 val numRequested = numMatch?.groupValues?.get(1)?.toIntOrNull() ?: 5
-                prompt.append("""
+                prompt.append(
+                    """
                     INSTRUCTIONS FOR INFORMATION QUERY:
                     - Provide exactly $numRequested items if specified, else 5.
                     - Use data from Device Data for ${resourceType.lowercase()}.
-                    - Return insights only, no actionables.
+                    - Return insights only, do not include any actionables.
                     - Type: "$resourceType".
-                """.trimIndent())
+                """.trimIndent()
+                )
             }
+
             CATEGORY_PREDICTIVE -> {
-                prompt.append("""
+                prompt.append(
+                    """
                     INSTRUCTIONS FOR PREDICTIVE QUERY:
                     - Analyze feasibility based on current ${resourceType.lowercase()} and typical app usage.
                     - Return yes/no with a brief explanation in insights.
-                    - No actionables.
+                    - Return insights only, do not include any actionables.
                     - Type: "$resourceType".
-                """.trimIndent())
+                """.trimIndent()
+                )
             }
+
             CATEGORY_OPTIMIZATION -> {
-                prompt.append("""
+                prompt.append(
+                    """
                     INSTRUCTIONS FOR OPTIMIZATION REQUEST:
                     - Provide recommendations to optimize $resourceType.
-                    - Include actionables from: $SET_STANDBY_BUCKET, $RESTRICT_BACKGROUND_DATA, $KILL_APP, $MANAGE_WAKE_LOCKS, $THROTTLE_CPU_USAGE.
+                    - Include actionables only from: $SET_STANDBY_BUCKET, $RESTRICT_BACKGROUND_DATA, $KILL_APP, $MANAGE_WAKE_LOCKS.
+                    - For each actionable, include the required parameters as specified above.
                     - Type: "$resourceType".
-                """.trimIndent())
+                """.trimIndent()
+                )
             }
+
             CATEGORY_MONITORING -> {
-                prompt.append("""
+                prompt.append(
+                    """
                     INSTRUCTIONS FOR MONITORING TRIGGER:
-                    - Set up a trigger (${if ("notify" in userQuery.lowercase()) SET_NOTIFICATION else SET_ALARM}).
-                    - Include condition and message in parameters.
+                    - Set up a trigger using $SET_NOTIFICATION if the query mentions "notify", otherwise use $SET_ALARM.
+                    - Include "condition" and "message" in parameters.
                     - Type: "$resourceType".
-                """.trimIndent())
+                """.trimIndent()
+                )
             }
+
             else -> {
-                prompt.append("INSTRUCTIONS: General analysis, minimal response.")
+                prompt.append("INSTRUCTIONS: General analysis, minimal response. Do not include actionables.")
             }
         }
 
         return prompt.toString()
     }
 
-    /**
-     * Processes the prompt with Gemma SDK.
-     */
-    private suspend fun processPromptWithGemma(prompt: String, deviceData: DeviceData): Result<AnalysisResponse> {
+    private suspend fun processPromptWithGemma(
+        prompt: String,
+        deviceData: DeviceData
+    ): Result<AnalysisResponse> {
         try {
             ensureSdkInitialized()
             val jsonResponse = withTimeout(GENERATION_TIMEOUT_MS) {
-                val response = sdk.generateResponseSuspend(prompt, maxTokens = config.maxTokens, temperature = 0.1f)
+                val response = sdk.generateResponseSuspend(
+                    prompt,
+                    maxTokens = config.maxTokens,
+                    temperature = 0.1f
+                )
+                Log.d(LOG_SDK, "LLM Response: $response")
                 val jsonStart = response.indexOf("{")
                 val jsonEnd = response.lastIndexOf("}")
                 if (jsonStart >= 0 && jsonEnd > jsonStart) {
@@ -328,13 +382,16 @@ class GemmaRepository @Inject constructor(
                 ?: simulateAnalysisResponse(deviceData, RESOURCE_OTHER, CATEGORY_INVALID))
         } catch (e: Exception) {
             Log.e(LOG_ERROR, "Processing error: ${e.message}", e)
-            return Result.success(simulateAnalysisResponse(deviceData, RESOURCE_OTHER, CATEGORY_INVALID))
+            return Result.success(
+                simulateAnalysisResponse(
+                    deviceData,
+                    RESOURCE_OTHER,
+                    CATEGORY_INVALID
+                )
+            )
         }
     }
 
-    /**
-     * Parses LLM JSON response into AnalysisResponse.
-     */
     private fun parseGemmaResponse(json: JSONObject, deviceId: String): AnalysisResponse {
         val insights = mutableListOf<Insight>()
         val actionables = mutableListOf<Actionable>()
@@ -343,57 +400,56 @@ class GemmaRepository @Inject constructor(
 
         for (i in 0 until insightsArray.length()) {
             val insight = insightsArray.getJSONObject(i)
-            insights.add(Insight(
-                type = insight.optString("type"),
-                title = insight.optString("title"),
-                description = insight.optString("description"),
-                severity = insight.optString("severity")
-            ))
+            insights.add(
+                Insight(
+                    type = insight.optString("type"),
+                    title = insight.optString("title"),
+                    description = insight.optString("description"),
+                    severity = insight.optString("severity")
+                )
+            )
         }
 
         for (i in 0 until actionablesArray.length()) {
             val actionable = actionablesArray.getJSONObject(i)
+            val type = actionable.optString("type")
+            if (type !in ALLOWED_ACTIONABLE_TYPES) {
+                Log.w(LOG_ERROR, "Invalid actionable type: $type, discarding")
+                continue
+            }
+            val description = actionable.optString("description")
             val params = actionable.optJSONObject("parameters")?.let {
                 mutableMapOf<String, String>().apply {
                     it.keys().forEach { key -> put(key, it.getString(key)) }
                 }
             } ?: emptyMap()
-            
-            // Extract package name from description if possible
-            val description = actionable.optString("description")
-            val actionableType = actionable.optString("type")
-            
-            // Extract package names from description for certain actionable types
-            val packageName = when (actionableType) {
-                SET_STANDBY_BUCKET, RESTRICT_BACKGROUND_DATA, KILL_APP -> {
-                    // Try to extract a package name from the description
-                    // For descriptions like "Restrict background data for com.example.app"
-                    extractPackageNameFromDescription(description) ?: "com.android.settings"
-                }
-                THROTTLE_CPU_USAGE -> {
-                    // System-wid./grae action doesn't need a specific package
-                    "android"
-                }
-                else -> {
-                    // Default fallback
-                    "com.android.settings"
-                }
-            }
-            
-            actionables.add(Actionable(
-                id = UUID.randomUUID().toString(),
-                type = actionableType,
-                packageName = packageName,
-                description = description,
-                reason = "AI recommended",
-                estimatedBatterySavings = if (actionableType in listOf(SET_STANDBY_BUCKET, KILL_APP, MANAGE_WAKE_LOCKS, THROTTLE_CPU_USAGE)) 10.0f else 0.0f,
-                estimatedDataSavings = if (actionableType == RESTRICT_BACKGROUND_DATA) 50.0f else 0.0f,
-                severity = 3,
-                parameters = params,
-                enabled = true,
-                newMode = if (actionableType == SET_STANDBY_BUCKET) "restricted" else "",
-                throttleLevel = if (actionableType == THROTTLE_CPU_USAGE) 2 else 0
-            ))
+
+            val packageName =
+                params["packageName"] ?: extractPackageNameFromDescription(description)
+                ?: "com.android.settings"
+
+            actionables.add(
+                Actionable(
+                    id = UUID.randomUUID().toString(),
+                    type = type,
+                    packageName = packageName,
+                    description = description,
+                    reason = "AI recommended",
+                    estimatedBatterySavings = if (type in listOf(
+                            SET_STANDBY_BUCKET,
+                            KILL_APP,
+                            MANAGE_WAKE_LOCKS
+                        )
+                    ) 10.0f else 0.0f,
+                    estimatedDataSavings = if (type == RESTRICT_BACKGROUND_DATA) 50.0f else 0.0f,
+                    severity = 3,
+                    parameters = params,
+                    enabled = true,
+                    newMode = params["newMode"]
+                        ?: if (type == SET_STANDBY_BUCKET) "working_set" else "",
+                    throttleLevel = 0
+                )
+            )
         }
 
         return AnalysisResponse(
@@ -404,7 +460,7 @@ class GemmaRepository @Inject constructor(
             responseType = "analysis",
             actionable = actionables,
             insights = insights,
-            batteryScore = 75f,  // Placeholder values
+            batteryScore = 75f,
             dataScore = 80f,
             performanceScore = 70f,
             estimatedSavings = AnalysisResponse.EstimatedSavings(
@@ -414,11 +470,7 @@ class GemmaRepository @Inject constructor(
         )
     }
 
-    /**
-     * Extract a package name from an actionable description
-     */
     private fun extractPackageNameFromDescription(description: String): String? {
-        // Look for known app names in the description
         val knownApps = listOf(
             "1Weather" to "com.handmark.expressweather",
             "Teams" to "com.microsoft.teams",
@@ -427,35 +479,36 @@ class GemmaRepository @Inject constructor(
             "Subway Surf" to "com.kiloo.subwaysurf",
             "Outlook" to "com.microsoft.office.outlook",
             "Gmail" to "com.google.android.gm",
-            "Meet" to "com.google.android.apps.meetings"
+            "Meet" to "com.google.android.apps.meetings",
+            "Netflix" to "com.netflix.mediaclient"
         )
-        
-        // Check if any of the known apps are mentioned
         for ((appName, packageName) in knownApps) {
             if (description.contains(appName, ignoreCase = true)) {
                 return packageName
             }
         }
-        
-        // Default to our own package name if nothing is found
         return null
     }
 
-    /**
-     * Simulated response for offline or error cases.
-     */
-    private fun simulateAnalysisResponse(deviceData: DeviceData, resourceType: String, queryCategory: Int): AnalysisResponse {
+    private fun simulateAnalysisResponse(
+        deviceData: DeviceData,
+        resourceType: String,
+        queryCategory: Int
+    ): AnalysisResponse {
         val insights = mutableListOf<Insight>()
         val actionables = mutableListOf<Actionable>()
         val userQuery = deviceData.prompt?.substringAfter("- ")?.trim() ?: ""
 
         when (queryCategory) {
             CATEGORY_INFORMATION -> {
-                val numRequested = "\\b(\\d+)\\b".toRegex().find(userQuery)?.groupValues?.get(1)?.toIntOrNull() ?: 5
+                val numRequested =
+                    "\\b(\\d+)\\b".toRegex().find(userQuery)?.groupValues?.get(1)?.toIntOrNull()
+                        ?: 5
                 val apps = if (resourceType == RESOURCE_BATTERY) {
                     deviceData.apps.sortedByDescending { it.batteryUsage }.take(numRequested)
                 } else {
-                    deviceData.apps.sortedByDescending { it.dataUsage.rxBytes + it.dataUsage.txBytes }.take(numRequested)
+                    deviceData.apps.sortedByDescending { it.dataUsage.rxBytes + it.dataUsage.txBytes }
+                        .take(numRequested)
                 }
                 val desc = if (apps.isNotEmpty()) {
                     apps.joinToString("\n") {
@@ -463,45 +516,77 @@ class GemmaRepository @Inject constructor(
                         else "• ${it.appName}: ${(it.dataUsage.rxBytes + it.dataUsage.txBytes) / (1024 * 1024)}MB"
                     }
                 } else "Sorry, no ${resourceType.lowercase()} data available."
-                insights.add(Insight(resourceType, "Top $numRequested ${resourceType.lowercase()} usage", desc, "LOW"))
+                insights.add(
+                    Insight(
+                        resourceType,
+                        "Top $numRequested ${resourceType.lowercase()} usage",
+                        desc,
+                        "LOW"
+                    )
+                )
             }
+
             CATEGORY_PREDICTIVE -> {
-                val remaining = if (resourceType == RESOURCE_BATTERY) deviceData.battery.level else (deviceData.totalDataMb - deviceData.currentDataMb)
-                insights.add(Insight(resourceType, "Prediction", "Assuming typical usage, $remaining ${if (resourceType == RESOURCE_BATTERY) "%" else "MB"} may suffice.", "MEDIUM"))
+                val remaining =
+                    if (resourceType == RESOURCE_BATTERY) deviceData.battery.level else (deviceData.totalDataMb - deviceData.currentDataMb)
+                insights.add(
+                    Insight(
+                        resourceType,
+                        "Prediction",
+                        "Assuming typical usage, $remaining ${if (resourceType == RESOURCE_BATTERY) "%" else "MB"} may suffice.",
+                        "MEDIUM"
+                    )
+                )
             }
+
             CATEGORY_OPTIMIZATION -> {
-                insights.add(Insight(resourceType, "Optimization Applied", "Restricted high-usage apps.", "MEDIUM"))
-                actionables.add(Actionable(
-                    id = UUID.randomUUID().toString(),
-                    type = if (resourceType == RESOURCE_BATTERY) KILL_APP else RESTRICT_BACKGROUND_DATA,
-                    packageName = "",
-                    description = "Restrict high ${resourceType.lowercase()} usage apps",
-                    reason = "Optimization",
-                    estimatedBatterySavings = if (resourceType == RESOURCE_BATTERY) 10.0f else 0.0f,
-                    estimatedDataSavings = if (resourceType == RESOURCE_DATA) 50.0f else 0.0f,
-                    severity = 3,
-                    parameters = emptyMap(),
-                    enabled = true,
-                    newMode = "",
-                    throttleLevel = 0
-                ))
+                insights.add(
+                    Insight(
+                        resourceType,
+                        "Optimization Applied",
+                        "Restricted high-usage apps.",
+                        "MEDIUM"
+                    )
+                )
+                actionables.add(
+                    Actionable(
+                        id = UUID.randomUUID().toString(),
+                        type = if (resourceType == RESOURCE_BATTERY) KILL_APP else RESTRICT_BACKGROUND_DATA,
+                        packageName = "com.android.settings",
+                        description = "Restrict high ${resourceType.lowercase()} usage apps",
+                        reason = "Optimization",
+                        estimatedBatterySavings = if (resourceType == RESOURCE_BATTERY) 10.0f else 0.0f,
+                        estimatedDataSavings = if (resourceType == RESOURCE_DATA) 50.0f else 0.0f,
+                        severity = 3,
+                        parameters = emptyMap(),
+                        enabled = true,
+                        newMode = "",
+                        throttleLevel = 0
+                    )
+                )
             }
+
             CATEGORY_MONITORING -> {
                 insights.add(Insight(resourceType, "Monitoring Set", "Trigger configured.", "LOW"))
-                actionables.add(Actionable(
-                    id = UUID.randomUUID().toString(),
-                    type = if ("notify" in userQuery.lowercase()) SET_NOTIFICATION else SET_ALARM,
-                    packageName = "",
-                    description = "Monitor $resourceType",
-                    reason = "User request",
-                    estimatedBatterySavings = 0.0f,
-                    estimatedDataSavings = 0.0f,
-                    severity = 1,
-                    parameters = mapOf("condition" to userQuery, "message" to "Threshold reached"),
-                    enabled = true,
-                    newMode = "",
-                    throttleLevel = 0
-                ))
+                actionables.add(
+                    Actionable(
+                        id = UUID.randomUUID().toString(),
+                        type = if ("notify" in userQuery.lowercase()) SET_NOTIFICATION else SET_ALARM,
+                        packageName = "com.android.settings",
+                        description = "Monitor $resourceType",
+                        reason = "User request",
+                        estimatedBatterySavings = 0.0f,
+                        estimatedDataSavings = 0.0f,
+                        severity = 1,
+                        parameters = mapOf(
+                            "condition" to userQuery,
+                            "message" to "Threshold reached"
+                        ),
+                        enabled = true,
+                        newMode = "",
+                        throttleLevel = 0
+                    )
+                )
             }
         }
 

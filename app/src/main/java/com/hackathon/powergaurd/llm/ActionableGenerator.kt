@@ -235,7 +235,6 @@ class ActionableGenerator @Inject constructor() {
             ActionableTypes.MANAGE_WAKE_LOCKS,
             ActionableTypes.RESTRICT_BACKGROUND_DATA,
             ActionableTypes.SET_STANDBY_BUCKET,
-            ActionableTypes.THROTTLE_CPU_USAGE,
             ActionableTypes.SET_BATTERY_ALERT,
             ActionableTypes.SET_DATA_ALERT -> true
             else -> false

@@ -4,7 +4,6 @@ import android.util.Log
 import com.hackathon.powergaurd.actionable.battery.KillAppHandler
 import com.hackathon.powergaurd.actionable.battery.ManageWakeLocksHandler
 import com.hackathon.powergaurd.actionable.battery.SetStandbyBucketHandler
-import com.hackathon.powergaurd.actionable.battery.ThrottleCpuUsageHandler
 import com.hackathon.powergaurd.actionable.data.RestrictBackgroundDataHandler
 import com.hackathon.powergaurd.actionable.model.ActionableResult
 import com.hackathon.powergaurd.actionable.monitoring.BatteryAlertHandler
@@ -25,7 +24,6 @@ class ActionableExecutor @Inject constructor(
     private val manageWakeLocksHandler: ManageWakeLocksHandler,
     private val restrictBackgroundDataHandler: RestrictBackgroundDataHandler,
     private val setStandbyBucketHandler: SetStandbyBucketHandler,
-    private val throttleCpuUsageHandler: ThrottleCpuUsageHandler,
     private val batteryAlertHandler: BatteryAlertHandler,
     private val dataAlertHandler: DataAlertHandler
 ) {
@@ -37,7 +35,6 @@ class ActionableExecutor @Inject constructor(
         ActionableTypes.MANAGE_WAKE_LOCKS to manageWakeLocksHandler,
         ActionableTypes.RESTRICT_BACKGROUND_DATA to restrictBackgroundDataHandler,
         ActionableTypes.SET_STANDBY_BUCKET to setStandbyBucketHandler,
-        ActionableTypes.THROTTLE_CPU_USAGE to throttleCpuUsageHandler,
         ActionableTypes.SET_BATTERY_ALERT to batteryAlertHandler,
         ActionableTypes.SET_DATA_ALERT to dataAlertHandler
     )

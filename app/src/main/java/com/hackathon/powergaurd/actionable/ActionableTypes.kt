@@ -52,17 +52,6 @@ object ActionableTypes {
      * Requires: Android M (API 23) or higher.
      */
     const val MANAGE_WAKE_LOCKS = "manage_wake_locks"
-
-    /**
-     * Limits CPU resources allocated to specific apps.
-     *
-     * Uses process groups and cgroups when available.
-     *
-     * Impact: Allows granular balancing between performance and battery life.
-     * Battery savings: 40-60% for computation-intensive apps.
-     * Requires: System privileges or root access for full functionality.
-     */
-    const val THROTTLE_CPU_USAGE = "throttle_cpu_usage"
     
     /**
      * Sets up a battery level alert that will notify the user when battery reaches a specified threshold.

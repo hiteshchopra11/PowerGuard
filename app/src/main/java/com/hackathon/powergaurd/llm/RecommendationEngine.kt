@@ -119,6 +119,7 @@ class RecommendationEngine @Inject constructor(
             }
         """.trimIndent()
         
+        // Category-specific instructions
         private val PREDICTION_INSTRUCTIONS = """
             This is a PREDICTIVE query. The user wants to know if they have sufficient resources.
             
@@ -146,7 +147,7 @@ class RecommendationEngine @Inject constructor(
               "insight": "Your high-level optimization recommendation",
               "actionable": [
                 {
-                  "type": "action_type", // must be one of: set_standby_bucket, restrict_background_data, kill_app, manage_wake_locks, throttle_cpu_usage
+                  "type": "action_type", // must be one of: set_standby_bucket, restrict_background_data, kill_app, manage_wake_locks
                   "package_name": "com.example.app", // specify the app package name
                   "description": "Human-readable description of the action",
                   "estimated_battery_savings": 10, // percentage (optional)
@@ -169,7 +170,6 @@ class RecommendationEngine @Inject constructor(
             - "restrict_background_data": Prevent specific apps from using data in the background
             - "kill_app": Force stop applications consuming excessive resources
             - "manage_wake_locks": Control apps keeping the device awake
-            - "throttle_cpu_usage": Limit CPU resources for specific apps
         """.trimIndent()
         
         private val MONITORING_INSTRUCTIONS = """

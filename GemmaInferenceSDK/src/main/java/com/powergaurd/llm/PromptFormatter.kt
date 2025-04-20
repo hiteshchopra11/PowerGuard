@@ -68,12 +68,13 @@ class PromptFormatter {
             
             1. actionable: A list of specific actions to take, each with:
                - id: unique identifier for the action
-               - type: the type of action (one of: SET_STANDBY_BUCKET, RESTRICT_BACKGROUND_DATA, KILL_APP, MANAGE_WAKE_LOCKS, THROTTLE_CPU_USAGE)
+               - type: the type of action (one of: set_standby_bucket, restrict_background_data, kill_app, manage_wake_locks, set_battery_alert, set_data_alert)
                - packageName: affected app's package name
                - description: what the action will do
                - reason: why this action is recommended
                - newMode: target state
                - parameters: additional context as key-value pairs
+                 * For set_battery_alert: include 'threshold' parameter 
             
             2. insights: List of insights about the device's behavior, each with:
                - type: insight category

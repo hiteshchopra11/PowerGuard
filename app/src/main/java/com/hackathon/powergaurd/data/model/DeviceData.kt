@@ -15,7 +15,8 @@ data class DeviceData(
     val deviceInfo: DeviceInfo,
     val prompt: String? = null,
     val currentDataMb: Float = 0f,
-    val totalDataMb: Float = 0f
+    val totalDataMb: Float = 0f,
+    val pastUsagePatterns: List<String> = listOf()
 )
 
 /**

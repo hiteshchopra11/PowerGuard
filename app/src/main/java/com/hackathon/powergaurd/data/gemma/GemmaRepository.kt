@@ -331,9 +331,20 @@ class GemmaRepository @Inject constructor(
                     """
                     INSTRUCTIONS FOR OPTIMIZATION REQUEST:
                     - Provide recommendations to optimize $resourceType.
-                    - Include actionables only from: $SET_STANDBY_BUCKET, $RESTRICT_BACKGROUND_DATA, $KILL_APP, $MANAGE_WAKE_LOCKS.
+                    - Include actionables only from: $SET_STANDBY_BUCKET, $RESTRICT_BACKGROUND_DATA, $KILL_APP, $MANAGE_WAKE_LOCKS. choose from description whatever is appropriate
                     - For each actionable, include the required parameters as specified above.
                     - Type: "$resourceType".
+                    
+                    IMPORTANT EXCLUSION HANDLING:
+                    1. First, identify any apps that should be kept running based on the user query.
+                       For example, in "Save battery but keep WhatsApp running", "WhatsApp" should be excluded from restrictions.
+                    2. For each excluded app:
+                       - Include a "$SET_STANDBY_BUCKET" actionable with "newMode" set to "active"
+                       - Set "packageName" to the appropriate package name for that app
+                       - Include a description like "Keep [AppName] active as requested"
+                    3. Do NOT apply any restrictive actions to excluded apps.
+                    4. For all other apps, apply appropriate restrictions to optimize $resourceType.
+                    5. Include one insight stating something like limiting functionality for other apps while keeping WhatsApp running for "Save battery but keep WhatsApp running". Just an example, you choose appropriate insight
                 """.trimIndent()
                 )
             }
@@ -433,7 +444,7 @@ class GemmaRepository @Inject constructor(
                 ?: "com.android.settings"
 
             // Create the description with app name instead of "data-intensive apps" for set_standby_bucket
-            val formattedDescription = if (type == SET_STANDBY_BUCKET && 
+            val formattedDescription = if (type == SET_STANDBY_BUCKET &&
                 description.contains("data-intensive apps", ignoreCase = true)) {
                 // Get app name if possible
                 val appName = try {
@@ -444,7 +455,7 @@ class GemmaRepository @Inject constructor(
                     // If can't get app name, use package name
                     packageName
                 }
-                
+
                 // Replace "data-intensive apps" with app name
                 description.replace("data-intensive apps", appName, ignoreCase = true)
             } else {
@@ -503,7 +514,110 @@ class GemmaRepository @Inject constructor(
             "Outlook" to "com.microsoft.office.outlook",
             "Gmail" to "com.google.android.gm",
             "Meet" to "com.google.android.apps.meetings",
-            "Netflix" to "com.netflix.mediaclient"
+            "Netflix" to "com.netflix.mediaclient",
+            "WhatsApp" to "com.whatsapp",
+            "Spotify" to "com.spotify.music",
+            "Facebook" to "com.facebook.katana",
+            "Instagram" to "com.instagram.android",
+            "Snapchat" to "com.snapchat.android",
+            "YouTube" to "com.google.android.youtube",
+            "TikTok" to "com.zhiliaoapp.musically",
+            "Messenger" to "com.facebook.orca",
+            "Telegram" to "org.telegram.messenger",
+            "Twitter" to "com.twitter.android",
+            "LinkedIn" to "com.linkedin.android",
+            "Pinterest" to "com.pinterest",
+            "Reddit" to "com.reddit.frontpage",
+            "Amazon" to "com.amazon.mShop.android.shopping",
+            "Flipkart" to "com.flipkart.android",
+            "Snapdeal" to "com.snapdeal.main",
+            "Myntra" to "com.myntra.android",
+            "Swiggy" to "in.swiggy.android",
+            "Zomato" to "com.application.zomato",
+            "Uber" to "com.ubercab",
+            "Ola" to "com.olacabs.customer",
+            "Google Maps" to "com.google.android.apps.maps",
+            "Google Drive" to "com.google.android.apps.docs",
+            "Google Photos" to "com.google.android.apps.photos",
+            "Google Pay" to "com.google.android.apps.nbu.paisa.user",
+            "Paytm" to "net.one97.paytm",
+            "PhonePe" to "com.phonepe.app",
+            "Truecaller" to "com.truecaller",
+            "MX Player" to "com.mxtech.videoplayer.ad",
+            "Hotstar" to "in.startv.hotstar",
+            "JioCinema" to "com.jio.media.ondemand",
+            "Gaana" to "com.gaana",
+            "Saavn" to "com.saavn.android",
+            "Wynk Music" to "com.bsbportal.music",
+            "Google News" to "com.google.android.apps.magazines",
+            "Inshorts" to "com.nis.app",
+            "Dailyhunt" to "com.newshunt.news",
+            "Quora" to "com.quora.android",
+            "Coursera" to "org.coursera.android",
+            "Udemy" to "com.udemy.android",
+            "Khan Academy" to "org.khanacademy.android",
+            "Duolingo" to "com.duolingo",
+            "BYJU'S" to "com.byjus.thelearningapp",
+            "Unacademy" to "com.unacademyapp",
+            "Zoom" to "us.zoom.videomeetings",
+            "Skype" to "com.skype.raider",
+            "Slack" to "com.Slack",
+            "Dropbox" to "com.dropbox.android",
+            "Evernote" to "com.evernote",
+            "Notion" to "notion.id",
+            "Google Keep" to "com.google.android.keep",
+            "CamScanner" to "com.intsig.camscanner",
+            "Adobe Acrobat" to "com.adobe.reader",
+            "WPS Office" to "cn.wps.moffice_eng",
+            "Microsoft Word" to "com.microsoft.office.word",
+            "Microsoft Excel" to "com.microsoft.office.excel",
+            "Microsoft PowerPoint" to "com.microsoft.office.powerpoint",
+            "Google Calendar" to "com.google.android.calendar",
+            "Google Translate" to "com.google.android.apps.translate",
+            "Google Assistant" to "com.google.android.apps.googleassistant",
+            "Google Lens" to "com.google.ar.lens",
+            "Google Home" to "com.google.android.apps.chromecast.app",
+            "Mi Fit" to "com.xiaomi.hm.health",
+            "Fitbit" to "com.fitbit.FitbitMobile",
+            "Samsung Health" to "com.sec.android.app.shealth",
+            "Nike Training Club" to "com.nike.ntc",
+            "Strava" to "com.strava",
+            "MyFitnessPal" to "com.myfitnesspal.android",
+            "Calm" to "com.calm.android",
+            "Headspace" to "com.getsomeheadspace.android",
+            "Sleep Cycle" to "com.northcube.sleepcycle",
+            "Period Tracker" to "com.lovelyapps.PeriodTracker",
+            "Clue" to "com.clue.android",
+            "Flo" to "org.iggymedia.periodtracker",
+            "BabyCenter" to "com.babycenter.pregnancytracker",
+            "FirstCry" to "com.firstcry",
+            "BabyChakra" to "com.babychakra",
+            "Koo" to "com.koo.app",
+            "ShareChat" to "in.mohalla.sharechat",
+            "Josh" to "com.eterno.shortvideos",
+            "Moj" to "in.mohalla.video",
+            "Roposo" to "com.roposo.android",
+            "Chingari" to "io.chingari.app",
+            "MX TakaTak" to "com.next.innovation.takatak",
+            "Mitron" to "com.mitron.tv",
+            "Trell" to "app.trell",
+            "Bolo Indya" to "com.boloindya.boloindya",
+            "Public" to "in.public.app",
+            "Dailyhunt" to "com.newshunt.news",
+            "NewsPoint" to "com.newspoint.android",
+            "JioNews" to "com.jio.media.jionews",
+            "Way2News" to "com.way2news.way2news",
+            "Flipboard" to "flipboard.app",
+            "Google Podcasts" to "com.google.android.apps.podcasts",
+            "Spotify" to "com.spotify.music",
+            "Pocket Casts" to "au.com.shiftyjelly.pocketcasts",
+            "Castbox" to "com.podcast.podcasts",
+            "Anchor" to "fm.anchor.android",
+            "SoundCloud" to "com.soundcloud.android",
+            "TuneIn Radio" to "tunein.player",
+            "JioSaavn" to "com.jio.media.jiobeats",
+            "Hungama Music" to "com.hungama.myplay.activity",
+            "Amazon Music" to "com.amazon.mp3",
         )
         for ((appName, packageName) in knownApps) {
             if (description.contains(appName, ignoreCase = true)) {

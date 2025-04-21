@@ -354,6 +354,7 @@ class GemmaRepository @Inject constructor(
                     """
                     INSTRUCTIONS FOR MONITORING TRIGGER:
                     - Set up a trigger using $SET_NOTIFICATION if the query mentions "notify", otherwise use $SET_ALARM.
+                    - Do not return any other actionable other than $SET_NOTIFICATION or $SET_ALARM
                     - Include "condition" and "message" in parameters.
                     - Type: "$resourceType".
                 """.trimIndent()

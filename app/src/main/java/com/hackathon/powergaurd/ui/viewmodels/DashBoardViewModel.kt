@@ -83,6 +83,10 @@ class DashboardViewModel @Inject constructor(
     // Custom battery level for testing
     private val _customBatteryLevel = MutableStateFlow(0)
     val customBatteryLevel: StateFlow<Int> = _customBatteryLevel.asStateFlow()
+    
+    // Past usage patterns
+    private val _pastUsagePatterns = MutableStateFlow<List<String>>(emptyList())
+    val pastUsagePatterns: StateFlow<List<String>> = _pastUsagePatterns.asStateFlow()
 
     init {
         _isUsingGemma.value = analysisRepository.isUsingGemma()
@@ -271,11 +275,18 @@ class DashboardViewModel @Inject constructor(
                     deviceData
                 }
                 
-                _deviceData.value = modifiedDeviceData
-                Log.d(TAG, "Device data collected successfully")
+                // Apply past usage patterns if any
+                val deviceDataWithPatterns = if (_pastUsagePatterns.value.isNotEmpty()) {
+                    modifiedDeviceData.copy(pastUsagePatterns = _pastUsagePatterns.value)
+                } else {
+                    modifiedDeviceData
+                }
+                
+                _deviceData.value = deviceDataWithPatterns
+                Log.d(TAG, "Device data collected successfully with ${_pastUsagePatterns.value.size} usage patterns")
                 
                 // Update UI state with device data only
-                updateUiStateFromDeviceData(modifiedDeviceData)
+                updateUiStateFromDeviceData(deviceDataWithPatterns)
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching device data: ${e.message}", e)
                 
@@ -312,6 +323,15 @@ class DashboardViewModel @Inject constructor(
         val clampedLevel = level.coerceIn(1, 100)
         _customBatteryLevel.value = clampedLevel
         Log.d("DashboardViewModel", "Updated custom battery level: $clampedLevel%")
+    }
+    
+    /**
+     * Updates the past usage patterns for testing and analysis
+     * @param patterns List of usage pattern strings
+     */
+    fun updatePastUsagePatterns(patterns: List<String>) {
+        _pastUsagePatterns.value = patterns
+        Log.d("DashboardViewModel", "Updated past usage patterns: ${patterns.size} patterns")
     }
     
     /**
@@ -356,17 +376,19 @@ class DashboardViewModel @Inject constructor(
                     deviceData
                 }
 
-                val deviceDataWithPrompt = modifiedDeviceData.copy(
+                // Apply past usage patterns if any
+                val deviceDataWithAll = modifiedDeviceData.copy(
                     prompt = prompt,
                     currentDataMb = currentDataMb,
-                    totalDataMb = totalDataMb
+                    totalDataMb = totalDataMb,
+                    pastUsagePatterns = _pastUsagePatterns.value
                 )
 
-                _deviceData.value = deviceDataWithPrompt
-                Log.d("DashboardViewModel", "Collected device data for analysis")
+                _deviceData.value = deviceDataWithAll
+                Log.d("DashboardViewModel", "Collected device data for analysis with ${_pastUsagePatterns.value.size} usage patterns")
 
                 // Analyze the data with the prompt
-                analyzeDeviceData(deviceDataWithPrompt)
+                analyzeDeviceData(deviceDataWithAll)
             } catch (e: Exception) {
                 Log.e("DashboardViewModel", "Failed to submit prompt: ${e.message}", e)
                 _error.value = "Failed to submit prompt: ${e.message}"

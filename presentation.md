@@ -121,11 +121,11 @@ PowerGaurd provides an intelligent solution that optimizes battery and data usag
 ```mermaid
 flowchart TB
     subgraph "PowerGuard Architecture"
-    A[Presentation Layer\nJetpack Compose UI] --> B[Application Layer\nViewModels, Use Cases]
-    B --> C[Domain Layer\nBusiness Logic & Entities]
-    C --> D[Data Layer\nSystem APIs & Local DB]
+    A["Presentation Layer<br/>Jetpack Compose UI"] --> B["Application Layer<br/>ViewModels, Use Cases"]
+    B --> C["Domain Layer<br/>Business Logic & Entities"]
+    C --> D["Data Layer<br/>System APIs & Local DB"]
     
-    B <--> E[On-Device AI Layer\nLLM, ML Models]
+    B <--> E["On-Device AI Layer<br/>LLM, ML Models"]
     D <--> E
     end
     

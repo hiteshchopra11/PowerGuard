@@ -43,51 +43,63 @@ fun ExamplesBottomSheet(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
             
-            // Check Usage Section
+            // Information Queries
             Text(
-                text = "🔍 Check Usage",
+                text = "🔍 Information Queries",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
             
-            Text("• \"Which app is draining my battery?\"")
-            Text("• \"Show me my top data-consuming apps\"")
+            Text("• \"Show me top 3 data consuming apps\"")
+            Text("• \"Which apps consume the most battery?\"")
+            Text("• \"Find out which apps are draining my data\"")
             
-            // Save Battery Section
+            // Predictive Queries
             Text(
-                text = "⚡ Save Battery",
+                text = "🔮 Predictive Queries",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
             
-            Text("• \"Save my battery\"")
-            Text("• \"Make my battery last 3 hours\"")
-            Text("• \"Keep WhatsApp working but save power\"")
+            Text("• \"Can I watch Netflix for 5 hours without charging?\"")
+            Text("• \"Is my battery enough for 3 hours of Netflix?\"")
+            Text("• \"Will my battery last for 2 hours of Google Maps?\"")
             
-            // Save Data Section
+            // Optimization Queries
             Text(
-                text = "📶 Save Data",
+                text = "⚡ Optimization Requests",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
             
-            Text("• \"Reduce data usage\"")
-            Text("• \"I have 500MB left, help me save it\"")
-            Text("• \"Save data but keep messages running\"")
+            Text("• \"Save battery but keep WhatsApp and Maps running\"")
+            Text("• \"Optimize my battery for a 6-hour journey\"")
+            Text("• \"Save battery during flight but keep Spotify running\"")
             
-            // Travel Mode Section
+            // Monitoring Queries
             Text(
-                text = "🧳 Travel Mode",
+                text = "🔔 Monitoring Requests",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
             
-            Text("• \"I'm on a trip with 10% battery and need maps\"")
-            Text("• \"Going on a 2-hour drive, save battery and data\"")
+            Text("• \"Notify me when battery drops to 35% while gaming\"")
+            Text("• \"Alert me if my data usage exceeds 1GB today\"")
+            
+            // Past Usage Pattern Queries
+            Text(
+                text = "📊 Usage Pattern Optimization",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+            )
+            
+            Text("• \"Optimize data based on my past usage patterns\"")
+            Text("• \"Optimize battery based on how I typically use my phone\"")
             
             // Quick Tip Section
             Card(

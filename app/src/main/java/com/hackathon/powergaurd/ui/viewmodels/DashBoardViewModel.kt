@@ -84,6 +84,10 @@ class DashboardViewModel @Inject constructor(
     private val _customBatteryLevel = MutableStateFlow(0)
     val customBatteryLevel: StateFlow<Int> = _customBatteryLevel.asStateFlow()
     
+    // Custom isCharging value for testing
+    private val _customIsCharging = MutableStateFlow<Boolean?>(null)
+    val customIsCharging: StateFlow<Boolean?> = _customIsCharging.asStateFlow()
+    
     // Past usage patterns
     private val _pastUsagePatterns = MutableStateFlow<List<String>>(emptyList())
     val pastUsagePatterns: StateFlow<List<String>> = _pastUsagePatterns.asStateFlow()
@@ -268,11 +272,17 @@ class DashboardViewModel @Inject constructor(
                 val deviceData = usageDataCollector.collectDeviceData()
                 
                 // Apply custom battery level if set
-                val modifiedDeviceData = if (_customBatteryLevel.value > 0) {
-                    val modifiedBattery = deviceData.battery.copy(level = _customBatteryLevel.value)
-                    deviceData.copy(battery = modifiedBattery)
-                } else {
-                    deviceData
+                var modifiedDeviceData = deviceData
+                
+                if (_customBatteryLevel.value > 0) {
+                    val modifiedBattery = modifiedDeviceData.battery.copy(level = _customBatteryLevel.value)
+                    modifiedDeviceData = modifiedDeviceData.copy(battery = modifiedBattery)
+                }
+                
+                // Apply custom isCharging value if set
+                if (_customIsCharging.value != null) {
+                    val modifiedBattery = modifiedDeviceData.battery.copy(isCharging = _customIsCharging.value!!)
+                    modifiedDeviceData = modifiedDeviceData.copy(battery = modifiedBattery)
                 }
                 
                 // Apply past usage patterns if any
@@ -326,6 +336,15 @@ class DashboardViewModel @Inject constructor(
     }
     
     /**
+     * Updates the custom isCharging state for testing
+     * @param isCharging Boolean value for charging state or null to use real device value
+     */
+    fun updateCustomIsCharging(isCharging: Boolean?) {
+        _customIsCharging.value = isCharging
+        Log.d("DashboardViewModel", "Updated custom isCharging: ${isCharging ?: "using real device value"}")
+    }
+    
+    /**
      * Updates the past usage patterns for testing and analysis
      * @param patterns List of usage pattern strings
      */
@@ -368,12 +387,17 @@ class DashboardViewModel @Inject constructor(
                 // Give more time for data collection to complete
                 delay(800)
                 
-                // Apply custom battery level if set
-                val modifiedDeviceData = if (_customBatteryLevel.value > 0) {
-                    val modifiedBattery = deviceData.battery.copy(level = _customBatteryLevel.value)
-                    deviceData.copy(battery = modifiedBattery)
-                } else {
-                    deviceData
+                // Apply custom values if set
+                var modifiedDeviceData = deviceData
+                
+                if (_customBatteryLevel.value > 0) {
+                    val modifiedBattery = modifiedDeviceData.battery.copy(level = _customBatteryLevel.value)
+                    modifiedDeviceData = modifiedDeviceData.copy(battery = modifiedBattery)
+                }
+                
+                if (_customIsCharging.value != null) {
+                    val modifiedBattery = modifiedDeviceData.battery.copy(isCharging = _customIsCharging.value!!)
+                    modifiedDeviceData = modifiedDeviceData.copy(battery = modifiedBattery)
                 }
 
                 // Apply past usage patterns if any

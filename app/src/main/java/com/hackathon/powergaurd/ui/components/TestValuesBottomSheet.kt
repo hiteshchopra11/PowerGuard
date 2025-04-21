@@ -16,16 +16,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +50,10 @@ fun TestValuesBottomSheet(
     viewModel: DashboardViewModel,
     onDismiss: () -> Unit
 ) {
+    // Collect current custom values
+    val currentCustomBatteryLevel by viewModel.customBatteryLevel.collectAsState()
+    val currentCustomIsCharging by viewModel.customIsCharging.collectAsState()
+    
     BottomSheetContent(
         title = "Test Settings",
         onDismiss = onDismiss
@@ -58,7 +66,9 @@ fun TestValuesBottomSheet(
         ) {
             var totalDataMbText by remember { mutableStateOf("") }
             var currentDataMbText by remember { mutableStateOf("") }
-            var batteryLevelText by remember { mutableStateOf("") }
+            var batteryLevelText by remember { mutableStateOf(if (currentCustomBatteryLevel > 0) currentCustomBatteryLevel.toString() else "") }
+            var isChargingEnabled by remember { mutableStateOf(currentCustomIsCharging != null) }
+            var isCharging by remember { mutableStateOf(currentCustomIsCharging ?: false) }
             
             // New fields for past usage patterns
             var patternText by remember { mutableStateOf("") }
@@ -89,6 +99,15 @@ fun TestValuesBottomSheet(
             
             Spacer(modifier = Modifier.height(8.dp))
             
+            // Battery section header
+            Text(
+                text = "Battery Settings",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp, top = 16.dp)
+            )
+            
             OutlinedTextField(
                 value = batteryLevelText,
                 onValueChange = { batteryLevelText = it },
@@ -96,6 +115,58 @@ fun TestValuesBottomSheet(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Charging state toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.BatteryChargingFull,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                
+                Text(
+                    text = "Override Charging State",
+                    modifier = Modifier.weight(1f)
+                )
+                
+                Switch(
+                    checked = isChargingEnabled,
+                    onCheckedChange = { enabled ->
+                        isChargingEnabled = enabled
+                        // If disabling the override, set to null
+                        if (!enabled) {
+                            isCharging = false
+                        }
+                    }
+                )
+            }
+            
+            // Only show the charging state toggle if the override is enabled
+            if (isChargingEnabled) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 32.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Device is charging",
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    Switch(
+                        checked = isCharging,
+                        onCheckedChange = { isCharging = it }
+                    )
+                }
+            }
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -178,8 +249,8 @@ fun TestValuesBottomSheet(
                                     )
                                 }
                             }
-                            
-                            Divider(modifier = Modifier.padding(vertical = 2.dp))
+
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
                         }
                     }
                 }
@@ -212,6 +283,16 @@ fun TestValuesBottomSheet(
                     
                     if (batteryLevel in 1..100) {
                         viewModel.updateCustomBatteryLevel(batteryLevel)
+                    } else if (batteryLevelText.isEmpty()) {
+                        // If the field is empty, reset to 0 (use real device value)
+                        viewModel.updateCustomBatteryLevel(0)
+                    }
+                    
+                    // Update charging state
+                    if (isChargingEnabled) {
+                        viewModel.updateCustomIsCharging(isCharging)
+                    } else {
+                        viewModel.updateCustomIsCharging(null)
                     }
                     
                     // Update past usage patterns

@@ -52,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hackathon.powergaurd.ui.viewmodels.AppUsageInfo
 import com.hackathon.powergaurd.ui.viewmodels.ExploreViewModel
 import com.hackathon.powergaurd.ui.viewmodels.ExploreUiState
+import com.hackathon.powergaurd.ui.viewmodels.AppDataUsage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -419,8 +420,8 @@ private fun DataUsageContent(uiState: ExploreUiState) {
                                 style = Stroke(width = 12f)
                             )
 
-                            // Data usage percentage (for demo, using 65%)
-                            val usagePercentage = 0.65f
+                            // Data usage percentage (calculated from real data)
+                            val usagePercentage = uiState.usedDataMb.toFloat() / uiState.totalDataPlanMb.toFloat()
                             drawArc(
                                 color = Color(0xFF3F51B5),
                                 startAngle = -90f,
@@ -436,7 +437,7 @@ private fun DataUsageContent(uiState: ExploreUiState) {
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "2.6 GB",
+                                text = "${uiState.usedDataMb / 1000f} GB",
                                 style = MaterialTheme.typography.headlineMedium
                             )
                             Text(
@@ -458,7 +459,7 @@ private fun DataUsageContent(uiState: ExploreUiState) {
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = "4 GB",
+                                text = "${uiState.totalDataPlanMb / 1000} GB",
                                 style = MaterialTheme.typography.bodyLarge
                             )
                         }
@@ -469,7 +470,7 @@ private fun DataUsageContent(uiState: ExploreUiState) {
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = "1.4 GB",
+                                text = "${(uiState.totalDataPlanMb - uiState.usedDataMb) / 1000f} GB",
                                 style = MaterialTheme.typography.bodyLarge
                             )
                         }
@@ -480,7 +481,7 @@ private fun DataUsageContent(uiState: ExploreUiState) {
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = "12 days",
+                                text = "${uiState.remainingDays} days",
                                 style = MaterialTheme.typography.bodyLarge
                             )
                         }
@@ -561,37 +562,37 @@ private fun DataUsageContent(uiState: ExploreUiState) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // For demo purposes, using dummy data
-                    val dataApps = listOf(
-                        AppDataUsage("YouTube", "450 MB"),
-                        AppDataUsage("Instagram", "320 MB"),
-                        AppDataUsage("Chrome", "280 MB"),
-                        AppDataUsage("Spotify", "180 MB"),
-                        AppDataUsage("Gmail", "120 MB")
-                    )
-
-                    dataApps.forEachIndexed { index, app ->
-                        Row(
+                    if (uiState.topDataApps.isEmpty()) {
+                        Text(
+                            text = "No data usage information available",
+                            textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "${index + 1}. ${app.appName}",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Text(
-                                text = app.dataUsed,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        
-                        if (index < dataApps.size - 1) {
-                            Divider(
-                                modifier = Modifier.padding(vertical = 8.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant
-                            )
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        uiState.topDataApps.forEachIndexed { index, app ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${index + 1}. ${app.appName}",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Text(
+                                    text = app.dataUsed,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            
+                            if (index < uiState.topDataApps.size - 1) {
+                                Divider(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -623,12 +624,6 @@ private fun formatBatteryTime(minutes: Int): String {
         "$mins min"
     }
 }
-
-// Model for app data usage
-data class AppDataUsage(
-    val appName: String,
-    val dataUsed: String
-)
 
 @Preview(showBackground = true)
 @Composable

@@ -1,23 +1,39 @@
 package com.hackathon.powergaurd.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.hackathon.powergaurd.ui.viewmodels.DashboardViewModel
@@ -43,6 +59,10 @@ fun TestValuesBottomSheet(
             var totalDataMbText by remember { mutableStateOf("") }
             var currentDataMbText by remember { mutableStateOf("") }
             var batteryLevelText by remember { mutableStateOf("") }
+            
+            // New fields for past usage patterns
+            var patternText by remember { mutableStateOf("") }
+            val patternsList = remember { mutableStateListOf<String>() }
             
             Text(
                 text = "These settings are for testing and development purposes only.",
@@ -79,6 +99,107 @@ fun TestValuesBottomSheet(
             
             Spacer(modifier = Modifier.height(16.dp))
             
+            // Past Usage Patterns Section
+            Text(
+                text = "Past Usage Patterns",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = patternText,
+                    onValueChange = { patternText = it },
+                    label = { Text("Enter usage pattern") },
+                    modifier = Modifier.weight(1f)
+                )
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                IconButton(
+                    onClick = {
+                        if (patternText.isNotBlank()) {
+                            patternsList.add(patternText)
+                            patternText = ""
+                        }
+                    },
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add Pattern",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Display added patterns
+            if (patternsList.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                ) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                    ) {
+                        items(patternsList) { pattern ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = pattern,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                
+                                IconButton(
+                                    onClick = { patternsList.remove(pattern) },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove Pattern",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                            
+                            Divider(modifier = Modifier.padding(vertical = 2.dp))
+                        }
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No patterns added yet",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
             Button(
                 onClick = {
                     // Parse and update test values
@@ -92,6 +213,9 @@ fun TestValuesBottomSheet(
                     if (batteryLevel in 1..100) {
                         viewModel.updateCustomBatteryLevel(batteryLevel)
                     }
+                    
+                    // Update past usage patterns
+                    viewModel.updatePastUsagePatterns(patternsList.toList())
                     
                     // Refresh data with new values
                     viewModel.fetchDeviceDataOnly()

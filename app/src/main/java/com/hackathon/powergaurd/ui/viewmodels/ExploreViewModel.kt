@@ -16,6 +16,11 @@ data class AppUsageInfo(
     val batteryPercentage: Float
 )
 
+data class AppDataUsage(
+    val appName: String,
+    val dataUsed: String
+)
+
 data class ExploreUiState(
     val batteryLevel: Int = 0,
     val temperature: Float = 0f,
@@ -30,7 +35,11 @@ data class ExploreUiState(
     val remainingBatteryTime: Int = 0,
     val topBatteryApps: List<AppUsageInfo> = emptyList(),
     val networkType: String? = "WiFi",
-    val signalStrength: Int? = 3
+    val signalStrength: Int? = 3,
+    val totalDataPlanMb: Int = 10000,  // Total data plan in MB
+    val usedDataMb: Int = 2600,      // Used data in MB
+    val remainingDays: Int = 12,     // Days remaining in billing cycle
+    val topDataApps: List<AppDataUsage> = emptyList()  // Top data-consuming apps
 )
 
 @HiltViewModel
@@ -74,6 +83,30 @@ class ExploreViewModel @Inject constructor(
                         )
                     }
                 
+                // Calculate data usage based on network stats
+                val totalDataPlanMb = 4000 // Default 4GB plan in MB
+                
+                // Calculate used data based on network stats if available
+                val usedDataMb = if (networkInfo.dataUsage.rxBytes > 0 || networkInfo.dataUsage.txBytes > 0) {
+                    // Convert bytes to MB (1 MB = 1024 * 1024 bytes)
+                    ((networkInfo.dataUsage.rxBytes + networkInfo.dataUsage.txBytes) / (1024 * 1024)).toInt()
+                } else {
+                    2600 // Default fallback value
+                }
+                
+                // Create list of top data usage apps
+                val topDataApps = deviceData.apps
+                    .sortedByDescending { it.dataUsage.rxBytes + it.dataUsage.txBytes }
+                    .take(5)
+                    .map { app ->
+                        val totalBytes = app.dataUsage.rxBytes + app.dataUsage.txBytes
+                        val dataUsedMb = totalBytes / (1024 * 1024)
+                        AppDataUsage(
+                            appName = app.appName,
+                            dataUsed = "${dataUsedMb} MB"
+                        )
+                    }
+                
                 _uiState.value = ExploreUiState(
                     batteryLevel = batteryInfo.level,
                     temperature = batteryInfo.temperature,
@@ -87,7 +120,11 @@ class ExploreViewModel @Inject constructor(
                     remainingBatteryTime = remainingTime,
                     topBatteryApps = topBatteryApps,
                     networkType = networkInfo.type,
-                    signalStrength = networkInfo.strength
+                    signalStrength = networkInfo.strength,
+                    totalDataPlanMb = totalDataPlanMb,
+                    usedDataMb = usedDataMb,
+                    remainingDays = 12, // Default value for remaining days
+                    topDataApps = topDataApps
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(

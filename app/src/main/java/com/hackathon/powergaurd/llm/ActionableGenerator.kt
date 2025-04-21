@@ -201,10 +201,23 @@ class ActionableGenerator @Inject constructor() {
             }
         }
         
-        // For information queries about data usage, ensure insights are data-focused
-        if (queryCategory == CATEGORY_INFORMATION && userQuery.contains("data", ignoreCase = true)) {
-            for (i in insights.indices) {
-                insights[i] = insights[i].copy(type = "DATA")
+        // For information queries, ensure insights match the query resource type
+        if (queryCategory == CATEGORY_INFORMATION) {
+            // Filter insights based on query content
+            if (userQuery.contains("battery", ignoreCase = true)) {
+                // Keep only battery insights for battery queries
+                insights.removeAll { it.type != "BATTERY" }
+                // If no battery insights, add a default one
+                if (insights.isEmpty()) {
+                    insights.add(Insight("BATTERY", "Battery Usage", "No significant battery usage detected.", "LOW"))
+                }
+            } else if (userQuery.contains("data", ignoreCase = true)) {
+                // Keep only data insights for data queries
+                insights.removeAll { it.type != "DATA" }
+                // If no data insights, add a default one
+                if (insights.isEmpty()) {
+                    insights.add(Insight("DATA", "Data Usage", "No significant data usage detected.", "LOW"))
+                }
             }
         }
         

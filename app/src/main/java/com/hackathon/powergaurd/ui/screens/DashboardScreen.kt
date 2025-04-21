@@ -43,7 +43,10 @@ import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.OfflineBolt
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -87,6 +90,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hackathon.powergaurd.data.model.AnalysisResponse
 import com.hackathon.powergaurd.ui.components.BottomSheetContent
+import com.hackathon.powergaurd.ui.components.TestValuesBottomSheet
 import com.hackathon.powergaurd.ui.viewmodels.DashboardUiState
 import com.hackathon.powergaurd.ui.viewmodels.DashboardViewModel
 import kotlinx.coroutines.delay
@@ -98,7 +102,7 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
     openPromptInput: Boolean = false,
     refreshTrigger: Boolean = false,
-    openSettings: Boolean = false
+    settingsTrigger: Boolean = false
 ) {
     val context = LocalContext.current
 
@@ -112,8 +116,14 @@ fun DashboardScreen(
     var isAnalyzing by remember { mutableStateOf(false) }
     var promptText by remember { mutableStateOf("") }
     
+    // Add state for test values bottom sheet
+    var showTestValuesBottomSheet by remember { mutableStateOf(false) }
+    
     // Previous refresh trigger value to detect changes
     var previousRefreshTrigger by remember { mutableStateOf(refreshTrigger) }
+    
+    // Previous settings trigger value to detect changes
+    var previousSettingsTrigger by remember { mutableStateOf(settingsTrigger) }
     
     LaunchedEffect(isLoading, analysisResponse, showActionableDialog, isAnalyzing) {
         Log.d("DashboardScreen", "State changed: isLoading=$isLoading, hasResponse=${analysisResponse != null}, showDialog=$showActionableDialog, isAnalyzing=$isAnalyzing")
@@ -124,6 +134,14 @@ fun DashboardScreen(
         if (refreshTrigger != previousRefreshTrigger) {
             previousRefreshTrigger = refreshTrigger
             viewModel.refreshData()
+        }
+    }
+    
+    // Listen for settings trigger changes
+    LaunchedEffect(settingsTrigger) {
+        if (settingsTrigger != previousSettingsTrigger) {
+            previousSettingsTrigger = settingsTrigger
+            showTestValuesBottomSheet = true
         }
     }
     
@@ -162,6 +180,14 @@ fun DashboardScreen(
                 viewModel.clearAnalysisResponse()
             },
             viewModel = viewModel
+        )
+    }
+
+    // Show test values bottom sheet when settings is clicked
+    if (showTestValuesBottomSheet) {
+        TestValuesBottomSheet(
+            viewModel = viewModel,
+            onDismiss = { showTestValuesBottomSheet = false }
         )
     }
 
@@ -584,9 +610,6 @@ fun PromptCard(
     // Set up rotating index for placeholders
     var currentPlaceholderIndex by remember { mutableIntStateOf(0) }
     
-    // Bottom sheet state
-    var showBottomSheet by remember { mutableStateOf(false) }
-    
     // Rotate the placeholder every 3 seconds
     LaunchedEffect(Unit) {
         while(true) {
@@ -615,13 +638,6 @@ fun PromptCard(
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.primary
                 )
-                
-                IconButton(onClick = { showBottomSheet = true }) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings"
-                    )
-                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -660,21 +676,9 @@ fun PromptCard(
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                AssistChip(
-                    onClick = { showBottomSheet = true },
-                    label = { Text("What can I ask?") },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Lightbulb,
-                            contentDescription = "Examples",
-                            Modifier.size(18.dp)
-                        )
-                    }
-                )
-                
                 Button(
                     onClick = onSubmit,
                     // Disable button when loading
@@ -699,141 +703,6 @@ fun PromptCard(
             }
         }
     }
-    
-    // Show examples in a bottom sheet when requested
-    if (showBottomSheet) {
-        // Create a list of example prompts
-        val examples = listOf(
-            "Which apps are draining my battery?",
-            "How can I save data on this device?",
-            "Optimize my device for gaming",
-            "I need to save battery for 4 hours",
-            "Which apps use the most data in background?"
-        )
-        
-        BottomSheetContent(
-            title = "Settings",
-            onDismiss = { showBottomSheet = false }
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                // Data Settings Section
-                Text(
-                    text = "Data Settings",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-                
-                // Get current values from viewModel if available
-                val currentTotalDataMb = viewModel?.totalDataMb?.collectAsState()?.value ?: 0f
-                val currentCurrentDataMb = viewModel?.currentDataMb?.collectAsState()?.value ?: 0f
-                val currentBatteryLevel = viewModel?.customBatteryLevel?.collectAsState()?.value ?: 0
-                
-                // Total Data MB text field
-                var totalDataMb by remember { 
-                    mutableStateOf(if (currentTotalDataMb > 0f) currentTotalDataMb.toString() else "") 
-                }
-                
-                OutlinedTextField(
-                    value = totalDataMb,
-                    onValueChange = { 
-                        // Accept only numbers and decimals
-                        if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
-                            totalDataMb = it
-                        }
-                    },
-                    label = { Text("Total Data MB") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number
-                    ),
-                    singleLine = true
-                )
-                
-                // Current Data MB text field
-                var currentDataMb by remember { 
-                    mutableStateOf(if (currentCurrentDataMb > 0f) currentCurrentDataMb.toString() else "") 
-                }
-                
-                OutlinedTextField(
-                    value = currentDataMb,
-                    onValueChange = { 
-                        // Accept only numbers and decimals
-                        if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
-                            currentDataMb = it
-                        }
-                    },
-                    label = { Text("Current Data MB") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number
-                    ),
-                    singleLine = true
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                
-                // Battery Settings Section
-                Text(
-                    text = "Battery Settings",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-                
-                // Custom Battery Level text field
-                var batteryLevel by remember { 
-                    mutableStateOf(if (currentBatteryLevel > 0) currentBatteryLevel.toString() else "") 
-                }
-                
-                OutlinedTextField(
-                    value = batteryLevel,
-                    onValueChange = { 
-                        // Accept only numbers between 1-100
-                        if (it.isEmpty() || (it.matches(Regex("^\\d+$")) && it.toIntOrNull()?.let { num -> num in 1..100 } == true)) {
-                            batteryLevel = it
-                        }
-                    },
-                    label = { Text("Custom Battery Level (1-100)") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number
-                    ),
-                    singleLine = true
-                )
-                
-                // Button to save the settings
-                Button(
-                    onClick = {
-                        val totalValue = totalDataMb.toFloatOrNull() ?: 0f
-                        val currentValue = currentDataMb.toFloatOrNull() ?: 0f
-                        val batteryValue = batteryLevel.toIntOrNull() ?: 0
-                        viewModel?.updateDataSettings(totalValue, currentValue)
-                        
-                        if (batteryValue in 1..100) {
-                            viewModel?.updateCustomBatteryLevel(batteryValue)
-                        }
-                        
-                        onPromptChange(promptText) // Refresh the prompt text
-                        showBottomSheet = false
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
-                    Text("Save Settings")
-                }
-            }
-        }
-    }
 }
 
 @Composable
@@ -854,7 +723,7 @@ fun LoadingAnalysisDialog(onDismissRequest: () -> Unit) {
         onDismissRequest = onDismissRequest,
         title = {
             Text(
-                text = "Analyzing Device Data",
+                text = "Making Things Better",
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleLarge
             )
@@ -875,7 +744,7 @@ fun LoadingAnalysisDialog(onDismissRequest: () -> Unit) {
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 Text(
-                    text = "Please wait while we decide a strategy for you${animatedDots.value}",
+                    text = "We're optimizing your device just for you${animatedDots.value}",
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center
                 )
@@ -883,7 +752,7 @@ fun LoadingAnalysisDialog(onDismissRequest: () -> Unit) {
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "This may take a few moments as we analyze your device usage patterns",
+                    text = "Crafting the perfect recommendations to enhance your experience",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -916,14 +785,6 @@ fun AnalysisDialog(
     // Clear execution results when dialog opens
     LaunchedEffect(Unit) {
         viewModel.clearExecutionResults()
-    }
-    
-    // Auto-dismiss dialog when all actions are completed successfully
-    LaunchedEffect(executionResults) {
-        if (executionResults.isNotEmpty() && executionResults.values.all { it }) {
-            delay(1500) // Show success message for 1.5 seconds
-            onDismissRequest()
-        }
     }
     
     // Debug log the response contents
@@ -1003,7 +864,7 @@ fun AnalysisDialog(
                     Column(modifier = Modifier.padding(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.Lightbulb,
+                                imageVector = Icons.AutoMirrored.Filled.Assignment,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary
                             )
@@ -1069,7 +930,7 @@ fun AnalysisDialog(
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.Assignment,
+                                        imageVector = Icons.Default.OfflineBolt,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary
                                     )
@@ -1092,6 +953,7 @@ fun AnalysisDialog(
                                                 "$successCount of ${response.actionable.size} actions applied."
                                             }
                                             showSuccessMessage = true
+                                            // No automatic dismissal, dialog stays open
                                         }
                                     },
                                     enabled = !isExecuting,

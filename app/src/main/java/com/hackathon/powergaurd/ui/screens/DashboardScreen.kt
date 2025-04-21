@@ -710,7 +710,11 @@ fun PromptCard(
     if (showBottomSheet) {
         ExamplesBottomSheet(
             onDismiss = { showBottomSheet = false },
-            sheetState = bottomSheetState
+            sheetState = bottomSheetState,
+            onPromptSelected = { selectedPrompt ->
+                onPromptChange(selectedPrompt)
+                showBottomSheet = false
+            }
         )
     }
 }

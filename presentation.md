@@ -117,6 +117,25 @@ PowerGaurd provides an intelligent solution that optimizes battery and data usag
 ## 5. High-Level and Low-Level Design
 
 ### High-Level Design
+
+```mermaid
+flowchart TB
+    subgraph "PowerGuard Architecture"
+    A[Presentation Layer\nJetpack Compose UI] --> B[Application Layer\nViewModels, Use Cases]
+    B --> C[Domain Layer\nBusiness Logic & Entities]
+    C --> D[Data Layer\nSystem APIs & Local DB]
+    
+    B <--> E[On-Device AI Layer\nLLM, ML Models]
+    D <--> E
+    end
+    
+    style A fill:#d0e0ff
+    style B fill:#b0d0ff
+    style C fill:#90c0ff
+    style D fill:#70b0ff
+    style E fill:#ffd0a0
+```
+
 - **Presentation Layer**: Jetpack Compose UI components
 - **Application Layer**: ViewModels, Use Cases, and Repositories
 - **Domain Layer**: Business Logic and Entity Models
@@ -124,16 +143,76 @@ PowerGaurd provides an intelligent solution that optimizes battery and data usag
 - **On-Device AI Layer**: Query Processing and Response Generation
 
 ### Low-Level Design Components
-- **UI Module**: Bottom sheets, dialog components, charts, and visualizations
-- **Query Processor**: Intent classification, parameter extraction
-- **Data Analytics Engine**: Usage pattern recognition algorithms
-- **Device Stats Manager**: Battery and network data collection services
-- **Optimization Controller**: System settings and app-specific optimizations
-- **Notification Manager**: Alert threshold monitoring and delivery
-- **Storage Manager**: User preferences and historical data persistence
-- **Embedded LLM**: Optimized language model for mobile devices
+
+```mermaid
+classDiagram
+    class UIModule {
+        +ComposeComponents
+        +VisualizationComponents
+        +DialogComponents
+    }
+    
+    class ApplicationLayer {
+        +ViewModels
+        +UseCases
+        +Repositories
+    }
+    
+    class DataEngines {
+        +QueryProcessor
+        +DataAnalyticsEngine
+        +DeviceStatsManager
+        +OptimizationController
+    }
+    
+    class Storage {
+        +UserPreferences
+        +UsageHistory
+        +BatteryStats
+        +NetworkStats
+    }
+    
+    class AIComponents {
+        +EmbeddedLLM
+        +PatternRecognition
+        +PredictiveModels
+    }
+    
+    UIModule --> ApplicationLayer
+    ApplicationLayer --> DataEngines
+    ApplicationLayer --> Storage
+    DataEngines <--> AIComponents
+    Storage <--> DataEngines
+```
 
 ### Data Flow
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as UI Components
+    participant VM as ViewModels
+    participant LLM as On-device LLM
+    participant Repo as Repositories
+    participant DB as Local Storage
+    
+    User->>UI: Input Query/Request
+    UI->>VM: Process Interaction
+    VM->>LLM: Process Natural Language
+    LLM-->>VM: Query Intent & Parameters
+    VM->>Repo: Request Data
+    Repo->>DB: Fetch Statistics & History
+    DB-->>Repo: Return Data
+    Repo-->>VM: Processed Data
+    VM->>LLM: Generate Insights
+    LLM-->>VM: Actionable Recommendations
+    VM-->>UI: Update with Results
+    UI-->>User: Display Insights & Actions
+    User->>UI: Provide Feedback
+    UI->>VM: Process Feedback
+    VM->>LLM: Update Learning Model
+```
+
 1. User interaction captured by UI components
 2. ViewModels process interactions and query on-device LLM
 3. Repositories fetch device statistics and historical data from local storage

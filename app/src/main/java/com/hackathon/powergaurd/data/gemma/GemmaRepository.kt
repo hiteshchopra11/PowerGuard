@@ -20,6 +20,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -51,6 +54,7 @@ class GemmaRepository @Inject constructor(
         private const val CATEGORY_PREDICTIVE = 2
         private const val CATEGORY_OPTIMIZATION = 3
         private const val CATEGORY_MONITORING = 4
+        private const val CATEGORY_PAST_USAGE = 5
         private const val CATEGORY_INVALID = 0
 
         // Resource types
@@ -122,6 +126,15 @@ class GemmaRepository @Inject constructor(
         val nc = cm.activeNetwork?.let { cm.getNetworkCapabilities(it) }
         return nc?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
                 nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
+    private fun getCurrentTimeString(): String {
+        val sdf = SimpleDateFormat("h:mm a", Locale.getDefault())
+        return sdf.format(Calendar.getInstance().time)
+    }
+
+    private fun getCurrentDayOfWeek(): String {
+        return SimpleDateFormat("EEEE", Locale.getDefault()).format(Calendar.getInstance().time)
     }
 
     /**
@@ -218,8 +231,9 @@ class GemmaRepository @Inject constructor(
                 2. Predictive Queries (e.g., "Can I use an app with current $resourceType?")
                 3. Optimization Requests (e.g., "Optimize $resourceType for an activity")
                 4. Monitoring Triggers (e.g., "Notify me when $resourceType reaches a threshold")
+                5. Past Usage Pattern Analysis (e.g., "Optimize $resourceType based on past usage patterns")
                 0. Invalid Query (unrelated to $resourceType or unclear)
-                Respond with ONLY the category number (0-4).
+                Respond with ONLY the category number (0-5).
                 Query: "$query"
             """.trimIndent()
 
@@ -227,7 +241,7 @@ class GemmaRepository @Inject constructor(
                 sdk.generateResponseSuspend(categorizePrompt, maxTokens = 5, temperature = 0.1f)
             }.trim().toIntOrNull()
 
-            return response?.coerceIn(0, 4) ?: CATEGORY_INVALID
+            return response?.coerceIn(0, 5) ?: CATEGORY_INVALID
         } catch (e: Exception) {
             Log.e(LOG_QUERY, "Error categorizing query: ${e.message}", e)
             return CATEGORY_INVALID
@@ -357,6 +371,38 @@ class GemmaRepository @Inject constructor(
                     - Do not return any other actionable other than $SET_NOTIFICATION or $SET_ALARM
                     - Include "condition" and "message" in parameters.
                     - Type: "$resourceType".
+                """.trimIndent()
+                )
+            }
+
+            CATEGORY_PAST_USAGE -> {
+                prompt.append(
+                    """
+                    INSTRUCTIONS FOR PAST USAGE PATTERN OPTIMIZATION:
+                    - CURRENT TIME: ${getCurrentTimeString()}
+                    - CURRENT DAY: ${getCurrentDayOfWeek()}
+                    - BATTERY LEVEL: ${deviceData.battery.level}%${if (deviceData.battery.isCharging) " (Charging)" else ""}
+                    - DATA USAGE: Current ${deviceData.currentDataMb}MB, Total ${deviceData.totalDataMb}MB
+                    
+                    1. Analyze the past usage patterns below
+                    2. Identify patterns relevant to the current time, day, and resource level ($resourceType)
+                    3. For BATTERY patterns:
+                       - Only suggest actions if current battery is below 40% AND not charging AND a high-usage period is approaching (within 1-2 hours)
+                       - Set severity based on battery level: LOW (>70%), MEDIUM (30-70%), HIGH (<30%)
+                       - Use $SET_STANDBY_BUCKET, $KILL_APP, or $MANAGE_WAKE_LOCKS for critical periods
+                    
+                    4. For DATA patterns:
+                       - Only suggest actions if remaining data is below 25% AND a high-usage period is approaching
+                       - Set severity based on remaining data: LOW (>50%), MEDIUM (25-50%), HIGH (<25%)
+                       - Use $RESTRICT_BACKGROUND_DATA for critical periods
+                    
+                    5. Include insights about identified patterns even if no action is needed
+                    6. If no relevant patterns are found for today/current time, don't suggest actions and return an insight indicating no patterns were found
+                    7. If a pattern is found but the resource level is adequate, include an insight but no actionables
+                    8. If no past usage patterns are provided, return an insight requesting more usage data
+                    
+                    PAST USAGE PATTERNS:
+                    ${deviceData.pastUsagePatterns ?: "No past usage patterns available"}
                 """.trimIndent()
                 )
             }
@@ -618,7 +664,7 @@ class GemmaRepository @Inject constructor(
             "TuneIn Radio" to "tunein.player",
             "JioSaavn" to "com.jio.media.jiobeats",
             "Hungama Music" to "com.hungama.myplay.activity",
-            "Amazon Music" to "com.amazon.mp3",
+            "Amazon Music" to "com.amazon.mp3"
         )
         for ((appName, packageName) in knownApps) {
             if (description.contains(appName, ignoreCase = true)) {
@@ -725,6 +771,58 @@ class GemmaRepository @Inject constructor(
                         throttleLevel = 0
                     )
                 )
+            }
+
+            CATEGORY_PAST_USAGE -> {
+                val currentDay = getCurrentDayOfWeek()
+                val currentTime = getCurrentTimeString()
+                val isLowBattery = deviceData.battery.level < 40 && !deviceData.battery.isCharging
+                val isLowData = (deviceData.totalDataMb - deviceData.currentDataMb) < (deviceData.totalDataMb * 0.25)
+
+                val severity = when {
+                    resourceType == RESOURCE_BATTERY && deviceData.battery.level < 30 -> "HIGH"
+                    resourceType == RESOURCE_BATTERY && deviceData.battery.level < 70 -> "MEDIUM"
+                    resourceType == RESOURCE_DATA &&
+                            (deviceData.totalDataMb - deviceData.currentDataMb) < (deviceData.totalDataMb * 0.25) -> "HIGH"
+                    resourceType == RESOURCE_DATA &&
+                            (deviceData.totalDataMb - deviceData.currentDataMb) < (deviceData.totalDataMb * 0.5) -> "MEDIUM"
+                    else -> "LOW"
+                }
+
+                insights.add(
+                    Insight(
+                        resourceType,
+                        "Past Usage Pattern Analysis",
+                        "Based on your usage patterns, ${if (resourceType == RESOURCE_BATTERY) "battery" else "data"} " +
+                                "consumption ${if (severity == "HIGH") "may be critical" else "is being monitored"} " +
+                                "for $currentDay at $currentTime.",
+                        severity
+                    )
+                )
+
+                if ((resourceType == RESOURCE_BATTERY && isLowBattery) ||
+                    (resourceType == RESOURCE_DATA && isLowData)) {
+
+                    actionables.add(
+                        Actionable(
+                            id = UUID.randomUUID().toString(),
+                            type = if (resourceType == RESOURCE_BATTERY) SET_STANDBY_BUCKET else RESTRICT_BACKGROUND_DATA,
+                            packageName = "com.android.chrome",  // Example app, would be determined by LLM in real case
+                            description = "Optimize ${if (resourceType == RESOURCE_BATTERY) "battery" else "data"} " +
+                                    "usage based on past patterns for $currentDay",
+                            reason = "Past usage pattern optimization",
+                            estimatedBatterySavings = if (resourceType == RESOURCE_BATTERY) 15.0f else 0.0f,
+                            estimatedDataSavings = if (resourceType == RESOURCE_DATA) 100.0f else 0.0f,
+                            severity = if (severity == "HIGH") 4 else if (severity == "MEDIUM") 3 else 2,
+                            parameters = if (resourceType == RESOURCE_BATTERY)
+                                mapOf("newMode" to "working_set")
+                            else emptyMap(),
+                            enabled = true,
+                            newMode = if (resourceType == RESOURCE_BATTERY) "working_set" else "",
+                            throttleLevel = 0
+                        )
+                    )
+                }
             }
         }
 

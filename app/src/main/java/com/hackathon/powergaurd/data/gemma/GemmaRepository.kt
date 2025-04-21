@@ -36,7 +36,6 @@ class GemmaRepository @Inject constructor(
 ) : AnalysisRepository {
     companion object {
         private const val TAG = "GemmaRepository"
-        private const val DEBUG = true
 
         // Log tags
         private const val LOG_SDK = "GemmaSDK_Debug"
@@ -46,7 +45,6 @@ class GemmaRepository @Inject constructor(
 
         // Constants
         private const val GENERATION_TIMEOUT_MS = 10000L
-        private const val MAX_RETRIES = 2
 
         // Query categories
         private const val CATEGORY_INFORMATION = 1
@@ -80,7 +78,7 @@ class GemmaRepository @Inject constructor(
 
     private var _sdk: GemmaInferenceSDK? = null
 
-    open val sdk: GemmaInferenceSDK
+    private val sdk: GemmaInferenceSDK
         get() {
             if (_sdk == null) {
                 synchronized(this) {
@@ -167,7 +165,7 @@ class GemmaRepository @Inject constructor(
                 }
 
                 try {
-                    val result = processPromptWithGemma(prompt, dataToProcess)
+                    val result = processPromptWithGemma(prompt, dataToProcess, resourceType)
                     Log.d(LOG_SDK, "LLM processing completed")
                     return@withContext result
                 } catch (e: Exception) {
@@ -257,7 +255,7 @@ class GemmaRepository @Inject constructor(
             }
 
             IMPORTANT: The "actionable" array must only contain objects with "type" being one of the following, with their purposes:
-    - $SET_STANDBY_BUCKET: Limits an app’s background activity by placing it in a standby bucket (e.g., restricted), saving battery and data.
+    - $SET_STANDBY_BUCKET: Limits an app's background activity by placing it in a standby bucket (e.g., restricted), saving battery and data.
     - $RESTRICT_BACKGROUND_DATA: Prevents an app from using data in the background, reducing data consumption.
     - $KILL_APP: Force stops an app to immediately reduce resource usage, though it may restart later.
     - $MANAGE_WAKE_LOCKS: Restricts an app from keeping the device awake, reducing battery drain.
@@ -361,7 +359,8 @@ class GemmaRepository @Inject constructor(
 
     private suspend fun processPromptWithGemma(
         prompt: String,
-        deviceData: DeviceData
+        deviceData: DeviceData,
+        resourceType: String
     ): Result<AnalysisResponse> {
         try {
             ensureSdkInitialized()
@@ -374,11 +373,11 @@ class GemmaRepository @Inject constructor(
                 Log.d(LOG_SDK, "LLM Response: $response")
                 val jsonStart = response.indexOf("{")
                 val jsonEnd = response.lastIndexOf("}")
-                if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                if (jsonStart in 0..<jsonEnd) {
                     JSONObject(response.substring(jsonStart, jsonEnd + 1))
                 } else null
             }
-            return Result.success(jsonResponse?.let { parseGemmaResponse(it, deviceData.deviceId) }
+            return Result.success(jsonResponse?.let { parseGemmaResponse(it, resourceType) }
                 ?: simulateAnalysisResponse(deviceData, RESOURCE_OTHER, CATEGORY_INVALID))
         } catch (e: Exception) {
             Log.e(LOG_ERROR, "Processing error: ${e.message}", e)
@@ -392,7 +391,7 @@ class GemmaRepository @Inject constructor(
         }
     }
 
-    private fun parseGemmaResponse(json: JSONObject, deviceId: String): AnalysisResponse {
+    private fun parseGemmaResponse(json: JSONObject, resourceType: String = RESOURCE_OTHER): AnalysisResponse {
         val insights = mutableListOf<Insight>()
         val actionables = mutableListOf<Actionable>()
         val insightsArray = json.optJSONArray("insights") ?: JSONArray()
@@ -400,14 +399,19 @@ class GemmaRepository @Inject constructor(
 
         for (i in 0 until insightsArray.length()) {
             val insight = insightsArray.getJSONObject(i)
-            insights.add(
-                Insight(
-                    type = insight.optString("type"),
-                    title = insight.optString("title"),
-                    description = insight.optString("description"),
-                    severity = insight.optString("severity")
+            val insightType = insight.optString("type")
+
+            // Only include insights matching the query's resource type
+            if (resourceType == RESOURCE_OTHER || insightType == resourceType) {
+                insights.add(
+                    Insight(
+                        type = insightType,
+                        title = insight.optString("title"),
+                        description = insight.optString("description"),
+                        severity = insight.optString("severity")
+                    )
                 )
-            )
+            }
         }
 
         for (i in 0 until actionablesArray.length()) {
@@ -428,12 +432,31 @@ class GemmaRepository @Inject constructor(
                 params["packageName"] ?: extractPackageNameFromDescription(description)
                 ?: "com.android.settings"
 
+            // Create the description with app name instead of "data-intensive apps" for set_standby_bucket
+            val formattedDescription = if (type == SET_STANDBY_BUCKET && 
+                description.contains("data-intensive apps", ignoreCase = true)) {
+                // Get app name if possible
+                val appName = try {
+                    val packageManager = context.packageManager
+                    val appInfo = packageManager.getApplicationInfo(packageName, 0)
+                    packageManager.getApplicationLabel(appInfo).toString()
+                } catch (e: Exception) {
+                    // If can't get app name, use package name
+                    packageName
+                }
+                
+                // Replace "data-intensive apps" with app name
+                description.replace("data-intensive apps", appName, ignoreCase = true)
+            } else {
+                description
+            }
+
             actionables.add(
                 Actionable(
                     id = UUID.randomUUID().toString(),
                     type = type,
                     packageName = packageName,
-                    description = description,
+                    description = formattedDescription,
                     reason = "AI recommended",
                     estimatedBatterySavings = if (type in listOf(
                             SET_STANDBY_BUCKET,

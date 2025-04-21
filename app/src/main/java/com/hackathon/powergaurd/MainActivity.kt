@@ -16,6 +16,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
@@ -25,6 +26,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -42,13 +44,16 @@ import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.hackathon.powergaurd.services.PowerGuardService
 import com.hackathon.powergaurd.theme.PowerGuardTheme
 import com.hackathon.powergaurd.ui.AppNavHost
 import com.hackathon.powergaurd.ui.BottomNavBar
+import com.hackathon.powergaurd.ui.navigation.Screen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -82,8 +87,7 @@ class MainActivity : ComponentActivity() {
                     openPromptInput = openDashboard,
                     onLlmTestClick = { launchLlmTestActivity() },
                     onInfoQueryTestClick = { launchInfoQueryTestActivity() },
-                    onRefreshData = { refreshDeviceData() },
-                    onOpenSettings = { openSettings() }
+                    onRefreshData = { refreshDeviceData() }
                 ) 
             } 
         }
@@ -119,18 +123,6 @@ class MainActivity : ComponentActivity() {
         // Instead, we'll pass a "refresh" flag through the NavController if needed,
         // or just show a toast message for now
         Toast.makeText(this, "Refreshing device data...", Toast.LENGTH_SHORT).show()
-    }
-    
-    /**
-     * Open settings for the app
-     */
-    private fun openSettings() {
-        // Navigate to the dashboard screen and open settings
-        val intent = Intent(this, MainActivity::class.java).apply {
-            putExtra("OPEN_DASHBOARD", true)
-            putExtra("OPEN_SETTINGS", true)
-        }
-        startActivity(intent)
     }
     
     private fun setupBackPressHandling() {
@@ -224,28 +216,34 @@ fun PowerGuardAppUI(
     openPromptInput: Boolean = false,
     onLlmTestClick: () -> Unit,
     onInfoQueryTestClick: () -> Unit,
-    onRefreshData: () -> Unit,
-    onOpenSettings: () -> Unit,
-    openSettings: Boolean = false
+    onRefreshData: () -> Unit
 ) {
     // Store NavController in a variable so we can use it
     val navController = rememberNavController()
-    
+
+    // Get current back stack entry as state
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+
     // State for whether the menu is shown
     var showMenu by remember { mutableStateOf(false) }
-    
+
     // State for the SnackbarHostState
     val snackbarHostState = remember { SnackbarHostState() }
-    
+
     // State for triggering refreshes
     var refreshTrigger by remember { mutableStateOf(false) }
-    
+
+    // State for triggering settings bottom sheet
+    var settingsTrigger by remember { mutableStateOf(false) }
+
     // Get the local context to access resources
     val context = LocalContext.current
-    
+
+    val scrollState = rememberScrollState()
+
     // Use rememberCoroutineScope to create a CoroutineScope that is scoped to the composition
     val coroutineScope = rememberCoroutineScope()
-    
+
     // If openPromptInput is true, we navigate to the dashboard
     LaunchedEffect(openPromptInput) {
         if (openPromptInput) {
@@ -259,10 +257,16 @@ fun PowerGuardAppUI(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("PowerGuard") },
+                title = {
+                    Text(
+                        text = "Power Guard",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 actions = {
                     // Refresh button
-                    IconButton(onClick = { 
+                    IconButton(onClick = {
                         // Toggle refresh trigger to notify DashboardScreen
                         refreshTrigger = !refreshTrigger
                         onRefreshData()
@@ -275,21 +279,23 @@ fun PowerGuardAppUI(
                             contentDescription = "Refresh"
                         )
                     }
-                    
-                    // Settings button
-                    IconButton(onClick = { 
-                        // Just call the function from the Activity
-                        onOpenSettings()
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Opening settings...")
+
+                    // Settings button for test values (previously in DashboardScreen)
+                    IconButton(onClick = {
+                        // We'll communicate to DashboardScreen to show bottom sheet
+                        // using a separate trigger
+                        // Check if we're on dashboard screen
+                        if (currentBackStackEntry?.destination?.route == Screen.Dashboard.route) {
+                            // Only show this when on dashboard screen
+                            settingsTrigger = !settingsTrigger
                         }
                     }) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings"
+                            contentDescription = "Test Settings"
                         )
                     }
-                    
+
                     // More options menu
                     Box {
                         IconButton(onClick = { showMenu = !showMenu }) {
@@ -324,8 +330,7 @@ fun PowerGuardAppUI(
                             )
                         }
                     }
-                },
-                scrollBehavior = null
+                }
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -339,7 +344,7 @@ fun PowerGuardAppUI(
             },
             openPromptInput = openPromptInput,
             refreshTrigger = refreshTrigger,
-            openSettings = openSettings
+            settingsTrigger = settingsTrigger
         )
     }
 }

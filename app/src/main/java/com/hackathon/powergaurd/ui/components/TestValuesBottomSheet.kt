@@ -41,6 +41,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.hackathon.powergaurd.ui.viewmodels.DashboardViewModel
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 /**
  * Bottom sheet for setting test values for development and testing purposes
@@ -61,7 +63,8 @@ fun TestValuesBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             var totalDataMbText by remember { mutableStateOf("") }
@@ -214,12 +217,12 @@ fun TestValuesBottomSheet(
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            // Display added patterns
+            // Display added patterns - adjust height for better keyboard handling
             if (patternsList.isNotEmpty()) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp)
+                        .height(100.dp) // Reduced height to ensure visibility with keyboard
                 ) {
                     LazyColumn(
                         modifier = Modifier
@@ -258,7 +261,7 @@ fun TestValuesBottomSheet(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(60.dp)
+                        .height(50.dp) // Reduced height to ensure visibility with keyboard
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
                     contentAlignment = Alignment.Center
                 ) {

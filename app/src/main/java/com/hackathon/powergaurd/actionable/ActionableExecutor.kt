@@ -1,104 +1,118 @@
 package com.hackathon.powergaurd.actionable
 
 import android.util.Log
+import com.hackathon.powergaurd.actionable.battery.KillAppHandler
+import com.hackathon.powergaurd.actionable.battery.ManageWakeLocksHandler
+import com.hackathon.powergaurd.actionable.battery.SetStandbyBucketHandler
+import com.hackathon.powergaurd.actionable.data.RestrictBackgroundDataHandler
+import com.hackathon.powergaurd.actionable.model.ActionableResult
+import com.hackathon.powergaurd.actionable.monitoring.BatteryAlertHandler
+import com.hackathon.powergaurd.actionable.monitoring.DataAlertHandler
 import com.hackathon.powergaurd.data.model.Actionable
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Service for processing and executing actionable received from the backend. */
+/**
+ * Central service for executing actionables.
+ *
+ * This class coordinates the execution of different types of actionables by routing
+ * them to the appropriate handlers based on their type.
+ */
 @Singleton
-class ActionableExecutor
-@Inject
-constructor(
-    // Inject all handlers here
+class ActionableExecutor @Inject constructor(
     private val killAppHandler: KillAppHandler,
     private val manageWakeLocksHandler: ManageWakeLocksHandler,
     private val restrictBackgroundDataHandler: RestrictBackgroundDataHandler,
     private val setStandbyBucketHandler: SetStandbyBucketHandler,
-    private val throttleCpuUsageHandler: ThrottleCpuUsageHandler
+    private val batteryAlertHandler: BatteryAlertHandler,
+    private val dataAlertHandler: DataAlertHandler
 ) {
     private val TAG = "ActionableExecutor"
 
-    // Map of actionable types to their handlers
-    private val handlers: Map<String, ActionableHandler> by lazy {
-        mapOf(
-            killAppHandler.actionableType to killAppHandler,
-            manageWakeLocksHandler.actionableType to manageWakeLocksHandler,
-            restrictBackgroundDataHandler.actionableType to restrictBackgroundDataHandler,
-            setStandbyBucketHandler.actionableType to setStandbyBucketHandler,
-            throttleCpuUsageHandler.actionableType to throttleCpuUsageHandler
-        )
-    }
+    // Register all handlers
+    private val handlers = mapOf(
+        ActionableTypes.KILL_APP to killAppHandler,
+        ActionableTypes.MANAGE_WAKE_LOCKS to manageWakeLocksHandler,
+        ActionableTypes.RESTRICT_BACKGROUND_DATA to restrictBackgroundDataHandler,
+        ActionableTypes.SET_STANDBY_BUCKET to setStandbyBucketHandler,
+        ActionableTypes.SET_BATTERY_ALERT to batteryAlertHandler,
+        ActionableTypes.SET_DATA_ALERT to dataAlertHandler
+    )
 
     /**
-     * Executes a list of actionable received from the backend.
+     * Executes a list of actionables.
      *
-     * @param actionable List of actionable to execute
-     * @return Map of actionable to execution result (true if successful, false otherwise)
+     * @param actionables The list of actionables to execute
+     * @return A map of actionable IDs to their execution results
      */
-    suspend fun executeActionable(
-        actionable: List<Actionable>
-    ): Map<Actionable, Boolean> =
-        withContext(Dispatchers.IO) {
-            val results = mutableMapOf<Actionable, Boolean>()
+    suspend fun executeActionables(actionables: List<Actionable>): Map<String, ActionableResult> {
+        Log.d(TAG, "Executing ${actionables.size} actionables")
 
-            if (actionable.isEmpty()) {
-                Log.d(TAG, "No actionable to execute")
-                return@withContext results
+        val results = mutableMapOf<String, ActionableResult>()
+
+        for (actionable in actionables) {
+            val result = executeActionable(actionable)
+            results[actionable.id] = result
+
+            // Log the result
+            if (result.success) {
+                Log.d(TAG, "Successfully executed actionable ${actionable.id} (${actionable.type})")
+            } else {
+                Log.e(TAG, "Failed to execute actionable ${actionable.id} (${actionable.type}): ${result.message}")
             }
-
-            Log.d(TAG, "Executing ${actionable.size} actionable")
-
-            for (action in actionable) {
-                val result =
-                    try {
-                        val handler = handlers[action.type]
-
-                        if (handler == null) {
-                            Log.w(
-                                TAG,
-                                "No handler found for actionable type: ${action.type}"
-                            )
-                            false
-                        } else {
-                            Log.d(
-                                TAG,
-                                "Executing actionable: ${action.type} for app: ${action.packageName}"
-                            )
-                            handler.handleActionable(action)
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error executing actionable: ${action.type}", e)
-                        false
-                    }
-
-                results[action] = result
-            }
-
-            val successCount = results.values.count { it }
-            Log.d(TAG, "Executed ${results.size} actionable, $successCount successful")
-
-            results
         }
 
-    /**
-     * Verifies if an actionable type is supported by the system.
-     *
-     * @param actionableType The type to check
-     * @return true if the actionable type is supported, false otherwise
-     */
-    fun isActionableTypeSupported(actionableType: String): Boolean {
-        return handlers.containsKey(actionableType)
+        return results
     }
 
     /**
-     * Gets a list of all supported actionable types.
+     * Executes a single actionable.
      *
-     * @return List of supported actionable types
+     * @param actionable The actionable to execute
+     * @return The result of the execution
      */
-    fun getSupportedActionableTypes(): List<String> {
-        return handlers.keys.toList()
+    suspend fun executeActionable(actionable: Actionable): ActionableResult {
+        val handler = handlers[actionable.type]
+
+        return if (handler != null) {
+            try {
+                if (handler.canHandle(actionable)) {
+                    Log.d(TAG, "Executing actionable ${actionable.id} with handler ${handler.javaClass.simpleName}")
+                    handler.execute(actionable)
+                } else {
+                    Log.w(TAG, "Handler ${handler.javaClass.simpleName} cannot handle actionable ${actionable.id}")
+                    ActionableResult.failure("Handler cannot handle this actionable")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error executing actionable ${actionable.id}", e)
+                ActionableResult.fromException(e)
+            }
+        } else {
+            Log.e(TAG, "No handler found for actionable type ${actionable.type}")
+            ActionableResult.failure("No handler found for actionable type ${actionable.type}")
+        }
+    }
+
+    /**
+     * Reverts a previously executed actionable.
+     *
+     * @param actionable The actionable to revert
+     * @return The result of the revert operation
+     */
+    suspend fun revertActionable(actionable: Actionable): ActionableResult {
+        val handler = handlers[actionable.type]
+
+        return if (handler != null) {
+            try {
+                Log.d(TAG, "Reverting actionable ${actionable.id} with handler ${handler.javaClass.simpleName}")
+                handler.revert(actionable)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error reverting actionable ${actionable.id}", e)
+                ActionableResult.fromException(e)
+            }
+        } else {
+            Log.e(TAG, "No handler found for actionable type ${actionable.type}")
+            ActionableResult.failure("No handler found for actionable type ${actionable.type}")
+        }
     }
 }

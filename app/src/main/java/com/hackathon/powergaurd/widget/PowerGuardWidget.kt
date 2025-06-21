@@ -13,7 +13,6 @@ import android.util.Log
 import android.widget.RemoteViews
 import androidx.annotation.RequiresApi
 import com.hackathon.powergaurd.MainActivity
-import com.hackathon.powergaurd.PowerGuardOptimizer
 import com.hackathon.powergaurd.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -94,10 +93,6 @@ class PowerGuardWidget : AppWidgetProvider() {
         
         when (intent.action) {
             ACTION_SAVE_BATTERY -> {
-                // Apply battery optimization
-                val optimizer = PowerGuardOptimizer(context)
-                optimizer.optimizeBatteryCharging()
-                
                 // Open the app with the specific prompt
                 val openIntent = Intent(context, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -108,10 +103,6 @@ class PowerGuardWidget : AppWidgetProvider() {
                 Log.d("PowerGuardWidget", "Battery optimization applied from widget")
             }
             ACTION_SAVE_DATA -> {
-                // Apply data optimization
-                val optimizer = PowerGuardOptimizer(context)
-                optimizer.restrictBackgroundData("com.android.settings", true)
-                
                 // Open the app with the specific prompt
                 val openIntent = Intent(context, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK

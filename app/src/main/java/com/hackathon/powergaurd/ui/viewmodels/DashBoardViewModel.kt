@@ -1,35 +1,44 @@
 package com.hackathon.powergaurd.ui.viewmodels
 
 import android.annotation.SuppressLint
-import android.os.Build
-import androidx.annotation.RequiresApi
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hackathon.powergaurd.actionable.ActionableExecutor
 import com.hackathon.powergaurd.actionable.ActionableTypes
 import com.hackathon.powergaurd.collector.UsageDataCollector
+import com.hackathon.powergaurd.data.PowerGuardAnalysisRepository
+import com.hackathon.powergaurd.data.gemma.GemmaRepository.Companion.RESTRICT_BACKGROUND_DATA
 import com.hackathon.powergaurd.data.local.entity.DeviceInsightEntity
 import com.hackathon.powergaurd.data.model.Actionable
 import com.hackathon.powergaurd.data.model.AnalysisResponse
 import com.hackathon.powergaurd.data.model.DeviceData
 import com.hackathon.powergaurd.domain.usecase.AnalyzeDeviceDataUseCase
+import com.hackathon.powergaurd.domain.usecase.GetAllActionableUseCase
+import com.hackathon.powergaurd.domain.usecase.GetCurrentInsightsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
-import android.util.Log
-import kotlinx.coroutines.delay
 import java.util.UUID
+import javax.inject.Inject
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val usageDataCollector: UsageDataCollector,
     private val analyzeDeviceDataUseCase: AnalyzeDeviceDataUseCase,
-    private val actionableExecutor: ActionableExecutor
+    private val getAllActionableUseCase: GetAllActionableUseCase,
+    private val getCurrentInsightsUseCase: GetCurrentInsightsUseCase,
+    private val actionableExecutor: ActionableExecutor,
+    private val analysisRepository: PowerGuardAnalysisRepository
 ) : ViewModel() {
+
+    companion object {
+        private const val TAG = "DashboardViewModel"
+    }
 
     // UI state
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -59,9 +68,62 @@ class DashboardViewModel @Inject constructor(
     
     private val _executionResults = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val executionResults: StateFlow<Map<String, Boolean>> = _executionResults.asStateFlow()
+    
+    // Track which implementation is currently active
+    private val _isUsingGemma = MutableStateFlow(true)
+    val isUsingGemma: StateFlow<Boolean> = _isUsingGemma.asStateFlow()
+
+    // Add state flows for data settings
+    private val _totalDataMb = MutableStateFlow(0f)
+    val totalDataMb: StateFlow<Float> = _totalDataMb.asStateFlow()
+    
+    private val _currentDataMb = MutableStateFlow(0f)
+    val currentDataMb: StateFlow<Float> = _currentDataMb.asStateFlow()
+    
+    // Custom battery level for testing
+    private val _customBatteryLevel = MutableStateFlow(0)
+    val customBatteryLevel: StateFlow<Int> = _customBatteryLevel.asStateFlow()
+    
+    // Custom isCharging value for testing
+    private val _customIsCharging = MutableStateFlow<Boolean?>(null)
+    val customIsCharging: StateFlow<Boolean?> = _customIsCharging.asStateFlow()
+    
+    // Past usage patterns
+    private val _pastUsagePatterns = MutableStateFlow<List<String>>(emptyList())
+    val pastUsagePatterns: StateFlow<List<String>> = _pastUsagePatterns.asStateFlow()
 
     init {
-        refreshData()
+        _isUsingGemma.value = analysisRepository.isUsingGemma()
+        Log.d("TEST12345","Testing actionable RestrictDataHandler")
+        viewModelScope.launch {
+            actionableExecutor.executeActionable(
+                Actionable(
+                    id = UUID.randomUUID().toString(),
+                    type = RESTRICT_BACKGROUND_DATA,
+                    packageName = "com.inmobi.weather",
+                    description = "",
+                    reason = "Optimization",
+                    estimatedBatterySavings =  0.0f,
+                    estimatedDataSavings = 0.0f,
+                    severity = 3,
+                    parameters = emptyMap(),
+                    enabled = true,
+                    newMode = "",
+                    throttleLevel = 0
+                )
+            )
+        }
+        // Don't automatically call refreshData() on initialization
+        // This prevents automatic LLM API calls on app startup
+    }
+
+    /**
+     * Toggles between GemmaInferenceSDK and backend API
+     */
+    fun toggleInferenceMode(useGemma: Boolean) {
+        analysisRepository.setUseGemma(useGemma)
+        _isUsingGemma.value = useGemma
+        Log.d("DashboardViewModel", "Switched to ${if (useGemma) "Gemma SDK" else "backend API"} mode")
     }
 
     @SuppressLint("NewApi")
@@ -69,16 +131,70 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-
+            
             try {
-                // Collect device data
-                val data = usageDataCollector.collectDeviceData()
-                _deviceData.value = data
-
-                // Update UI state with device data
-                updateUiStateFromDeviceData(data)
+                Log.d(TAG, "Starting to refresh data")
+                
+                // Get device data
+                val deviceData = usageDataCollector.collectDeviceData()
+                _deviceData.value = deviceData
+                Log.d(TAG, "Device data collected successfully")
+                
+                // Analyze it
+                Log.d(TAG, "Starting analysis with ${if (analysisRepository.isUsingGemma()) "Gemma" else "remote API"}")
+                val result = analyzeDeviceDataUseCase(deviceData)
+                
+                if (result.isSuccess) {
+                    val response = result.getOrNull()
+                    if (response != null) {
+                        Log.d(TAG, "Analysis successful: battery=${response.batteryScore}, data=${response.dataScore}, " +
+                                "performance=${response.performanceScore}, actionable items=${response.actionable.size}")
+                        _analysisResponse.value = response
+                        
+                        // Update UI state
+                        _uiState.value = DashboardUiState(
+                            batteryLevel = deviceData.battery.level,
+                            isCharging = deviceData.battery.isCharging,
+                            networkType = deviceData.network.type,
+                            networkStrength = deviceData.network.strength,
+                            batteryScore = response.batteryScore.toInt(),
+                            dataScore = response.dataScore.toInt(),
+                            performanceScore = response.performanceScore.toInt(),
+                            estimatedBatterySavings = response.estimatedSavings.batteryMinutes,
+                            estimatedDataSavings = response.estimatedSavings.dataMB
+                        )
+                    } else {
+                        Log.e(TAG, "Analysis result was success but response is null")
+                        _error.value = "Analysis failed: Empty response"
+                    }
+                } else {
+                    val error = result.exceptionOrNull()
+                    Log.e(TAG, "Analysis failed: ${error?.message}", error)
+                    
+                    // Handle network-related errors more gracefully
+                    val errorMessage = when (error) {
+                        is java.net.UnknownHostException -> "Network connection issue: Unable to connect to server"
+                        is java.net.ConnectException -> "Network connection issue: Server is unreachable"
+                        is java.net.SocketTimeoutException -> "Network connection issue: Connection timed out"
+                        is javax.net.ssl.SSLException -> "Network security issue: Could not establish secure connection"
+                        else -> "Analysis failed: ${error?.message ?: "Unknown error"}"
+                    }
+                    
+                    _error.value = errorMessage
+                }
             } catch (e: Exception) {
-                _error.value = "Failed to collect device data: ${e.message}"
+                Log.e(TAG, "Error refreshing data: ${e.message}", e)
+                
+                // Handle network-related errors more gracefully
+                val errorMessage = when (e) {
+                    is java.net.UnknownHostException -> "Network connection issue: Unable to connect to server"
+                    is java.net.ConnectException -> "Network connection issue: Server is unreachable"
+                    is java.net.SocketTimeoutException -> "Network connection issue: Connection timed out"
+                    is javax.net.ssl.SSLException -> "Network security issue: Could not establish secure connection"
+                    else -> "Error: ${e.message ?: "Unknown error"}"
+                }
+                
+                _error.value = errorMessage
             } finally {
                 _isLoading.value = false
             }
@@ -124,9 +240,9 @@ class DashboardViewModel @Inject constructor(
                     reason = "Immediate resource optimization"
                 )
                 
-                val result = actionableExecutor.executeActionable(listOf(actionable))
+                val result = actionableExecutor.executeActionables(listOf(actionable))
                 
-                if (result.values.first()) {
+                if (result.values.first().success) {
                     Log.d("DashboardViewModel", "Successfully killed app: $packageName")
                 } else {
                     Log.e("DashboardViewModel", "Failed to kill app: $packageName")
@@ -140,22 +256,163 @@ class DashboardViewModel @Inject constructor(
     }
 
     /**
+     * Fetches only device data without running LLM analysis
+     * This separates data collection from LLM inference
+     */
+    @SuppressLint("NewApi")
+    fun fetchDeviceDataOnly() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            
+            try {
+                Log.d(TAG, "Starting to fetch device data only")
+                
+                // Get device data
+                val deviceData = usageDataCollector.collectDeviceData()
+                
+                // Apply custom battery level if set
+                var modifiedDeviceData = deviceData
+                
+                if (_customBatteryLevel.value > 0) {
+                    val modifiedBattery = modifiedDeviceData.battery.copy(level = _customBatteryLevel.value)
+                    modifiedDeviceData = modifiedDeviceData.copy(battery = modifiedBattery)
+                }
+                
+                // Apply custom isCharging value if set
+                if (_customIsCharging.value != null) {
+                    val modifiedBattery = modifiedDeviceData.battery.copy(isCharging = _customIsCharging.value!!)
+                    modifiedDeviceData = modifiedDeviceData.copy(battery = modifiedBattery)
+                }
+                
+                // Apply past usage patterns if any
+                val deviceDataWithPatterns = if (_pastUsagePatterns.value.isNotEmpty()) {
+                    modifiedDeviceData.copy(pastUsagePatterns = _pastUsagePatterns.value)
+                } else {
+                    modifiedDeviceData
+                }
+                
+                _deviceData.value = deviceDataWithPatterns
+                Log.d(TAG, "Device data collected successfully with ${_pastUsagePatterns.value.size} usage patterns")
+                
+                // Update UI state with device data only
+                updateUiStateFromDeviceData(deviceDataWithPatterns)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching device data: ${e.message}", e)
+                
+                // Handle network-related errors more gracefully
+                val errorMessage = when (e) {
+                    is java.net.UnknownHostException -> "Network connection issue: Unable to connect to server"
+                    is java.net.ConnectException -> "Network connection issue: Server is unreachable"
+                    is java.net.SocketTimeoutException -> "Network connection issue: Connection timed out"
+                    is javax.net.ssl.SSLException -> "Network security issue: Could not establish secure connection"
+                    else -> "Error: ${e.message ?: "Unknown error"}"
+                }
+                
+                _error.value = errorMessage
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * Updates the data settings values
+     */
+    fun updateDataSettings(totalDataMb: Float, currentDataMb: Float) {
+        _totalDataMb.value = totalDataMb
+        _currentDataMb.value = currentDataMb
+        Log.d("DashboardViewModel", "Updated data settings - Total: $totalDataMb MB, Current: $currentDataMb MB")
+    }
+    
+    /**
+     * Updates the custom battery level for testing
+     * @param level Battery level between 1 and 100
+     */
+    fun updateCustomBatteryLevel(level: Int) {
+        val clampedLevel = level.coerceIn(1, 100)
+        _customBatteryLevel.value = clampedLevel
+        Log.d("DashboardViewModel", "Updated custom battery level: $clampedLevel%")
+    }
+    
+    /**
+     * Updates the custom isCharging state for testing
+     * @param isCharging Boolean value for charging state or null to use real device value
+     */
+    fun updateCustomIsCharging(isCharging: Boolean?) {
+        _customIsCharging.value = isCharging
+        Log.d("DashboardViewModel", "Updated custom isCharging: ${isCharging ?: "using real device value"}")
+    }
+    
+    /**
+     * Updates the past usage patterns for testing and analysis
+     * @param patterns List of usage pattern strings
+     */
+    fun updatePastUsagePatterns(patterns: List<String>) {
+        _pastUsagePatterns.value = patterns
+        Log.d("DashboardViewModel", "Updated past usage patterns: ${patterns.size} patterns")
+    }
+    
+    /**
+     * Submits the user's prompt to the API for analysis with default data values (0)
+     */
+    fun submitPrompt(prompt: String) {
+        submitPrompt(prompt, _totalDataMb.value, _currentDataMb.value)
+    }
+
+    /**
      * Submits the user's prompt to the API for analysis
      */
-    @RequiresApi(Build.VERSION_CODES.P)
-    fun submitPrompt(prompt: String) {
+    fun submitPrompt(prompt: String, totalDataMb: Float, currentDataMb: Float) {
         viewModelScope.launch {
             _isLoading.value = true
             Log.d("DashboardViewModel", "Submitting prompt: $prompt")
 
             try {
                 // Get latest device data
-                val deviceData = usageDataCollector.collectDeviceData().copy(prompt = prompt)
-                _deviceData.value = deviceData
-                Log.d("DashboardViewModel", "Collected device data for analysis")
+                Log.d("DashboardViewModel", "Starting device data collection for prompt")
+                val deviceData = usageDataCollector.collectDeviceData()
+                
+                // Log the quality of collected device data
+                Log.d("DashboardViewModel", """
+                    Device Data Quality Check:
+                    - Battery Level: ${deviceData.battery.level}%
+                    - Battery Temp: ${deviceData.battery.temperature}°C
+                    - Network Type: ${deviceData.network.type}
+                    - Network Strength: ${deviceData.network.strength}
+                    - Memory: ${deviceData.memory.availableRam}/${deviceData.memory.totalRam} bytes
+                    - Installed Apps: ${deviceData.apps.size}
+                """.trimIndent())
+
+                // Give more time for data collection to complete
+                delay(800)
+                
+                // Apply custom values if set
+                var modifiedDeviceData = deviceData
+                
+                if (_customBatteryLevel.value > 0) {
+                    val modifiedBattery = modifiedDeviceData.battery.copy(level = _customBatteryLevel.value)
+                    modifiedDeviceData = modifiedDeviceData.copy(battery = modifiedBattery)
+                }
+                
+                if (_customIsCharging.value != null) {
+                    val modifiedBattery = modifiedDeviceData.battery.copy(isCharging = _customIsCharging.value!!)
+                    modifiedDeviceData = modifiedDeviceData.copy(battery = modifiedBattery)
+                }
+
+                // Apply past usage patterns if any
+                val deviceDataWithAll = modifiedDeviceData.copy(
+                    prompt = prompt,
+                    currentDataMb = currentDataMb,
+                    totalDataMb = totalDataMb,
+                    pastUsagePatterns = _pastUsagePatterns.value
+                )
+
+                _deviceData.value = deviceDataWithAll
+                Log.d("DashboardViewModel", "Collected device data for analysis with ${_pastUsagePatterns.value.size} usage patterns")
 
                 // Analyze the data with the prompt
-                analyzeDeviceData(deviceData)
+                analyzeDeviceData(deviceDataWithAll)
             } catch (e: Exception) {
                 Log.e("DashboardViewModel", "Failed to submit prompt: ${e.message}", e)
                 _error.value = "Failed to submit prompt: ${e.message}"
@@ -186,7 +443,7 @@ class DashboardViewModel @Inject constructor(
                             // Execute actionables from the response
                             if (response.actionable.isNotEmpty()) {
                                 Log.d("DashboardViewModel", "Executing ${response.actionable.size} actionables from analysis")
-                                actionableExecutor.executeActionable(response.actionable)
+                                actionableExecutor.executeActionables(response.actionable)
                             }
                         } else {
                             Log.w("DashboardViewModel", "Analysis returned success but null response")
@@ -213,6 +470,11 @@ class DashboardViewModel @Inject constructor(
             try {
                 // Get the HistoryViewModel to save the response
                 val historyViewModel = HistoryViewModel.getInstance()
+                if (historyViewModel == null) {
+                    Log.w("DashboardViewModel", "HistoryViewModel not initialized yet, can't save to history")
+                    return@launch
+                }
+                
                 historyViewModel.storeAnalysisResponse(response)
                 
                 // Force refresh history data after saving
@@ -269,7 +531,7 @@ class DashboardViewModel @Inject constructor(
 
     private fun generateAiSummary(insights: List<DeviceInsightEntity>): String {
         if (insights.isEmpty()) {
-            return "Based on our analysis, your device is operating efficiently. We'll continue monitoring for optimization opportunities."
+            return "Your device is operating efficiently. We'll continue monitoring for optimization opportunities."
         }
 
         val highSeverityInsights = insights.filter { it.severity == "HIGH" }
@@ -278,15 +540,15 @@ class DashboardViewModel @Inject constructor(
         return when {
             highSeverityInsights.isNotEmpty() -> {
                 val insight = highSeverityInsights.first()
-                "${insight.insightTitle}: ${insight.insightDescription}. Tap 'Optimize Battery' or 'Optimize Data' to improve your device."
+                insight.insightDescription
             }
             mediumSeverityInsights.isNotEmpty() -> {
                 val insight = mediumSeverityInsights.first()
-                "${insight.insightTitle}: ${insight.insightDescription}. Consider optimizing your device settings."
+                insight.insightDescription
             }
             else -> {
                 val insight = insights.first()
-                "${insight.insightTitle}: ${insight.insightDescription}."
+                insight.insightDescription
             }
         }
     }
@@ -323,8 +585,8 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _isExecuting.value = true
             try {
-                val result = actionableExecutor.executeActionable(listOf(actionable))
-                val success = result.values.firstOrNull() ?: false
+                val result = actionableExecutor.executeActionables(listOf(actionable))
+                val success = result.values.firstOrNull()?.success ?: false
                 
                 // Update execution results
                 _executionResults.value = mapOf(actionable.id to success)
@@ -346,12 +608,10 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _isExecuting.value = true
             try {
-                val results = actionableExecutor.executeActionable(actionables)
+                val results = actionableExecutor.executeActionables(actionables)
                 
-                // Convert to ID-based map
-                val idResults = results.entries.associate { (actionable, success) ->
-                    actionable.id to success
-                }
+                // Convert to ID-based map with success boolean value
+                val idResults = results.mapValues { (_, result) -> result.success }
                 
                 // Update execution results
                 _executionResults.value = idResults
@@ -364,6 +624,15 @@ class DashboardViewModel @Inject constructor(
             } finally {
                 _isExecuting.value = false
             }
+        }
+    }
+
+    fun setUseGemma(useGemma: Boolean) {
+        if (useGemma != _isUsingGemma.value) {
+            analysisRepository.setUseGemma(useGemma)
+            _isUsingGemma.value = useGemma
+            // Refresh with new inference mode
+            refreshData()
         }
     }
 }
@@ -380,5 +649,8 @@ data class DashboardUiState(
     val dataScore: Int = 90,
     val performanceScore: Int = 90,
     val insights: List<DeviceInsightEntity> = emptyList(),
-    val aiSummary: String = "Analyzing your device usage patterns..."
+    val aiSummary: String = "Analyzing your device usage patterns...",
+    val inferenceMode: String = "Gemma SDK",
+    val estimatedBatterySavings: Float = 0f,
+    val estimatedDataSavings: Float = 0f
 )

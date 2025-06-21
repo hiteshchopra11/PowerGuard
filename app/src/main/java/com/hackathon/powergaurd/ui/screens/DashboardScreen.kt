@@ -1,11 +1,11 @@
 package com.hackathon.powergaurd.ui.screens
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -15,8 +15,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +40,7 @@ import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.filled.OfflineBolt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -55,14 +54,14 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,58 +75,70 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.hackathon.powergaurd.PowerGuardOptimizer
+import com.hackathon.powergaurd.data.model.AnalysisResponse
+import com.hackathon.powergaurd.ui.components.TestValuesBottomSheet
 import com.hackathon.powergaurd.ui.viewmodels.DashboardUiState
 import com.hackathon.powergaurd.ui.viewmodels.DashboardViewModel
-import com.hackathon.powergaurd.ui.viewmodels.ActionableViewModel
 import kotlinx.coroutines.delay
-import com.hackathon.powergaurd.data.model.AnalysisResponse
-import com.hackathon.powergaurd.data.model.Actionable
-import com.hackathon.powergaurd.data.model.Insight
-import com.hackathon.powergaurd.actionable.ActionableTypes
-import kotlinx.coroutines.flow.MutableStateFlow
 
-@RequiresApi(Build.VERSION_CODES.P)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     modifier: Modifier = Modifier,
     showSnackbar: (String) -> Unit,
     viewModel: DashboardViewModel = hiltViewModel(),
-    openPromptInput: Boolean = false
+    openPromptInput: Boolean = false,
+    refreshTrigger: Boolean = false,
+    settingsTrigger: Boolean = false
 ) {
     val context = LocalContext.current
-    val optimizer = PowerGuardOptimizer(context)
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val analysisResponse by viewModel.analysisResponse.collectAsStateWithLifecycle()
+    val isUsingGemma by viewModel.isUsingGemma.collectAsState()
     
     var showActionableDialog by remember { mutableStateOf(false) }
     var isAnalyzing by remember { mutableStateOf(false) }
     var promptText by remember { mutableStateOf("") }
     
+    // Add state for test values bottom sheet
+    var showTestValuesBottomSheet by remember { mutableStateOf(false) }
+    
+    // Previous refresh trigger value to detect changes
+    var previousRefreshTrigger by remember { mutableStateOf(refreshTrigger) }
+    
+    // Previous settings trigger value to detect changes
+    var previousSettingsTrigger by remember { mutableStateOf(settingsTrigger) }
+    
     LaunchedEffect(isLoading, analysisResponse, showActionableDialog, isAnalyzing) {
         Log.d("DashboardScreen", "State changed: isLoading=$isLoading, hasResponse=${analysisResponse != null}, showDialog=$showActionableDialog, isAnalyzing=$isAnalyzing")
     }
     
-    // Declare FocusRequester
-    val focusRequester = remember { FocusRequester() }
-
-    // Auto-refresh data every 5 minutes
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(300000) // 5 minutes
+    // Listen for refresh trigger changes
+    LaunchedEffect(refreshTrigger) {
+        if (refreshTrigger != previousRefreshTrigger) {
+            previousRefreshTrigger = refreshTrigger
             viewModel.refreshData()
         }
     }
+    
+    // Listen for settings trigger changes
+    LaunchedEffect(settingsTrigger) {
+        if (settingsTrigger != previousSettingsTrigger) {
+            previousSettingsTrigger = settingsTrigger
+            showTestValuesBottomSheet = true
+        }
+    }
+    
+    // Declare FocusRequester
+    val focusRequester = remember { FocusRequester() }
 
     // Handle error if needed
     LaunchedEffect(error) {
@@ -164,15 +175,17 @@ fun DashboardScreen(
         )
     }
 
+    // Show test values bottom sheet when settings is clicked
+    if (showTestValuesBottomSheet) {
+        TestValuesBottomSheet(
+            viewModel = viewModel,
+            onDismiss = { showTestValuesBottomSheet = false }
+        )
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        contentWindowInsets = WindowInsets(0.dp), // 👈 Makes Scaffold handle insets
-        topBar = {
-            TopAppBar(
-                windowInsets = WindowInsets(0, 0, 0, 0),
-                title = { Text("PowerGuard Dashboard") }
-            )
-        }
+        contentWindowInsets = WindowInsets(0.dp) // 👈 Makes Scaffold handle insets
     )  { paddingValues ->
    
         if (isLoading && uiState.batteryLevel == 0) {
@@ -194,7 +207,6 @@ fun DashboardScreen(
                 uiState = uiState,
                 isRefreshing = isLoading,
                 paddingValues = paddingValues,
-                optimizer = optimizer,
                 showSnackbar = showSnackbar,
                 viewModel = viewModel,
                 openPromptInput = openPromptInput,
@@ -207,29 +219,41 @@ fun DashboardScreen(
                 isAnalyzing = isAnalyzing,
                 focusRequester = focusRequester,
                 promptText = promptText,
-                onPromptChange = { promptText = it }
+                onPromptChange = { promptText = it },
+                isUsingGemma = isUsingGemma
             )
+        }
+    }
+    
+    // Auto-refresh data every 5 minutes
+    LaunchedEffect(Unit) {
+        // Initial data load to populate UI (this just fetches device data, no LLM call)
+        viewModel.fetchDeviceDataOnly()
+        
+        while (true) {
+            delay(300000) // 5 minutes
+            // Only refresh device data, not analysis
+            viewModel.fetchDeviceDataOnly()
         }
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.P)
 @Composable
 private fun DashboardContent(
     uiState: DashboardUiState,
     isRefreshing: Boolean,
     paddingValues: PaddingValues,
-    optimizer: PowerGuardOptimizer,
     showSnackbar: (String) -> Unit,
     viewModel: DashboardViewModel,
     openPromptInput: Boolean,
-    analysisResponse: com.hackathon.powergaurd.data.model.AnalysisResponse?,
+    analysisResponse: AnalysisResponse?,
     onShowAnalysisDialog: (Boolean, Boolean) -> Unit,
     showActionableDialog: Boolean,
     isAnalyzing: Boolean,
     focusRequester: FocusRequester,
     promptText: String,
-    onPromptChange: (String) -> Unit
+    onPromptChange: (String) -> Unit,
+    isUsingGemma: Boolean
 ) {
     // Track whether first API response has been received
     var hasReceivedFirstResponse by remember { mutableStateOf(false) }
@@ -249,7 +273,7 @@ private fun DashboardContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
                 .verticalScroll(rememberScrollState())
         ) {
             // Show linear progress indicator when refreshing
@@ -280,7 +304,9 @@ private fun DashboardContent(
                         showSnackbar("Please enter a prompt first")
                     }
                 },
-                focusRequester = focusRequester
+                focusRequester = focusRequester,
+                isLoading = isRefreshing,
+                viewModel = viewModel
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -296,7 +322,8 @@ private fun DashboardContent(
                     // Call API with exact prompt "Optimize battery"
                     viewModel.submitPrompt("Optimize Battery")
                     onShowAnalysisDialog(true, true) // Show dialog in analyzing state
-                }
+                },
+                viewModel = viewModel
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -311,7 +338,8 @@ private fun DashboardContent(
                     Log.d("PROMPT_DEBUG", "Button Pressed Optimize Data")
                     viewModel.submitPrompt("Optimize Data")
                     onShowAnalysisDialog(true, true) // Show dialog in analyzing state
-                }
+                },
+                viewModel = viewModel
             )
             
             // Add bottom padding
@@ -367,8 +395,13 @@ fun BatteryStatusCard(
     isCharging: Boolean,
     chargingType: String,
     batteryTemperature: Float,
-    onOptimize: () -> Unit
+    onOptimize: () -> Unit,
+    viewModel: DashboardViewModel? = null
 ) {
+    // Get custom battery level if available and greater than 0
+    val customBatteryLevel = viewModel?.customBatteryLevel?.collectAsState()?.value ?: 0
+    val displayBatteryLevel = if (customBatteryLevel > 0) customBatteryLevel else batteryLevel
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -410,7 +443,14 @@ fun BatteryStatusCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text("Current level: $batteryLevel%")
+            Text("Current level: $displayBatteryLevel%")
+            if (customBatteryLevel > 0) {
+                Text(
+                    "(Custom battery level set in settings)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             Text("Status: ${if (isCharging) "Charging ($chargingType)" else "Discharging"}")
             Text("Temperature: ${batteryTemperature}°C")
         }
@@ -422,13 +462,14 @@ fun NetworkUsageCard(
     networkType: String,
     networkStrength: Int,
     highUsageApps: List<String>,
-    onOptimize: () -> Unit
+    onOptimize: () -> Unit,
+    viewModel: DashboardViewModel? = null
 ) {
     var networkSectionExpanded by remember { mutableStateOf(false) }
     val arrowRotation by animateFloatAsState(targetValue = if (networkSectionExpanded) 180f else 0f)
     
     // Create a simulated network speed that changes
-    var networkSpeed by remember { mutableStateOf(0f) }
+    var networkSpeed by remember { mutableFloatStateOf(0f) }
     
     // Update the network speed every few seconds
     LaunchedEffect(Unit) {
@@ -543,7 +584,9 @@ fun PromptCard(
     promptText: String,
     onPromptChange: (String) -> Unit,
     onSubmit: () -> Unit,
-    focusRequester: FocusRequester
+    focusRequester: FocusRequester,
+    isLoading: Boolean = false,
+    viewModel: DashboardViewModel? = null
 ) {
     // Create a list of rotating placeholder texts
     val placeholders = listOf(
@@ -640,14 +683,24 @@ fun PromptCard(
                 )
                 
                 Button(
-                    onClick = onSubmit
+                    onClick = onSubmit,
+                    enabled = !isLoading
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send"
-                    )
+                    // Show loading indicator or send icon based on loading state
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send"
+                        )
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Send")
+                    Text(if (isLoading) "Sending..." else "Send")
                 }
             }
         }
@@ -657,7 +710,11 @@ fun PromptCard(
     if (showBottomSheet) {
         ExamplesBottomSheet(
             onDismiss = { showBottomSheet = false },
-            sheetState = bottomSheetState
+            sheetState = bottomSheetState,
+            onPromptSelected = { selectedPrompt ->
+                onPromptChange(selectedPrompt)
+                showBottomSheet = false
+            }
         )
     }
 }
@@ -671,7 +728,7 @@ fun LoadingAnalysisDialog(onDismissRequest: () -> Unit) {
         while (true) {
             for (i in 0..3) {
                 animatedDots.value = ".".repeat(i)
-                kotlinx.coroutines.delay(500)
+                delay(500)
             }
         }
     }
@@ -680,7 +737,7 @@ fun LoadingAnalysisDialog(onDismissRequest: () -> Unit) {
         onDismissRequest = onDismissRequest,
         title = {
             Text(
-                text = "Analyzing Device Data",
+                text = "Making Things Better",
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleLarge
             )
@@ -701,7 +758,7 @@ fun LoadingAnalysisDialog(onDismissRequest: () -> Unit) {
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 Text(
-                    text = "Please wait while we decide a strategy for you${animatedDots.value}",
+                    text = "We're optimizing your device just for you${animatedDots.value}",
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center
                 )
@@ -709,7 +766,7 @@ fun LoadingAnalysisDialog(onDismissRequest: () -> Unit) {
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "This may take a few moments as we analyze your device usage patterns",
+                    text = "Crafting the perfect recommendations to enhance your experience",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -727,7 +784,7 @@ fun LoadingAnalysisDialog(onDismissRequest: () -> Unit) {
 
 @Composable
 fun AnalysisDialog(
-    response: com.hackathon.powergaurd.data.model.AnalysisResponse,
+    response: AnalysisResponse,
     onDismissRequest: () -> Unit,
     viewModel: DashboardViewModel
 ) {
@@ -742,14 +799,6 @@ fun AnalysisDialog(
     // Clear execution results when dialog opens
     LaunchedEffect(Unit) {
         viewModel.clearExecutionResults()
-    }
-    
-    // Auto-dismiss dialog when all actions are completed successfully
-    LaunchedEffect(executionResults) {
-        if (executionResults.isNotEmpty() && executionResults.values.all { it }) {
-            delay(1500) // Show success message for 1.5 seconds
-            onDismissRequest()
-        }
     }
     
     // Debug log the response contents
@@ -829,7 +878,7 @@ fun AnalysisDialog(
                     Column(modifier = Modifier.padding(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.Lightbulb,
+                                imageVector = Icons.AutoMirrored.Filled.Assignment,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary
                             )
@@ -895,7 +944,7 @@ fun AnalysisDialog(
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.Assignment,
+                                        imageVector = Icons.Default.OfflineBolt,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary
                                     )
@@ -918,6 +967,7 @@ fun AnalysisDialog(
                                                 "$successCount of ${response.actionable.size} actions applied."
                                             }
                                             showSuccessMessage = true
+                                            // No automatic dismissal, dialog stays open
                                         }
                                     },
                                     enabled = !isExecuting,
@@ -958,7 +1008,7 @@ fun AnalysisDialog(
                             
                             Spacer(modifier = Modifier.height(12.dp))
                             
-                            // Display actionables with apply buttons
+                            // Display actionables - show all actionables instead of limiting to 3
                             response.actionable.forEach { actionable ->
                                 val isActionExecuted = executionResults[actionable.id] == true
                                 val isActionFailed = executionResults[actionable.id] == false
@@ -992,23 +1042,12 @@ fun AnalysisDialog(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
-                                            
-                                            // Show success or error message if action was executed
-                                            if (isActionExecuted) {
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text(
-                                                    text = "✓ Action applied successfully",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.primary
-                                                )
-                                            } else if (isActionFailed) {
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text(
-                                                    text = "✗ Failed to apply action",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.error
-                                                )
-                                            }
+                                            // Display actionable type for debugging
+                                            Text(
+                                                text = "Type: ${actionable.type}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
                                         }
                                         
                                         // Apply button for individual actionable
@@ -1022,37 +1061,8 @@ fun AnalysisDialog(
                                                 }
                                             },
                                             enabled = !isExecuting && !isActionExecuted,
-                                            modifier = Modifier
-                                                .padding(start = 8.dp)
-                                                .animateContentSize(
-                                                    animationSpec = tween(
-                                                        durationMillis = 300,
-                                                        easing = FastOutSlowInEasing
-                                                    )
-                                                ),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (isActionExecuted) 
-                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                                                else 
-                                                    MaterialTheme.colorScheme.primary
-                                            )
+                                            modifier = Modifier.padding(start = 8.dp)
                                         ) {
-                                            if (isExecuting && !isActionExecuted && !isActionFailed) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(16.dp),
-                                                    strokeWidth = 2.dp,
-                                                    color = MaterialTheme.colorScheme.onPrimary
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                            } else if (isActionExecuted) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = "Applied",
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onPrimary
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                            }
                                             Text(
                                                 text = if (isActionExecuted) "Applied" else "Apply", 
                                                 style = MaterialTheme.typography.labelLarge
@@ -1072,348 +1082,4 @@ fun AnalysisDialog(
             }
         }
     )
-}
-
-// Preview composables for each card component
-@Preview(showBackground = true)
-@Composable
-fun GratificationCardPreview() {
-    MaterialTheme {
-        Surface {
-            GratificationCard()
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun BatteryStatusCardPreview() {
-    MaterialTheme {
-        Surface {
-            BatteryStatusCard(
-                batteryLevel = 75,
-                isCharging = true,
-                chargingType = "AC",
-                batteryTemperature = 32.5f,
-                onOptimize = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun NetworkUsageCardPreview() {
-    MaterialTheme {
-        Surface {
-            NetworkUsageCard(
-                networkType = "WiFi",
-                networkStrength = 3,
-                highUsageApps = listOf("YouTube (250MB)", "Instagram (120MB)"),
-                onOptimize = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PromptCardPreview() {
-    MaterialTheme {
-        Surface {
-            PromptCard(
-                promptText = "",
-                onPromptChange = {},
-                onSubmit = {},
-                focusRequester = remember { FocusRequester() }
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun LoadingAnalysisDialogPreview() {
-    MaterialTheme {
-        LoadingAnalysisDialog(onDismissRequest = {})
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun AnalysisDialogPreview() {
-    val sampleResponse = AnalysisResponse(
-        id = "preview-1",
-        success = true,
-        timestamp = System.currentTimeMillis().toFloat(),
-        message = "Analysis completed successfully",
-        batteryScore = 85f,
-        dataScore = 75f,
-        performanceScore = 90f,
-        estimatedSavings = AnalysisResponse.EstimatedSavings(
-            batteryMinutes = 120f,
-            dataMB = 250f
-        ),
-        insights = listOf(
-            Insight(
-                type = "BATTERY",
-                title = "Battery Usage",
-                description = "Your device's battery health is good",
-                severity = "LOW"
-            ),
-            Insight(
-                type = "DATA",
-                title = "Data Usage",
-                description = "Some apps are consuming high data in background",
-                severity = "MEDIUM"
-            )
-        ),
-        actionable = listOf(
-            Actionable(
-                id = "action-1",
-                type = ActionableTypes.RESTRICT_BACKGROUND_DATA,
-                packageName = "com.example.youtube",
-                description = "Optimize battery usage for YouTube",
-                reason = "High battery consumption in background",
-                estimatedBatterySavings = 10f,
-                estimatedDataSavings = 50f,
-                severity = 3,
-                enabled = true,
-                throttleLevel = 5,
-                newMode = "restricted"
-            ),
-            Actionable(
-                id = "action-2",
-                type = ActionableTypes.SET_STANDBY_BUCKET,
-                packageName = "com.example.instagram",
-                description = "Restrict background data for Instagram",
-                reason = "Excessive data usage in background",
-                estimatedBatterySavings = 5f,
-                estimatedDataSavings = 100f,
-                severity = 4,
-                enabled = true,
-                throttleLevel = null,
-                newMode = "restricted"
-            )
-        )
-    )
-
-    MaterialTheme {
-        Surface {
-            AnalysisDialogPreviewContent(sampleResponse)
-        }
-    }
-}
-
-@Composable
-private fun AnalysisDialogPreviewContent(response: AnalysisResponse) {
-    AlertDialog(
-        onDismissRequest = {},
-        title = {
-            Text(
-                text = "Device Optimization Insights",
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleLarge
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                // INSIGHTS SECTION
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Lightbulb,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Insights:",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        // Display insights with proper bullet points
-                        if (response.insights.isEmpty()) {
-                            Text(
-                                text = "No insights available at this time.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            response.insights.forEach { insight ->
-                                Row(
-                                    verticalAlignment = Alignment.Top,
-                                    modifier = Modifier.padding(bottom = 8.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier.width(24.dp),
-                                        contentAlignment = Alignment.TopStart
-                                    ) {
-                                        Text(
-                                            text = "•", 
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontSize = 18.sp
-                                        )
-                                    }
-                                    Text(
-                                        text = insight.description,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // ACTIONS SECTION - Only show if there are actionables
-                if (response.actionable.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.Assignment,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "Suggested Actions:",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                
-                                // Apply All button at the top level (disabled in preview)
-                                Button(
-                                    onClick = {},
-                                    enabled = false,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary
-                                    )
-                                ) {
-                                    Text("Apply All")
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            // Display actionables
-                            response.actionable.forEach { actionable ->
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surface
-                                    )
-                                ) {
-                                    Column(modifier = Modifier.padding(12.dp)) {
-                                        Text(
-                                            text = actionable.description,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = actionable.reason,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        
-                                        // Action button (disabled in preview)
-                                        Button(
-                                            onClick = {},
-                                            enabled = false,
-                                            modifier = Modifier
-                                                .align(Alignment.End)
-                                                .padding(top = 8.dp),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.primary
-                                            )
-                                        ) {
-                                            Text("Apply")
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {}) {
-                Text("Close")
-            }
-        }
-    )
-}
-
-@RequiresApi(Build.VERSION_CODES.P)
-@Preview(showBackground = true)
-@Composable
-fun FullDashboardContentPreview() {
-    MaterialTheme {
-        Surface {
-            // For preview only
-            val previewUiState = DashboardUiState(
-                batteryLevel = 75,
-                isCharging = true,
-                batteryTemperature = 32.5f,
-                chargingType = "AC",
-                networkType = "WiFi",
-                networkStrength = 3,
-                highUsageApps = listOf("YouTube (250MB)", "Instagram (120MB)"),
-                batteryScore = 90,
-                dataScore = 85,
-                performanceScore = 95,
-                insights = emptyList(),
-                aiSummary = "Your device is performing well"
-            )
-
-            DashboardContent(
-                uiState = previewUiState,
-                isRefreshing = false,
-                paddingValues = PaddingValues(0.dp),
-                optimizer = PowerGuardOptimizer(LocalContext.current),
-                showSnackbar = {},
-                viewModel = hiltViewModel(),
-                openPromptInput = false,
-                analysisResponse = null,
-                onShowAnalysisDialog = { _, _ -> },
-                showActionableDialog = false,
-                isAnalyzing = false,
-                focusRequester = remember { FocusRequester() },
-                promptText = "",
-                onPromptChange = {}
-            )
-        }
-    }
 }

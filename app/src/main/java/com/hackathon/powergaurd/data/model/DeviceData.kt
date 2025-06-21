@@ -13,7 +13,10 @@ data class DeviceData(
     val apps: List<AppInfo>,
     val settings: SettingsInfo,
     val deviceInfo: DeviceInfo,
-    val prompt: String? = null
+    val prompt: String? = null,
+    val currentDataMb: Float = 0f,
+    val totalDataMb: Float = 0f,
+    val pastUsagePatterns: List<String> = listOf()
 )
 
 /**
@@ -41,12 +44,12 @@ data class MemoryInfo(
 )
 
 /**
- * CPU information model (unchanged)
+ * Enhanced CPU information model
  */
 data class CpuInfo(
     val usage: Float,
     val temperature: Float,
-    val frequencies: List<Long>
+    val frequencies: List<Long> = emptyList()
 )
 
 /**
@@ -73,7 +76,7 @@ data class DataUsage(
 )
 
 /**
- * Enhanced app information model
+ * Enhanced app information model with additional metrics
  */
 data class AppInfo(
     val packageName: String,
@@ -93,7 +96,10 @@ data class AppInfo(
     val versionCode: Long = 0L,        // App version code
     val targetSdkVersion: Int = 0,     // Target SDK version
     val installTime: Long = 0L,        // When app was installed
-    val updatedTime: Long = 0L         // When app was last updated
+    val updatedTime: Long = 0L,        // When app was last updated
+    val alarmWakeups: Int = 0,         // Number of alarm wakeups
+    val currentPriority: String = "unknown",  // Current process priority
+    val bucket: String = "UNKNOWN"     // App standby bucket
 )
 
 /**

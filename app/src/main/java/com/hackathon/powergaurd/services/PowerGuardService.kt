@@ -20,16 +20,16 @@ import android.os.Process
 import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.hackathon.powergaurd.R
 import com.hackathon.powergaurd.MainActivity
-import com.hackathon.powergaurd.di.AppRepository
+import com.hackathon.powergaurd.R
+import com.hackathon.powergaurd.di.AppDataRepository
 import com.hackathon.powergaurd.models.AppUsageData
 import com.hackathon.powergaurd.models.BatteryOptimizationData
 import com.hackathon.powergaurd.models.NetworkUsageData
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
@@ -42,11 +42,13 @@ class PowerGuardService : Service() {
     private val NOTIFICATION_ID = 1001
     private val CHANNEL_ID = "power_guard_channel"
 
-    private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
+    // Create cancellable scope with SupervisorJob
+    private val serviceJob = SupervisorJob()
+    private val serviceScope = CoroutineScope(Dispatchers.Default + serviceJob)
     private var isCollectingData = false
 
     @Inject
-    lateinit var appRepository: AppRepository
+    lateinit var appRepository: AppDataRepository
 
     private lateinit var powerManager: PowerManager
     private lateinit var batteryManager: BatteryManager
@@ -83,13 +85,14 @@ class PowerGuardService : Service() {
         checkSystemPermissions()
 
         createNotificationChannel()
+        
+        // Create notification and start as foreground right away
+        val notification = createForegroundNotification()
+        startForeground(NOTIFICATION_ID, notification)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "PowerGuardService started")
-
-        val notification = createForegroundNotification()
-        startForeground(NOTIFICATION_ID, notification)
 
         if (!isCollectingData) {
             isCollectingData = true
@@ -105,6 +108,9 @@ class PowerGuardService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        
+        // Cancel all coroutines
+        serviceJob.cancel()
         isCollectingData = false
         Log.d(TAG, "PowerGuardService destroyed")
     }
@@ -186,7 +192,7 @@ class PowerGuardService : Service() {
 
     private fun isAppInstalledAsPrivilegedSystemApp(): Boolean {
         return try {
-            val appInfo = packageManager.getApplicationInfo(packageName, 0)
+            val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.MATCH_UNINSTALLED_PACKAGES)
             (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0 &&
                     appInfo.sourceDir.startsWith("/system/priv-app")
         } catch (e: Exception) {
@@ -205,37 +211,23 @@ class PowerGuardService : Service() {
 
     private fun checkUsageStatsPermission(): Boolean {
         val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            appOpsManager.unsafeCheckOpNoThrow(
-                AppOpsManager.OPSTR_GET_USAGE_STATS,
-                Process.myUid(),
-                packageName
-            ) == AppOpsManager.MODE_ALLOWED
-        } else {
-            @Suppress("DEPRECATION")
-            appOpsManager.checkOpNoThrow(
-                AppOpsManager.OPSTR_GET_USAGE_STATS,
-                Process.myUid(),
-                packageName
-            ) == AppOpsManager.MODE_ALLOWED
-        }
+        return appOpsManager.unsafeCheckOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS,
+            Process.myUid(),
+            packageName
+        ) == AppOpsManager.MODE_ALLOWED
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "PowerGuard Service"
-            val descriptionText = "Monitoring battery and network usage"
-            val importance = NotificationManager.IMPORTANCE_LOW
-            val channel =
-                NotificationChannel(CHANNEL_ID, name, importance).apply {
-                    description = descriptionText
-                }
-
-            val notificationManager =
-                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+        val name = "PowerGuard Service"
+        val descriptionText = "Monitoring battery and network usage"
+        val importance = NotificationManager.IMPORTANCE_LOW
+        val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
+            description = descriptionText
         }
+
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
     }
 
     private fun createForegroundNotification(): Notification {
@@ -260,7 +252,7 @@ class PowerGuardService : Service() {
         serviceScope.launch {
             while (isCollectingData) {
                 try {
-                    collectAndAnalyzeData()
+                    collectUsageData()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error collecting data: ${e.message}")
                 }
@@ -271,7 +263,7 @@ class PowerGuardService : Service() {
         }
     }
 
-    private suspend fun collectAndAnalyzeData() {
+    private fun collectUsageData() {
         Log.d(TAG, "Collecting usage data")
 
         // 1. Collect battery and app usage data
@@ -281,7 +273,15 @@ class PowerGuardService : Service() {
         val networkUsageData = collectNetworkUsageData(installedApps)
 
         // 2. Store data for pattern recognition
-        appRepository.saveUsageData(appUsageData, batteryInfo, networkUsageData)
+        try {
+            if (::appRepository.isInitialized) {
+                appRepository.saveUsageData(appUsageData, batteryInfo, networkUsageData)
+            } else {
+                Log.e(TAG, "AppRepository not initialized")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving usage data: ${e.message}", e)
+        }
 
         // 3. Analyze patterns and optimize based on available permissions
         optimizeBatteryUsage(appUsageData, batteryInfo)
@@ -289,11 +289,23 @@ class PowerGuardService : Service() {
     }
 
     private fun getInstalledApps(): List<ApplicationInfo> {
-        return packageManager.getInstalledApplications(PackageManager.GET_META_DATA).filter {
-            // Filter out system apps if needed
-            it.packageName != "android" &&
-                    it.packageName != "com.android.systemui" &&
-                    it.packageName != applicationContext.packageName
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            // For Android 7+ (API 24+), use MATCH_* flags
+            packageManager.getInstalledApplications(PackageManager.MATCH_UNINSTALLED_PACKAGES).filter {
+                // Filter out system apps if needed
+                it.packageName != "android" &&
+                        it.packageName != "com.android.systemui" &&
+                        it.packageName != applicationContext.packageName
+            }
+        } else {
+            // For older versions, use GET_* flags
+            @Suppress("DEPRECATION")
+            packageManager.getInstalledApplications(PackageManager.GET_META_DATA).filter {
+                // Filter out system apps if needed
+                it.packageName != "android" &&
+                        it.packageName != "com.android.systemui" &&
+                        it.packageName != applicationContext.packageName
+            }
         }
     }
 
@@ -632,7 +644,8 @@ class PowerGuardService : Service() {
     // New utility method to get package UID for network policy
     private fun getPackageUid(packageName: String): Int {
         return try {
-            packageManager.getApplicationInfo(packageName, 0).uid
+            val appInfo = packageManager.getApplicationInfo(packageName, PackageManager.MATCH_UNINSTALLED_PACKAGES)
+            appInfo.uid
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get UID for package $packageName: ${e.message}")
             -1

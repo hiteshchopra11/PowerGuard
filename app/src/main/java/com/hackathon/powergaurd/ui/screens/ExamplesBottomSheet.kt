@@ -1,11 +1,14 @@
 package com.hackathon.powergaurd.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,18 +26,18 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ExamplesBottomSheet(
     onDismiss: () -> Unit,
-    sheetState: SheetState
+    sheetState: SheetState,
+    onPromptSelected: (String) -> Unit
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        // Force the sheet to be fullscreen height
-        dragHandle = {}
+        sheetState = sheetState
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 36.dp)
+                .verticalScroll(rememberScrollState())
         ) {
             Text(
                 text = "💡 Try asking me:",
@@ -43,53 +46,65 @@ fun ExamplesBottomSheet(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
             
-            // Check Usage Section
+            // Information Queries
             Text(
-                text = "🔍 Check Usage",
+                text = "🔍 Information Queries",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
             
-            Text("• \"Which app is draining my battery?\"")
-            Text("• \"Show me my top data-consuming apps\"")
+            ClickablePrompt("• \"Show me top 3 data consuming apps\"", onPromptSelected)
+            ClickablePrompt("• \"Which apps consume the most battery?\"", onPromptSelected)
+            ClickablePrompt("• \"Find out which apps are draining my data\"", onPromptSelected)
             
-            // Save Battery Section
+            // Predictive Queries
             Text(
-                text = "⚡ Save Battery",
+                text = "🔮 Predictive Queries",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
             
-            Text("• \"Save my battery\"")
-            Text("• \"Make my battery last 3 hours\"")
-            Text("• \"Keep WhatsApp working but save power\"")
+            ClickablePrompt("• \"Can I watch Netflix for 5 hours without charging?\"", onPromptSelected)
+            ClickablePrompt("• \"Is my battery enough for 3 hours of Netflix?\"", onPromptSelected)
+            ClickablePrompt("• \"Will my battery last for 2 hours of Google Maps?\"", onPromptSelected)
             
-            // Save Data Section
+            // Optimization Queries
             Text(
-                text = "📶 Save Data",
+                text = "⚡ Optimization Requests",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
             
-            Text("• \"Reduce data usage\"")
-            Text("• \"I have 500MB left, help me save it\"")
-            Text("• \"Save data but keep messages running\"")
+            ClickablePrompt("• \"Save battery but keep WhatsApp and Maps running\"", onPromptSelected)
+            ClickablePrompt("• \"Optimize my battery for a 6-hour journey\"", onPromptSelected)
+            ClickablePrompt("• \"Save battery during flight but keep Spotify running\"", onPromptSelected)
             
-            // Travel Mode Section
+            // Monitoring Queries
             Text(
-                text = "🧳 Travel Mode",
+                text = "🔔 Monitoring Requests",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
             
-            Text("• \"I'm on a trip with 10% battery and need maps\"")
-            Text("• \"Going on a 2-hour drive, save battery and data\"")
+            ClickablePrompt("• \"Notify me when battery drops to 35% while gaming\"", onPromptSelected)
+            ClickablePrompt("• \"Alert me if my data usage exceeds 1GB today\"", onPromptSelected)
             
-            // Quick Tip Section
+            // Past Usage Pattern Queries
+            Text(
+                text = "📊 Usage Pattern Optimization",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+            )
+            
+            ClickablePrompt("• \"Optimize data based on my past usage patterns\"", onPromptSelected)
+            ClickablePrompt("• \"Optimize battery based on how I typically use my phone\"", onPromptSelected)
+            
+            // Quick Tip Section - Fixed layout to prevent truncation
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -98,15 +113,14 @@ fun ExamplesBottomSheet(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
                         text = "🧠 Quick Tip:",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(end = 8.dp)
+                        modifier = Modifier.padding(bottom = 4.dp)
                     )
                     Text(
                         text = "You can just ask in plain language — no special commands needed.",
@@ -118,4 +132,20 @@ fun ExamplesBottomSheet(
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+}
+
+@Composable
+private fun ClickablePrompt(text: String, onPromptSelected: (String) -> Unit) {
+    Text(
+        text = text,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                // Extract the text without bullet point and quotes
+                val cleanText = text.removePrefix("• ")
+                    .removeSurrounding("\"")
+                onPromptSelected(cleanText)
+            }
+            .padding(vertical = 4.dp)
+    )
 } 

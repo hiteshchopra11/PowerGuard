@@ -1,49 +1,40 @@
 package com.hackathon.powergaurd.domain.usecase
 
+import com.hackathon.powergaurd.data.PowerGuardAnalysisRepository
 import com.hackathon.powergaurd.data.model.AnalysisResponse
 import com.hackathon.powergaurd.data.model.DeviceData
-import com.hackathon.powergaurd.data.remote.PowerGuardRepository
 import javax.inject.Inject
 
 /**
- * Use case to analyze device data and save insights
+ * Use case for analyzing device data.
  */
 class AnalyzeDeviceDataUseCase @Inject constructor(
-    private val repository: PowerGuardRepository,
+    private val repository: PowerGuardAnalysisRepository,
     private val saveInsightsUseCase: SaveInsightsUseCase
 ) {
     /**
-     * Analyze device data and save insights
+     * Analyzes the provided device data.
      *
      * @param deviceData The device data to analyze
-     * @return Result of the analysis operation
+     * @return Result containing analysis response or error
      */
     suspend operator fun invoke(deviceData: DeviceData): Result<AnalysisResponse> {
-        return try {
-            // Call the API service via repository to analyze device data
-            val result = repository.analyzeDeviceData(deviceData)
+        val result = repository.analyzeDeviceData(deviceData)
+        
+        // If analysis is successful, save insights
+        if (result.isSuccess) {
+            val response = result.getOrNull()
+            if (response != null) {
+                // Convert insights to entities and save them
+                val insightEntities = response.insights.map { it.toEntity() }
 
-            // If analysis is successful, save insights
-            if (result.isSuccess) {
-                val response = result.getOrNull()
-                if (response != null) {
-                    // Convert insights to entities and save them
-                    val insightEntities = response.insights.map { it.toEntity() }
-
-                    // Only save if there are insights
-                    if (insightEntities.isNotEmpty()) {
-                        saveInsightsUseCase(insightEntities)
-                    }
-
-                    Result.success(response)
-                } else {
-                    Result.failure(Exception("No response received from analysis"))
+                // Only save if there are insights
+                if (insightEntities.isNotEmpty()) {
+                    saveInsightsUseCase(insightEntities)
                 }
-            } else {
-                Result.failure(result.exceptionOrNull() ?: Exception("Analysis failed"))
             }
-        } catch (e: Exception) {
-            Result.failure(e)
         }
+        
+        return result
     }
 }

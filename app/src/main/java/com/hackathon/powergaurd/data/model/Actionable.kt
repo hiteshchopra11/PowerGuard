@@ -17,7 +17,7 @@ import com.google.gson.annotations.SerializedName
  * The ActionableExecutor service routes actionables to the appropriate handler based on type.
  * Each handler implements the specific optimization logic for that actionable type.
  * 
- * The 5 most effective actionables with system privileges are:
+ * The 4 most effective actionables with system privileges are:
  * 
  * 1. set_standby_bucket - Places apps in the RESTRICTED bucket using UsageStatsManager, 
  *    which limits background operations significantly. This reduces background CPU cycles, 
@@ -42,12 +42,6 @@ import com.google.gson.annotations.SerializedName
  *    WAKE_LOCK operations. Wake locks prevent the device from entering low-power sleep state, 
  *    which can drain battery dramatically (up to 20% per hour if the device is kept fully awake). 
  *    By managing wake locks, the device can enter deep sleep properly, greatly extending standby time.
- * 
- * 5. throttle_cpu_usage - Uses CPU process control through process priorities with 
- *    ActivityManager's setProcessImportance() to limit CPU resources for specific apps. 
- *    This can reduce battery consumption by 40-60% for computation-intensive apps by lowering 
- *    their priority and CPU quota while still allowing them to function. Particularly effective 
- *    for games and media processing apps when running in the background.
  */
 data class Actionable(
     /**

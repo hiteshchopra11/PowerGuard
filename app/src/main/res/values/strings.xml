@@ -47,4 +47,5 @@
     <string name="widget_send">Send</string>
     <string name="widget_optimize_now">Optimize Now</string>
     <string name="widget_prompt_title">Enter prompt for AI analysis</string>
+    <string name="special_use_foreground_service_reason">PowerGuard needs to run in the background to continuously monitor battery usage, network activity, and system performance to provide accurate power optimization recommendations.</string>
 </resources>

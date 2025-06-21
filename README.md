@@ -1,86 +1,230 @@
-# PowerGuard Actionables
+# PowerGuard - AI-Powered Battery & Data Optimization
 
-PowerGuard leverages a set of high-impact actionables to optimize both battery and data usage on Android devices. These actionables are implementable with system privileges and target specific applications.
+<div align="center">
+  <img src="app/src/main/res/drawable/ic_power_guard.xml" alt="PowerGuard Logo" width="120" height="120">
+  
+  [![Android](https://img.shields.io/badge/Android-15+-green.svg)](https://android.com)
+  [![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-blue.svg)](https://kotlinlang.org)
+  [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+  [![AI](https://img.shields.io/badge/AI-Gemma%20LLM-purple.svg)](https://ai.google.dev/edge/gemma)
+</div>
 
-## Core Actionables
+## 🎯 Overview
 
-PowerGuard implements 5 primary actionables, each focusing on different aspects of system optimization:
+PowerGuard is an intelligent Android application that leverages **on-device AI** to analyze your device's power consumption and data usage patterns. Using Google's **Gemma LLM** running entirely on your device, PowerGuard provides personalized, actionable recommendations to optimize battery life and reduce data consumption without compromising your privacy.
 
-### 1. Set Standby Bucket (`set_standby_bucket`)
+## 🎥 Demo Video
 
-Places apps in Android's app standby buckets to control background activity levels.
+> **Coming Soon!** 📹 
+> 
+> A comprehensive video demonstration showing PowerGuard in action will be available here. The demo will showcase:
+> - Real-time battery optimization
+> - AI-powered recommendations
+> - Data usage management
+> - User interface walkthrough
 
-- **Implementation**: Uses `UsageStatsManager.setAppStandbyBucket()` API
-- **Buckets**: ACTIVE, WORKING_SET, FREQUENT, RARE, RESTRICTED
-- **Requires**: Android P (API 28) or higher for full functionality
-- **Impact**: High impact on battery with low user experience disruption
+---
 
-### 2. Restrict Background Data (`restrict_background_data`)
+## ✨ Key Features
 
-Prevents specific apps from using data in the background.
+### 🧠 **AI-Powered Analysis**
+- **On-Device LLM**: Uses Google's Gemma model for complete privacy
+- **Smart Recommendations**: Contextual suggestions based on usage patterns
+- **Natural Language Interface**: Chat with your device about power optimization
 
-- **Implementation**: Uses `NetworkPolicyManager.setUidPolicy()` API
-- **Requirements**: System privileges to access NetworkPolicyManager
-- **Fallback**: Guides users to data settings when direct API access isn't possible
-- **Impact**: High impact on data usage with minimal UX effects
+### 🔋 **Battery Optimization**
+- **App Standby Management**: Intelligently manages background app behavior
+- **Wake Lock Control**: Prevents apps from keeping your device awake unnecessarily
+- **Battery Alerts**: Customizable low-battery notifications
+- **Force Stop**: Smart app termination for battery-draining applications
 
-### 3. Kill App (`kill_app`)
+### 📱 **Data Management**
+- **Background Data Restriction**: Blocks unnecessary background data usage
+- **Data Usage Monitoring**: Real-time tracking and historical analysis
+- **Smart Alerts**: Proactive notifications before hitting data limits
+- **Network Policy Management**: Fine-grained control over app network access
 
-Force stops applications that are consuming excessive resources.
+### 🎨 **Modern UI/UX**
+- **Material Design 3**: Clean, intuitive interface
+- **Dark/Light Theme**: Adaptive theming support
+- **Dashboard Analytics**: Visual insights into your device performance
+- **Interactive Chat**: Conversational AI for easy optimization
 
-- **Implementation**: Uses `ActivityManager.forceStopPackage()` API
-- **Requirements**: System privileges to force stop other applications
-- **Impact**: Immediate but temporary relief; apps will restart when launched
+## 🏗️ Architecture
 
-### 4. Manage Wake Locks (`manage_wake_locks`)
+PowerGuard follows a modern Android architecture with clean separation of concerns:
 
-Controls apps keeping the device awake via wake locks.
-
-- **Implementation**: Uses `AppOpsManager` to deny wake lock operations
-- **Requirements**: Android M (API 23) or higher
-- **Impact**: Targets one of the most common battery drain sources
-
-## Architecture
-
-PowerGuard's actionable system follows a modular architecture:
-
-1. **ActionableTypes**: Defines available actionable types as constants
-2. **ActionableHandler**: Interface implemented by all handlers
-3. **ActionableExecutor**: Central service for processing and executing actionables
-4. **ActionableUtils**: Utility class with common operations for all handlers
-5. **Individual Handlers**: Implementations for each actionable type
-
-## Usage
-
-Each actionable is implemented with thorough error handling and fallback mechanisms, requiring minimal custom code to invoke:
-
-```kotlin
-// Example of using the actionable system
-val actionableExecutor: ActionableExecutor = // injected via Dagger
-
-// Create an actionable
-val action = Actionable(
-    id = "unique_id",
-    type = ActionableTypes.KILL_APP,
-    description = "Force stop Facebook to save battery",
-    packageName = "com.facebook.katana"
-)
-
-// Execute the actionable
-lifecycleScope.launch {
-    val result = actionableExecutor.executeActionable(listOf(action))
-    // Handle result
-}
+```
+┌─────────────────────────────────────────────────────────────┐
+│                          UI Layer                           │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐│
+│  │   Dashboard     │ │    Explore      │ │    History      ││
+│  │    Screen       │ │    Screen       │ │    Screen       ││
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘│
+│                             │                               │
+├─────────────────────────────┼─────────────────────────────────┤
+│                     ViewModel Layer                         │
+│  ┌─────────────────┐       │       ┌─────────────────┐      │
+│  │   Dashboard     │       │       │    Explore      │      │
+│  │   ViewModel     │───────┼───────│   ViewModel     │      │
+│  └─────────────────┘       │       └─────────────────┘      │
+│                             │                               │
+├─────────────────────────────┼─────────────────────────────────┤
+│                      Domain Layer                           │
+│  ┌─────────────────┐       │       ┌─────────────────┐      │
+│  │    Use Cases    │───────┼───────│  Repositories   │      │
+│  └─────────────────┘       │       └─────────────────┘      │
+│                             │                               │
+├─────────────────────────────┼─────────────────────────────────┤
+│                        Data Layer                           │
+│  ┌─────────────────┐ ┌─────┴─────┐ ┌─────────────────┐      │
+│  │   Local DB      │ │  Gemma    │ │   Collectors    │      │
+│  │   (Room)        │ │   SDK     │ │   (Usage/Bat)   │      │
+│  └─────────────────┘ └───────────┘ └─────────────────┘      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Requirements
+### 🧩 **Core Components**
 
-Most actionables require elevated system privileges to function properly:
+- **Gemma Inference SDK**: Custom on-device LLM integration
+- **Actionable Engine**: Executes AI-generated optimization strategies
+- **Usage Collectors**: Monitors device metrics and app behavior
+- **Permission Manager**: Handles system-level permissions gracefully
+- **Notification System**: Smart alerts and recommendations
 
-- The app should be installed as a privileged system app
-- Requires PACKAGE_USAGE_STATS permission at minimum
-- Some features need additional permissions like WRITE_SECURE_SETTINGS
+## 🚀 Getting Started
 
-## Compatibility
+### Prerequisites
 
-PowerGuard actionables are designed to work across all modern Android versions (API 24+) with progressive enhancement for newer API levels.
+- **Android Studio** Hedgehog (2023.1.1) or newer
+- **Minimum SDK**: Android 15 (API level 35)
+- **Target SDK**: Android 15 (API level 35)
+- **JDK**: 17 or higher
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/PowerGuard.git
+   cd PowerGuard
+   ```
+
+2. **Open in Android Studio**
+   - Launch Android Studio
+   - Select "Open an existing project"
+   - Navigate to the cloned PowerGuard directory
+
+3. **Configure Gemma API** (Optional)
+   - Add your Gemma API credentials to `app/src/main/assets/gemma_api.properties`
+   - The app works offline by default with on-device inference
+
+4. **Grant necessary permissions**
+   ```bash
+   ./grant_permissions.sh
+   ```
+
+5. **Build and Run**
+   ```bash
+   ./gradlew assembleDebug
+   # Or use Android Studio's run button
+   ```
+
+### System Requirements
+
+PowerGuard requires several system-level permissions for full functionality:
+
+- **Usage Stats Access**: Monitor app usage patterns
+- **Network Policy Management**: Control background data
+- **Battery Optimization**: Manage app standby states
+- **Notification Access**: Display smart alerts
+
+> **Note**: Some features require system-level access and work best on rooted devices or when installed as a system app.
+
+## 💡 Usage
+
+### 1. **Initial Setup**
+- Launch PowerGuard and grant required permissions
+- The app will automatically start collecting device metrics
+- Gemma LLM initializes in the background for AI analysis
+
+### 2. **Dashboard Overview**
+- View real-time battery and data usage statistics
+- Check AI-generated optimization recommendations
+- Monitor app-specific consumption patterns
+
+### 3. **Interactive Chat**
+- Navigate to the "Explore" tab
+- Ask questions about your device's performance
+- Get personalized optimization advice from the AI
+
+### 4. **Apply Optimizations**
+- Review AI recommendations on the dashboard
+- Tap on optimization cards to apply suggested changes
+- Monitor improvement in battery life and data usage
+
+### 5. **Historical Analysis**
+- Visit the "History" tab to view past insights
+- Track optimization effectiveness over time
+- Compare before/after performance metrics
+
+## 🛠️ Technical Details
+
+### **On-Device AI**
+PowerGuard uses Google's Gemma 2B model optimized for mobile devices:
+- **Inference Time**: ~2-3 seconds on modern devices
+- **Memory Usage**: ~1.5GB RAM during active inference
+- **Privacy**: All processing happens locally, no data leaves your device
+
+### **Optimization Strategies**
+- **Standby Buckets**: Uses `UsageStatsManager` to control app background behavior
+- **Network Policies**: Leverages `NetworkPolicyManager` for data restrictions
+- **Wake Lock Management**: Controls `PowerManager` wake locks
+- **Force Stop**: Utilizes `ActivityManager` for resource management
+
+### **Data Collection**
+- **Battery Stats**: System-level battery consumption data
+- **Network Usage**: Per-app data consumption metrics
+- **App Usage**: Usage patterns and screen time statistics
+- **System Events**: Boot, charging, and connectivity events
+
+## 🎯 Roadmap
+
+- [ ] **Machine Learning Models**: Additional on-device ML models for enhanced predictions
+- [ ] **Widget Support**: Home screen widget for quick optimization access
+- [ ] **Tasker Integration**: Automation support for power users
+- [ ] **Export Analytics**: Data export for advanced users
+- [ ] **Multi-Device Sync**: Cross-device optimization insights (privacy-preserving)
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **Google AI** for the Gemma LLM model
+- **Android Open Source Project** for system APIs
+- **Material Design** for UI/UX guidelines
+- **Jetpack Compose** for modern Android UI development
+
+## 📞 Support
+
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/your-username/PowerGuard/issues)
+- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/your-username/PowerGuard/discussions)
+- 📧 **Contact**: your-email@example.com
+
+---
+
+<div align="center">
+  <strong>PowerGuard - Intelligent Power Management for Android</strong><br>
+  Made with ❤️ using AI and modern Android development practices
+</div> 

@@ -10,7 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.util.Properties
 import javax.inject.Singleton
-import org.json.JSONObject
+
 
 /**
  * Hilt module for providing GemmaInferenceSDK related dependencies

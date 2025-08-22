@@ -92,27 +92,4 @@ class ActionableExecutor @Inject constructor(
             ActionableResult.failure("No handler found for actionable type ${actionable.type}")
         }
     }
-
-    /**
-     * Reverts a previously executed actionable.
-     *
-     * @param actionable The actionable to revert
-     * @return The result of the revert operation
-     */
-    suspend fun revertActionable(actionable: Actionable): ActionableResult {
-        val handler = handlers[actionable.type]
-
-        return if (handler != null) {
-            try {
-                Log.d(TAG, "Reverting actionable ${actionable.id} with handler ${handler.javaClass.simpleName}")
-                handler.revert(actionable)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error reverting actionable ${actionable.id}", e)
-                ActionableResult.fromException(e)
-            }
-        } else {
-            Log.e(TAG, "No handler found for actionable type ${actionable.type}")
-            ActionableResult.failure("No handler found for actionable type ${actionable.type}")
-        }
-    }
 }

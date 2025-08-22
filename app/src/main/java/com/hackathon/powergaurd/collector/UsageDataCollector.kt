@@ -654,7 +654,7 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
 
         // Get app standby buckets
         val bucketMap = HashMap<String, String>()
-        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? android.app.usage.UsageStatsManager
+        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
         if (usm != null && hasUsageStatsPermission()) {
             for (app in installedApps) {
                 try {
@@ -987,7 +987,6 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             Log.v(TAG, "Total screen time: $totalScreenTime ms")
 
             // Get battery change since last full charge
-            val batteryManager = batteryManager
             val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
 
             // Get current battery level

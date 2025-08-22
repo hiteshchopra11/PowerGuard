@@ -161,7 +161,7 @@ class HistoryViewModel @Inject constructor(
                 }
                 
                 // Force refresh history data after saving
-                kotlinx.coroutines.delay(100)
+                delay(100)
                 loadHistory()
                 
                 // Add additional diagnostic logging about the saved data

@@ -164,7 +164,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun hasUsageStatsPermission(): Boolean {
-        val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val appOpsManager = getSystemService(APP_OPS_SERVICE) as AppOpsManager
         val mode =
             appOpsManager.checkOpNoThrow(
                 AppOpsManager.OPSTR_GET_USAGE_STATS,
@@ -216,9 +216,6 @@ fun PowerGuardAppUI(
 
     // State for triggering settings bottom sheet
     var settingsTrigger by remember { mutableStateOf(false) }
-
-    // Get the local context to access resources
-    val context = LocalContext.current
 
     // Use rememberCoroutineScope to create a CoroutineScope that is scoped to the composition
     val coroutineScope = rememberCoroutineScope()

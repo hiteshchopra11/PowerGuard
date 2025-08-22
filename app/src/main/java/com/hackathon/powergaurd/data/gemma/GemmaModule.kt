@@ -53,9 +53,6 @@ object GemmaModule {
             Log.e(TAG, "API key is missing! Get a valid key from https://aistudio.google.com/app/apikey")
         }
         
-        // Choose model based on device capabilities
-        val isLowEndDevice = isLowEndDevice(context)
-        
         // Use standard Gemini model names that are supported by the API
         val modelName = MODEL_GEMINI_PRO
         Log.d(TAG, "Using model: $modelName")

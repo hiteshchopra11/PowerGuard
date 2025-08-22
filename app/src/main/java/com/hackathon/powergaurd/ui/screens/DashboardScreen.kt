@@ -96,7 +96,6 @@ fun DashboardScreen(
     refreshTrigger: Boolean = false,
     settingsTrigger: Boolean = false
 ) {
-    val context = LocalContext.current
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
@@ -605,7 +604,6 @@ fun PromptCard(
     // Bottom sheet state
     var showBottomSheet by remember { mutableStateOf(false) }
     val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val coroutineScope = rememberCoroutineScope()
     
     // Rotate the placeholder every 3 seconds
     LaunchedEffect(Unit) {

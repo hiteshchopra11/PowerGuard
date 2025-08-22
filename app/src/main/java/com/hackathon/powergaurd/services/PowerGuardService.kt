@@ -75,11 +75,11 @@ class PowerGuardService : Service() {
         super.onCreate()
         Log.d(TAG, "PowerGuardService created")
 
-        powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        batteryManager = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        batteryManager = getSystemService(BATTERY_SERVICE) as BatteryManager
         packageManager = applicationContext.packageManager
-        activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        activityManager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+        appOpsManager = getSystemService(APP_OPS_SERVICE) as AppOpsManager
 
         // Check permissions
         checkSystemPermissions()
@@ -210,7 +210,7 @@ class PowerGuardService : Service() {
     }
 
     private fun checkUsageStatsPermission(): Boolean {
-        val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val appOpsManager = getSystemService(APP_OPS_SERVICE) as AppOpsManager
         return appOpsManager.unsafeCheckOpNoThrow(
             AppOpsManager.OPSTR_GET_USAGE_STATS,
             Process.myUid(),
@@ -226,7 +226,7 @@ class PowerGuardService : Service() {
             description = descriptionText
         }
 
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.createNotificationChannel(channel)
     }
 
@@ -538,9 +538,9 @@ class PowerGuardService : Service() {
 
                         // 1. Use Data Saver mode if available (Android N+)
                         val connectivityManager =
-                            getSystemService(Context.CONNECTIVITY_SERVICE) as
+                            getSystemService(CONNECTIVITY_SERVICE) as
                                     ConnectivityManager
-                        val status = connectivityManager.getRestrictBackgroundStatus()
+                        val status = connectivityManager.restrictBackgroundStatus
 
                         // ConnectivityManager.RESTRICT_BACKGROUND_STATUS_DISABLED = 1
                         if (status == 1) { // RESTRICT_BACKGROUND_STATUS_DISABLED
@@ -562,7 +562,7 @@ class PowerGuardService : Service() {
 
                         // 2. For battery optimization, which can indirectly reduce background data
                         // usage
-                        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+                        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
                         if (!powerManager.isIgnoringBatteryOptimizations(app.packageName)) {
                             // Request the app to be optimized for battery, which can help
                             // reduce background activity
@@ -572,7 +572,7 @@ class PowerGuardService : Service() {
                                 val usageStatsManagerClass =
                                     Class.forName("android.app.usage.UsageStatsManager")
                                 val usageStatsManager =
-                                    getSystemService(Context.USAGE_STATS_SERVICE)
+                                    getSystemService(USAGE_STATS_SERVICE)
                                 val setAppInactiveMethod =
                                     usageStatsManagerClass.getMethod(
                                         "setAppInactive",

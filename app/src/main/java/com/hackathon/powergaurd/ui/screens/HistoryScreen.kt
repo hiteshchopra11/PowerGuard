@@ -274,9 +274,6 @@ fun ActionablesHistoryList(actionables: List<DeviceActionableEntity>) {
 
 @Composable
 fun InsightCard(insight: DeviceInsightEntity) {
-    val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-    val formattedTime = timeFormat.format(Date(insight.timestamp))
-    
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -475,15 +472,6 @@ fun PreviewHistoryScreen() {
         timestamp = System.currentTimeMillis()
     )
     
-    val sampleInsight2 = DeviceInsightEntity(
-        id = 2,
-        insightType = "DATA",
-        insightTitle = "Excessive Data Usage",
-        insightDescription = "YouTube is using significant data in the background. Consider restricting background data.",
-        severity = "MEDIUM",
-        timestamp = System.currentTimeMillis() - 5400000 // 1.5 hours ago
-    )
-    
     val sampleActionable = DeviceActionableEntity(
         id = 1,
         actionableId = "1",
@@ -494,18 +482,7 @@ fun PreviewHistoryScreen() {
         newMode = "",
         timestamp = System.currentTimeMillis()
     )
-    
-    val sampleActionable2 = DeviceActionableEntity(
-        id = 2,
-        actionableId = "2",
-        actionableType = "enable_data_saver",
-        packageName = "android",
-        description = "Enable data saver mode to reduce overall data consumption",
-        reason = "High data usage patterns detected",
-        newMode = "on",
-        timestamp = System.currentTimeMillis() - 3600000 // 1 hour ago
-    )
-    
+
     // Mock UI for preview
     MaterialTheme {
         Surface(color = MaterialTheme.colorScheme.background) {

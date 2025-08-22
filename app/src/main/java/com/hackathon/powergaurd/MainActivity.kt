@@ -85,8 +85,6 @@ class MainActivity : ComponentActivity() {
             PowerGuardTheme { 
                 PowerGuardAppUI(
                     openPromptInput = openDashboard,
-                    onLlmTestClick = { launchLlmTestActivity() },
-                    onInfoQueryTestClick = { launchInfoQueryTestActivity() },
                     onRefreshData = { refreshDeviceData() }
                 ) 
             } 
@@ -99,21 +97,6 @@ class MainActivity : ComponentActivity() {
         setupBackPressHandling()
     }
     
-    /**
-     * Launch the LLM test activity
-     */
-    private fun launchLlmTestActivity() {
-        val intent = Intent(this, LLMTestActivity::class.java)
-        startActivity(intent)
-    }
-    
-    /**
-     * Launch the Information Query test activity for real LLM testing
-     */
-    private fun launchInfoQueryTestActivity() {
-        val intent = Intent(this, InfoQueryTestActivity::class.java)
-        startActivity(intent)
-    }
     
     /**
      * Refresh device data in the app
@@ -214,8 +197,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun PowerGuardAppUI(
     openPromptInput: Boolean = false,
-    onLlmTestClick: () -> Unit,
-    onInfoQueryTestClick: () -> Unit,
     onRefreshData: () -> Unit
 ) {
     // Store NavController in a variable so we can use it
@@ -305,20 +286,6 @@ fun PowerGuardAppUI(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("LLM Test") },
-                                onClick = {
-                                    showMenu = false
-                                    onLlmTestClick()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Info Query Test (Real LLM)") },
-                                onClick = {
-                                    showMenu = false
-                                    onInfoQueryTestClick()
-                                }
-                            )
                             DropdownMenuItem(
                                 text = { Text("About") },
                                 onClick = {

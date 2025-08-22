@@ -1,5 +1,6 @@
 package com.hackathon.powergaurd.actionable
 
+import android.app.AppOpsManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Process
@@ -38,7 +39,26 @@ object ActionableUtils {
      * @return true if the permission is granted, false otherwise
      */
     fun hasPermission(context: Context, permission: String): Boolean {
-        return context.checkCallingOrSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+        val result = when (permission) {
+            "android.permission.PACKAGE_USAGE_STATS" -> {
+                // For usage stats, check AppOps instead of regular permission check
+                val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
+                val mode = appOps?.checkOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    Process.myUid(),
+                    context.packageName
+                ) ?: AppOpsManager.MODE_DEFAULT
+                Log.d(TAG, "PACKAGE_USAGE_STATS permission check: mode=$mode")
+                mode == AppOpsManager.MODE_ALLOWED
+            }
+            else -> {
+                val granted = context.checkCallingOrSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+                Log.d(TAG, "Permission $permission check: granted=$granted")
+                granted
+            }
+        }
+        Log.d(TAG, "hasPermission($permission) = $result")
+        return result
     }
 
     /**
@@ -69,10 +89,23 @@ object ActionableUtils {
             "android.permission.WRITE_SECURE_SETTINGS"
         )
 
-        val hasAllPermissions = criticalPermissions.all { hasPermission(context, it) }
-        val isSystemOrRoot = isSystemApp(context) || isRootProcess()
-
-        return hasAllPermissions || isSystemOrRoot
+        Log.d(TAG, "Checking system permissions...")
+        val permissionResults = criticalPermissions.map { permission ->
+            val hasIt = hasPermission(context, permission)
+            Log.d(TAG, "Permission $permission: $hasIt")
+            hasIt
+        }
+        
+        val hasAllPermissions = permissionResults.all { it }
+        val isSystemApp = isSystemApp(context)
+        val isRoot = isRootProcess()
+        val isSystemOrRoot = isSystemApp || isRoot
+        
+        Log.d(TAG, "Permission summary: hasAllPermissions=$hasAllPermissions, isSystemApp=$isSystemApp, isRoot=$isRoot")
+        
+        val result = hasAllPermissions || isSystemOrRoot
+        Log.d(TAG, "hasSystemPermissions() = $result")
+        return result
     }
 
     /**

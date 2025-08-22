@@ -409,26 +409,17 @@ class ActionableGenerator @Inject constructor() {
         val keepApps = mutableListOf<String>()
         val lowerQuery = query.lowercase()
         
-        // Look for common apps in the query
-        val commonApps = mapOf(
-            "whatsapp" to "com.whatsapp",
-            "youtube" to "com.google.android.youtube",
-            "netflix" to "com.netflix.mediaclient",
-            "spotify" to "com.spotify.music",
-            "maps" to "com.google.android.apps.maps",
-            "google maps" to "com.google.android.apps.maps",
-            "instagram" to "com.instagram.android",
-            "facebook" to "com.facebook.katana",
-            "messenger" to "com.facebook.orca",
-            "chrome" to "com.android.chrome",
-            "gmail" to "com.google.android.gm",
-            "zoom" to "us.zoom.videomeetings"
-        )
-        
-        // Check which apps are mentioned
-        commonApps.forEach { (appName, packageName) ->
-            if (lowerQuery.contains(appName)) {
+        // Use real installed apps from device data
+        deviceData.apps.forEach { appInfo ->
+            val appName = appInfo.appName.lowercase()
+            val packageName = appInfo.packageName
+            
+            // Check if this app is mentioned in the query
+            if (lowerQuery.contains(appName) || 
+                lowerQuery.contains(packageName) ||
+                appName.split(" ").any { word -> lowerQuery.contains(word) && word.length > 3 }) {
                 keepApps.add(packageName)
+                Log.d(TAG, "User mentioned app to keep: ${appInfo.appName} ($packageName)")
             }
         }
         
@@ -449,37 +440,17 @@ class ActionableGenerator @Inject constructor() {
     private fun findMentionedApp(query: String, deviceData: DeviceData): String? {
         val lowerQuery = query.lowercase()
         
-        // Map of common app names to package names
-        val commonApps = mapOf(
-            "whatsapp" to "com.whatsapp",
-            "youtube" to "com.google.android.youtube",
-            "netflix" to "com.netflix.mediaclient",
-            "spotify" to "com.spotify.music",
-            "maps" to "com.google.android.apps.maps",
-            "google maps" to "com.google.android.apps.maps",
-            "instagram" to "com.instagram.android",
-            "facebook" to "com.facebook.katana",
-            "messenger" to "com.facebook.orca",
-            "chrome" to "com.android.chrome",
-            "gmail" to "com.google.android.gm",
-            "tiktok" to "com.zhiliaoapp.musically",
-            "twitter" to "com.twitter.android",
-            "x" to "com.twitter.android",
-            "zoom" to "us.zoom.videomeetings"
-        )
-        
-        // Check if any common app is mentioned
-        for ((appName, packageName) in commonApps) {
-            if (lowerQuery.contains(appName)) {
+        // Use real installed apps from device data instead of hardcoded fake package names
+        deviceData.apps.forEach { appInfo ->
+            val appName = appInfo.appName.lowercase()
+            val packageName = appInfo.packageName
+            
+            // Check if this app is mentioned in the query
+            if (lowerQuery.contains(appName) || 
+                lowerQuery.contains(packageName) ||
+                appName.split(" ").any { word -> lowerQuery.contains(word) && word.length > 3 }) {
+                Log.d(TAG, "Found mentioned app: ${appInfo.appName} ($packageName)")
                 return packageName
-            }
-        }
-        
-        // Check if any app from device data is mentioned
-        deviceData.apps.forEach { app ->
-            val appNameLower = app.appName.lowercase()
-            if (lowerQuery.contains(appNameLower)) {
-                return app.packageName
             }
         }
         

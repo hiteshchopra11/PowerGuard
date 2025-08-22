@@ -1,6 +1,5 @@
 package com.hackathon.powergaurd.collector
 
-import PromptDebug
 import android.Manifest
 import android.app.ActivityManager
 import android.app.AlarmManager
@@ -140,20 +139,23 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
         // Log detailed information about the collected data
         Log.i(TAG, "Data collection completed: ${deviceData.apps.size} apps included, battery=${deviceData.battery.level}%, network=${deviceData.network.type}")
         
-        // Use our new PromptDebug to log detailed metrics for debugging and analysis
-        Log.d(TAG, "Logging detailed metrics via PromptDebug")
-        PromptDebug.logDeviceData(deviceData)
+        // Log detailed metrics for debugging and analysis
+        Log.d(TAG, "Collected device data with ${deviceData.apps.size} apps")
         
         // Log detailed info for the top 10 battery and data consumers
         Log.d(TAG, "Top 10 battery consumers:")
         deviceData.apps.sortedByDescending { 
             it.batteryUsage
-        }.take(10).forEach { PromptDebug.logAppInfo(it) }
+        }.take(10).forEach { app ->
+            Log.d(TAG, "High battery drain: ${app.appName} - ${app.batteryUsage}%")
+        }
         
         Log.d(TAG, "Top 10 data consumers:")
         deviceData.apps.sortedByDescending { 
             it.dataUsage.rxBytes + it.dataUsage.txBytes 
-        }.take(10).forEach { PromptDebug.logAppInfo(it) }
+        }.take(10).forEach { app ->
+            Log.d(TAG, "High battery drain: ${app.appName} - ${app.batteryUsage}%")
+        }
 
         return deviceData
     }
@@ -1193,7 +1195,12 @@ class UsageDataCollector @Inject constructor(@ApplicationContext private val con
             ) == 1
         Log.v(TAG, "Adaptive battery enabled: $adaptiveBattery")
 
-        val autoSync = ContentResolver.getMasterSyncAutomatically()
+        val autoSync = try {
+            ContentResolver.getMasterSyncAutomatically()
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Cannot read sync settings: ${e.message}")
+            false // Default to false if we can't read the setting
+        }
         Log.v(TAG, "Auto sync enabled: $autoSync")
 
         return SettingsInfo(

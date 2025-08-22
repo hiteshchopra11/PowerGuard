@@ -74,6 +74,14 @@ class SetStandbyBucketHandler @Inject constructor(
         val bucketValue = BUCKET_NAME_TO_VALUE[bucketName.lowercase()] ?: STANDBY_BUCKET_RESTRICTED
 
         return try {
+            // Check if the package exists first
+            if (!isPackageInstalled(packageName)) {
+                return ActionableResult.failure(
+                    "Package $packageName is not installed on this device",
+                    mapOf("packageName" to packageName, "available" to "false")
+                )
+            }
+            
             // Check if we have the required permissions
             if (!hasRequiredPermissions()) {
                 return ActionableResult.failure(
@@ -123,16 +131,31 @@ class SetStandbyBucketHandler @Inject constructor(
      * Checks if the app has the required permissions to set app standby buckets.
      */
     private fun hasRequiredPermissions(): Boolean {
+        Log.d(TAG, "Checking required permissions for SetStandbyBucketHandler...")
+        
+        // Check for CHANGE_APP_IDLE_STATE permission specifically
+        val changeIdleStatePermission = ActionableUtils.hasPermission(
+            context,
+            "android.permission.CHANGE_APP_IDLE_STATE"
+        )
+        Log.d(TAG, "CHANGE_APP_IDLE_STATE permission: $changeIdleStatePermission")
+        
         // Check for the usage stats permission
         val usageStatsPermission = ActionableUtils.hasPermission(
             context,
             "android.permission.PACKAGE_USAGE_STATS"
         )
+        Log.d(TAG, "Usage stats permission: $usageStatsPermission")
 
         // Check system app privileges
         val systemPrivileges = ActionableUtils.hasSystemPermissions(context)
+        Log.d(TAG, "System privileges: $systemPrivileges")
 
-        return usageStatsPermission && systemPrivileges
+        // CHANGE_APP_IDLE_STATE is required for setAppStandbyBucket
+        // Return false if we don't have this specific permission
+        val result = changeIdleStatePermission
+        Log.d(TAG, "hasRequiredPermissions() = $result (requires CHANGE_APP_IDLE_STATE)")
+        return result
     }
 
     /**
@@ -210,6 +233,23 @@ class SetStandbyBucketHandler @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get current bucket: ${e.message}", e)
             -1
+        }
+    }
+
+    /**
+     * Checks if a package is installed on the device.
+     *
+     * @param packageName The package name to check
+     * @return true if the package is installed, false otherwise
+     */
+    private fun isPackageInstalled(packageName: String): Boolean {
+        return try {
+            context.packageManager.getPackageInfo(packageName, 0)
+            Log.d(TAG, "Package $packageName is installed")
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Package $packageName is not installed: ${e.message}")
+            false
         }
     }
 }

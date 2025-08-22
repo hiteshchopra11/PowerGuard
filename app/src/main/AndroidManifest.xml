@@ -3,68 +3,53 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:sharedUserMaxSdkVersion="32">
 
-    <uses-permission
-        android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
-        tools:ignore="ProtectedPermissions" />
+    <!-- Core permissions for app functionality -->
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
-    <uses-permission
-        android:name="android.permission.CHANGE_APP_IDLE_STATE"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.DEVICE_IDLE_CONTROLLER" />
-
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
-    <!-- Add these permissions for complete functionality -->
     <uses-permission
         android:name="android.permission.WRITE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
 
-    <!-- System-level permissions -->
+    <!-- Battery optimization permissions -->
     <uses-permission
         android:name="android.permission.BATTERY_STATS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission
-        android:name="android.permission.MODIFY_PHONE_STATE"
-        tools:ignore="PermissionImpliesUnsupportedChromeOsHardware,ProtectedPermissions" />
-    <uses-permission
-        android:name="android.permission.MANAGE_NETWORK_POLICY"
+        android:name="android.permission.READ_SYNC_SETTINGS"
         tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.BATTERY_OPTIMIZATION_WHITELIST" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission
+        android:name="android.permission.CHANGE_APP_IDLE_STATE"
+        tools:ignore="ProtectedPermissions" />
     <uses-permission
         android:name="android.permission.FORCE_STOP_PACKAGES"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission
-        android:name="android.permission.READ_LOGS"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission
-        android:name="android.permission.DUMP"
-        tools:ignore="ProtectedPermissions" />
 
+    <!-- Data management permissions -->
+    <uses-permission
+        android:name="android.permission.MANAGE_NETWORK_POLICY"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- Temperature and hardware access -->
+    <uses-permission android:name="android.permission.DEVICE_POWER" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.HARDWARE_TEST" tools:ignore="ProtectedPermissions" />
+
+    <!-- Service permissions -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission
-        android:name="android.permission.SYSTEM_EXEMPTED_FOREGROUND_SERVICE"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission
-        android:name="android.permission.UPDATE_APP_OPS_STATS"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission
-        android:name="android.permission.SET_PROCESS_LIMIT"
         tools:ignore="ProtectedPermissions" />
 
 
@@ -93,19 +78,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Add the LLM Test Activity -->
-        <activity
-            android:name=".LLMTestActivity"
-            android:exported="false"
-            android:label="LLM Test"
-            android:theme="@style/Theme.PowerGuard" />
-
-        <!-- Add the Information Query Test Activity -->
-        <activity
-            android:name=".InfoQueryTestActivity"
-            android:exported="false"
-            android:label="Information Query Test"
-            android:theme="@style/Theme.PowerGuard" />
 
         <service
             android:name=".services.PowerGuardService"

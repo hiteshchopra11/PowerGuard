@@ -70,6 +70,7 @@ class DashboardViewModel @Inject constructor(
     val executionResults: StateFlow<Map<String, Boolean>> = _executionResults.asStateFlow()
     
     // Track which implementation is currently active
+    // Always using Gemma now - simplified architecture
     private val _isUsingGemma = MutableStateFlow(true)
     val isUsingGemma: StateFlow<Boolean> = _isUsingGemma.asStateFlow()
 
@@ -93,7 +94,8 @@ class DashboardViewModel @Inject constructor(
     val pastUsagePatterns: StateFlow<List<String>> = _pastUsagePatterns.asStateFlow()
 
     init {
-        _isUsingGemma.value = analysisRepository.isUsingGemma()
+        // Always using Gemma in simplified architecture
+        _isUsingGemma.value = true
         Log.d("TEST12345","Testing actionable RestrictDataHandler")
         viewModelScope.launch {
             actionableExecutor.executeActionable(
@@ -121,8 +123,8 @@ class DashboardViewModel @Inject constructor(
      * Toggles between GemmaInferenceSDK and backend API
      */
     fun toggleInferenceMode(useGemma: Boolean) {
-        analysisRepository.setUseGemma(useGemma)
-        _isUsingGemma.value = useGemma
+        // Always using Gemma in simplified architecture
+        _isUsingGemma.value = true
         Log.d("DashboardViewModel", "Switched to ${if (useGemma) "Gemma SDK" else "backend API"} mode")
     }
 
@@ -141,7 +143,7 @@ class DashboardViewModel @Inject constructor(
                 Log.d(TAG, "Device data collected successfully")
                 
                 // Analyze it
-                Log.d(TAG, "Starting analysis with ${if (analysisRepository.isUsingGemma()) "Gemma" else "remote API"}")
+                Log.d(TAG, "Starting analysis with Gemma")
                 val result = analyzeDeviceDataUseCase(deviceData)
                 
                 if (result.isSuccess) {
@@ -628,12 +630,10 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun setUseGemma(useGemma: Boolean) {
-        if (useGemma != _isUsingGemma.value) {
-            analysisRepository.setUseGemma(useGemma)
-            _isUsingGemma.value = useGemma
-            // Refresh with new inference mode
-            refreshData()
-        }
+        // Always using Gemma in simplified architecture
+        _isUsingGemma.value = true
+        // Refresh with new inference mode
+        refreshData()
     }
 }
 

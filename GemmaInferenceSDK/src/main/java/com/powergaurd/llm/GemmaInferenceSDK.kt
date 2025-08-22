@@ -2,8 +2,7 @@ package com.powergaurd.llm
 
 import android.content.Context
 import android.os.BatteryManager
-import android.os.Handler
-import android.os.Looper
+import kotlinx.coroutines.CoroutineExceptionHandler
 import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -11,6 +10,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -35,7 +35,10 @@ class GemmaInferenceSDK(
     private val responseParser = ResponseParser(config)
     private val promptFormatter = PromptFormatter()
     
-    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
+        logError("Coroutine exception in GemmaInferenceSDK", Exception(exception))
+    }
+    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + exceptionHandler)
     private val isInitialized = AtomicBoolean(false)
     private val _loadingState = MutableStateFlow(LoadingState.NOT_INITIALIZED)
     
@@ -49,24 +52,13 @@ class GemmaInferenceSDK(
             initializeAsync()
         }
 
-        // Always ensure lifecycle observer is added on the main thread
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            // We're on the main thread, add observer directly
+        // Add lifecycle observer on main thread using coroutines
+        coroutineScope.launch(Dispatchers.Main) {
             try {
-                ProcessLifecycleOwner.get().lifecycle.addObserver(this)
-                logDebug("Added lifecycle observer on main thread")
+                ProcessLifecycleOwner.get().lifecycle.addObserver(this@GemmaInferenceSDK)
+                logDebug("Added lifecycle observer using coroutines")
             } catch (e: Exception) {
-                logError("Failed to add lifecycle observer on main thread", e)
-            }
-        } else {
-            // We're on a background thread, post to main thread
-            Handler(Looper.getMainLooper()).post {
-                try {
-                    ProcessLifecycleOwner.get().lifecycle.addObserver(this)
-                    logDebug("Added lifecycle observer from background thread")
-                } catch (e: Exception) {
-                    logError("Failed to add lifecycle observer from background thread", e)
-                }
+                logError("Failed to add lifecycle observer", e)
             }
         }
     }
@@ -331,10 +323,18 @@ class GemmaInferenceSDK(
         if (isInitialized.get()) {
             logDebug("Shutting down SDK")
             coroutineScope.launch {
-                modelManager.release()
-                isInitialized.set(false)
-                _loadingState.value = LoadingState.NOT_INITIALIZED
+                try {
+                    modelManager.release()
+                    isInitialized.set(false)
+                    _loadingState.value = LoadingState.NOT_INITIALIZED
+                } finally {
+                    // Cancel the coroutine scope to prevent memory leaks
+                    coroutineScope.cancel("SDK shutdown")
+                }
             }
+        } else {
+            // Cancel scope even if not initialized to prevent memory leaks
+            coroutineScope.cancel("SDK shutdown - not initialized")
         }
     }
     

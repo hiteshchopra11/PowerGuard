@@ -14,6 +14,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 
@@ -117,10 +119,11 @@ class MainActivity : ComponentActivity() {
                 doubleBackToExitPressedOnce = true
                 Toast.makeText(this@MainActivity, "Press back again to exit", Toast.LENGTH_SHORT).show()
                 
-                // Reset after 2 seconds
-                android.os.Handler(mainLooper).postDelayed({
+                // Reset after 2 seconds using coroutines
+                lifecycleScope.launch {
+                    kotlinx.coroutines.delay(2000)
                     doubleBackToExitPressedOnce = false
-                }, 2000)
+                }
             }
         }
     }

@@ -4,18 +4,21 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.os.Looper
+
 import android.util.Log
 import com.hackathon.powergaurd.data.model.Actionable
 import com.hackathon.powergaurd.data.model.AnalysisRepository
 import com.hackathon.powergaurd.data.model.AnalysisResponse
 import com.hackathon.powergaurd.data.model.DeviceData
 import com.hackathon.powergaurd.data.model.Insight
+import com.hackathon.powergaurd.utils.PackageNameResolver
 import com.powergaurd.llm.GemmaConfig
 import com.powergaurd.llm.GemmaInferenceSDK
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
@@ -24,8 +27,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -35,7 +36,8 @@ import javax.inject.Singleton
 @Singleton
 class GemmaRepository @Inject constructor(
     private val context: Context,
-    private val config: GemmaConfig
+    private val config: GemmaConfig,
+    private val packageNameResolver: PackageNameResolver
 ) : AnalysisRepository {
     companion object {
         private const val TAG = "GemmaRepository"
@@ -81,39 +83,33 @@ class GemmaRepository @Inject constructor(
     }
 
     private var _sdk: GemmaInferenceSDK? = null
+    private val sdkMutex = Mutex()
 
-    private val sdk: GemmaInferenceSDK
-        get() {
-            if (_sdk == null) {
-                synchronized(this) {
-                    if (_sdk == null) {
-                        if (Looper.myLooper() == Looper.getMainLooper()) {
-                            _sdk = GemmaInferenceSDK(context, config)
-                            Log.d(TAG, "GemmaInferenceSDK created on main thread")
-                        } else {
-                            val latch = CountDownLatch(1)
-                            var error: Exception? = null
-                            MainScope().launch(Dispatchers.Main) {
-                                try {
-                                    _sdk = GemmaInferenceSDK(context, config)
-                                } catch (e: Exception) {
-                                    error = e
-                                } finally {
-                                    latch.countDown()
-                                }
-                            }
-                            latch.await(5, TimeUnit.SECONDS)
-                            if (error != null) throw error!!
-                            if (_sdk == null) throw IllegalStateException("SDK initialization failed")
-                        }
+    private suspend fun getOrCreateSdk(): GemmaInferenceSDK {
+        // Check if SDK already exists (fast path)
+        _sdk?.let { return it }
+        
+        return sdkMutex.withLock {
+            // Double-check pattern
+            _sdk ?: run {
+                try {
+                    val newSdk = withContext(Dispatchers.Main) {
+                        GemmaInferenceSDK(context, config)
                     }
+                    _sdk = newSdk
+                    Log.d(TAG, "GemmaInferenceSDK created successfully")
+                    newSdk
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to create GemmaInferenceSDK", e)
+                    throw e
                 }
             }
-            return _sdk!!
         }
+    }
 
     suspend fun initialize(): Boolean = withContext(Dispatchers.Main) {
         try {
+            val sdk = getOrCreateSdk()
             sdk.initialize()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize SDK: ${e.message}", e)
@@ -209,6 +205,7 @@ class GemmaRepository @Inject constructor(
                 Query: "$query"
             """.trimIndent()
 
+            val sdk = getOrCreateSdk()
             val response = withTimeout(15000) {
                 sdk.generateResponseSuspend(prompt, maxTokens = 10, temperature = 0.1f)
             }.trim().uppercase()
@@ -237,6 +234,7 @@ class GemmaRepository @Inject constructor(
                 Query: "$query"
             """.trimIndent()
 
+            val sdk = getOrCreateSdk()
             val response = withTimeout(15000) {
                 sdk.generateResponseSuspend(categorizePrompt, maxTokens = 5, temperature = 0.1f)
             }.trim().toIntOrNull()
@@ -421,7 +419,10 @@ class GemmaRepository @Inject constructor(
         resourceType: String
     ): Result<AnalysisResponse> {
         try {
-            ensureSdkInitialized()
+            val sdk = getOrCreateSdk()
+            if (!sdk.initialize()) {
+                throw IllegalStateException("SDK initialization failed")
+            }
             val jsonResponse = withTimeout(GENERATION_TIMEOUT_MS) {
                 val response = sdk.generateResponseSuspend(
                     prompt,
@@ -487,8 +488,9 @@ class GemmaRepository @Inject constructor(
             } ?: emptyMap()
 
             val packageName =
-                params["packageName"] ?: extractPackageNameFromDescription(description)
-                ?: "com.android.settings"
+                params["packageName"] ?: runBlocking { 
+                    packageNameResolver.extractPackageNameFromDescription(description) 
+                } ?: "com.android.settings"
 
             // Create the description with app name instead of "data-intensive apps" for set_standby_bucket
             val formattedDescription = if (type == SET_STANDBY_BUCKET &&
@@ -551,128 +553,7 @@ class GemmaRepository @Inject constructor(
         )
     }
 
-    private fun extractPackageNameFromDescription(description: String): String? {
-        val knownApps = listOf(
-            "1Weather" to "com.handmark.expressweather",
-            "Teams" to "com.microsoft.teams",
-            "Docs" to "com.google.android.apps.docs",
-            "Chrome" to "com.android.chrome",
-            "Subway Surf" to "com.kiloo.subwaysurf",
-            "Outlook" to "com.microsoft.office.outlook",
-            "Gmail" to "com.google.android.gm",
-            "Meet" to "com.google.android.apps.meetings",
-            "Netflix" to "com.netflix.mediaclient",
-            "WhatsApp" to "com.whatsapp",
-            "Spotify" to "com.spotify.music",
-            "Facebook" to "com.facebook.katana",
-            "Instagram" to "com.instagram.android",
-            "Snapchat" to "com.snapchat.android",
-            "YouTube" to "com.google.android.youtube",
-            "TikTok" to "com.zhiliaoapp.musically",
-            "Messenger" to "com.facebook.orca",
-            "Telegram" to "org.telegram.messenger",
-            "Twitter" to "com.twitter.android",
-            "LinkedIn" to "com.linkedin.android",
-            "Pinterest" to "com.pinterest",
-            "Reddit" to "com.reddit.frontpage",
-            "Amazon" to "com.amazon.mShop.android.shopping",
-            "Flipkart" to "com.flipkart.android",
-            "Snapdeal" to "com.snapdeal.main",
-            "Myntra" to "com.myntra.android",
-            "Swiggy" to "in.swiggy.android",
-            "Zomato" to "com.application.zomato",
-            "Uber" to "com.ubercab",
-            "Ola" to "com.olacabs.customer",
-            "Google Maps" to "com.google.android.apps.maps",
-            "Google Drive" to "com.google.android.apps.docs",
-            "Google Photos" to "com.google.android.apps.photos",
-            "Google Pay" to "com.google.android.apps.nbu.paisa.user",
-            "Paytm" to "net.one97.paytm",
-            "PhonePe" to "com.phonepe.app",
-            "Truecaller" to "com.truecaller",
-            "MX Player" to "com.mxtech.videoplayer.ad",
-            "Hotstar" to "in.startv.hotstar",
-            "JioCinema" to "com.jio.media.ondemand",
-            "Gaana" to "com.gaana",
-            "Saavn" to "com.saavn.android",
-            "Wynk Music" to "com.bsbportal.music",
-            "Google News" to "com.google.android.apps.magazines",
-            "Inshorts" to "com.nis.app",
-            "Dailyhunt" to "com.newshunt.news",
-            "Quora" to "com.quora.android",
-            "Coursera" to "org.coursera.android",
-            "Udemy" to "com.udemy.android",
-            "Khan Academy" to "org.khanacademy.android",
-            "Duolingo" to "com.duolingo",
-            "BYJU'S" to "com.byjus.thelearningapp",
-            "Unacademy" to "com.unacademyapp",
-            "Zoom" to "us.zoom.videomeetings",
-            "Skype" to "com.skype.raider",
-            "Slack" to "com.Slack",
-            "Dropbox" to "com.dropbox.android",
-            "Evernote" to "com.evernote",
-            "Notion" to "notion.id",
-            "Google Keep" to "com.google.android.keep",
-            "CamScanner" to "com.intsig.camscanner",
-            "Adobe Acrobat" to "com.adobe.reader",
-            "WPS Office" to "cn.wps.moffice_eng",
-            "Microsoft Word" to "com.microsoft.office.word",
-            "Microsoft Excel" to "com.microsoft.office.excel",
-            "Microsoft PowerPoint" to "com.microsoft.office.powerpoint",
-            "Google Calendar" to "com.google.android.calendar",
-            "Google Translate" to "com.google.android.apps.translate",
-            "Google Assistant" to "com.google.android.apps.googleassistant",
-            "Google Lens" to "com.google.ar.lens",
-            "Google Home" to "com.google.android.apps.chromecast.app",
-            "Mi Fit" to "com.xiaomi.hm.health",
-            "Fitbit" to "com.fitbit.FitbitMobile",
-            "Samsung Health" to "com.sec.android.app.shealth",
-            "Nike Training Club" to "com.nike.ntc",
-            "Strava" to "com.strava",
-            "MyFitnessPal" to "com.myfitnesspal.android",
-            "Calm" to "com.calm.android",
-            "Headspace" to "com.getsomeheadspace.android",
-            "Sleep Cycle" to "com.northcube.sleepcycle",
-            "Period Tracker" to "com.lovelyapps.PeriodTracker",
-            "Clue" to "com.clue.android",
-            "Flo" to "org.iggymedia.periodtracker",
-            "BabyCenter" to "com.babycenter.pregnancytracker",
-            "FirstCry" to "com.firstcry",
-            "BabyChakra" to "com.babychakra",
-            "Koo" to "com.koo.app",
-            "ShareChat" to "in.mohalla.sharechat",
-            "Josh" to "com.eterno.shortvideos",
-            "Moj" to "in.mohalla.video",
-            "Roposo" to "com.roposo.android",
-            "Chingari" to "io.chingari.app",
-            "MX TakaTak" to "com.next.innovation.takatak",
-            "Mitron" to "com.mitron.tv",
-            "Trell" to "app.trell",
-            "Bolo Indya" to "com.boloindya.boloindya",
-            "Public" to "in.public.app",
-            "Dailyhunt" to "com.newshunt.news",
-            "NewsPoint" to "com.newspoint.android",
-            "JioNews" to "com.jio.media.jionews",
-            "Way2News" to "com.way2news.way2news",
-            "Flipboard" to "flipboard.app",
-            "Google Podcasts" to "com.google.android.apps.podcasts",
-            "Spotify" to "com.spotify.music",
-            "Pocket Casts" to "au.com.shiftyjelly.pocketcasts",
-            "Castbox" to "com.podcast.podcasts",
-            "Anchor" to "fm.anchor.android",
-            "SoundCloud" to "com.soundcloud.android",
-            "TuneIn Radio" to "tunein.player",
-            "JioSaavn" to "com.jio.media.jiobeats",
-            "Hungama Music" to "com.hungama.myplay.activity",
-            "Amazon Music" to "com.amazon.mp3"
-        )
-        for ((appName, packageName) in knownApps) {
-            if (description.contains(appName, ignoreCase = true)) {
-                return packageName
-            }
-        }
-        return null
-    }
+
 
     private fun simulateAnalysisResponse(
         deviceData: DeviceData,
@@ -840,8 +721,5 @@ class GemmaRepository @Inject constructor(
         )
     }
 
-    private suspend fun ensureSdkInitialized() {
-        if (_sdk == null) sdk
-        if (!sdk.initialize()) throw IllegalStateException("SDK initialization failed")
-    }
+
 }

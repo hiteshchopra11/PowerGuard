@@ -2,6 +2,7 @@ package com.hackathon.powergaurd.data.gemma
 
 import android.content.Context
 import android.util.Log
+import com.hackathon.powergaurd.utils.PackageNameResolver
 import com.powergaurd.llm.GemmaConfig
 import dagger.Module
 import dagger.Provides
@@ -95,9 +96,10 @@ object GemmaModule {
     @Singleton
     fun provideGemmaRepository(
         @ApplicationContext context: Context,
-        config: GemmaConfig
+        config: GemmaConfig,
+        packageNameResolver: PackageNameResolver
     ): GemmaRepository {
-        return GemmaRepository(context, config)
+        return GemmaRepository(context, config, packageNameResolver)
     }
     
     /**

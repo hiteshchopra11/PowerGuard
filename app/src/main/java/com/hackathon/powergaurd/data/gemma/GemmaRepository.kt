@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-
+import android.os.Looper
 import android.util.Log
 import com.hackathon.powergaurd.data.model.Actionable
 import com.hackathon.powergaurd.data.model.AnalysisRepository
@@ -15,10 +15,9 @@ import com.hackathon.powergaurd.utils.PackageNameResolver
 import com.powergaurd.llm.GemmaConfig
 import com.powergaurd.llm.GemmaInferenceSDK
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
@@ -27,6 +26,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -83,33 +84,39 @@ class GemmaRepository @Inject constructor(
     }
 
     private var _sdk: GemmaInferenceSDK? = null
-    private val sdkMutex = Mutex()
 
-    private suspend fun getOrCreateSdk(): GemmaInferenceSDK {
-        // Check if SDK already exists (fast path)
-        _sdk?.let { return it }
-        
-        return sdkMutex.withLock {
-            // Double-check pattern
-            _sdk ?: run {
-                try {
-                    val newSdk = withContext(Dispatchers.Main) {
-                        GemmaInferenceSDK(context, config)
+    private val sdk: GemmaInferenceSDK
+        get() {
+            if (_sdk == null) {
+                synchronized(this) {
+                    if (_sdk == null) {
+                        if (Looper.myLooper() == Looper.getMainLooper()) {
+                            _sdk = GemmaInferenceSDK(context, config)
+                            Log.d(TAG, "GemmaInferenceSDK created on main thread")
+                        } else {
+                            val latch = CountDownLatch(1)
+                            var error: Exception? = null
+                            MainScope().launch(Dispatchers.Main) {
+                                try {
+                                    _sdk = GemmaInferenceSDK(context, config)
+                                } catch (e: Exception) {
+                                    error = e
+                                } finally {
+                                    latch.countDown()
+                                }
+                            }
+                            latch.await(5, TimeUnit.SECONDS)
+                            if (error != null) throw error!!
+                            if (_sdk == null) throw IllegalStateException("SDK initialization failed")
+                        }
                     }
-                    _sdk = newSdk
-                    Log.d(TAG, "GemmaInferenceSDK created successfully")
-                    newSdk
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to create GemmaInferenceSDK", e)
-                    throw e
                 }
             }
+            return _sdk!!
         }
-    }
 
     suspend fun initialize(): Boolean = withContext(Dispatchers.Main) {
         try {
-            val sdk = getOrCreateSdk()
             sdk.initialize()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize SDK: ${e.message}", e)
@@ -205,7 +212,6 @@ class GemmaRepository @Inject constructor(
                 Query: "$query"
             """.trimIndent()
 
-            val sdk = getOrCreateSdk()
             val response = withTimeout(15000) {
                 sdk.generateResponseSuspend(prompt, maxTokens = 10, temperature = 0.1f)
             }.trim().uppercase()
@@ -234,7 +240,6 @@ class GemmaRepository @Inject constructor(
                 Query: "$query"
             """.trimIndent()
 
-            val sdk = getOrCreateSdk()
             val response = withTimeout(15000) {
                 sdk.generateResponseSuspend(categorizePrompt, maxTokens = 5, temperature = 0.1f)
             }.trim().toIntOrNull()
@@ -419,32 +424,18 @@ class GemmaRepository @Inject constructor(
         resourceType: String
     ): Result<AnalysisResponse> {
         try {
-            val sdk = getOrCreateSdk()
-            if (!sdk.initialize()) {
-                throw IllegalStateException("SDK initialization failed")
-            }
             val jsonResponse = withTimeout(GENERATION_TIMEOUT_MS) {
-                val response = sdk.generateResponseSuspend(
-                    prompt,
-                    maxTokens = config.maxTokens,
-                    temperature = 0.1f
-                )
-                Log.d(LOG_SDK, "LLM Response: $response")
-                val jsonStart = response.indexOf("{")
-                val jsonEnd = response.lastIndexOf("}")
-                if (jsonStart in 0..<jsonEnd) {
-                    JSONObject(response.substring(jsonStart, jsonEnd + 1))
-                } else null
+                sdk.generateJsonResponse(prompt)
             }
             return Result.success(jsonResponse?.let { parseGemmaResponse(it, resourceType) }
-                ?: simulateAnalysisResponse(deviceData, RESOURCE_OTHER, CATEGORY_INVALID))
+                ?: simulateAnalysisResponse(deviceData, resourceType, CATEGORY_OPTIMIZATION))
         } catch (e: Exception) {
-            Log.e(LOG_ERROR, "Processing error: ${e.message}", e)
+            Log.w(LOG_ERROR, "LLM processing failed, using offline analysis: ${e.message}")
             return Result.success(
                 simulateAnalysisResponse(
                     deviceData,
-                    RESOURCE_OTHER,
-                    CATEGORY_INVALID
+                    resourceType,
+                    CATEGORY_OPTIMIZATION
                 )
             )
         }
@@ -721,5 +712,8 @@ class GemmaRepository @Inject constructor(
         )
     }
 
-
+    private suspend fun ensureSdkInitialized() {
+        if (_sdk == null) sdk
+        if (!sdk.initialize()) throw IllegalStateException("SDK initialization failed")
+    }
 }

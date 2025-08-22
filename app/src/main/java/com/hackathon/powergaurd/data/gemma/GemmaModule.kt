@@ -12,7 +12,6 @@ import dagger.hilt.components.SingletonComponent
 import java.util.Properties
 import javax.inject.Singleton
 
-
 /**
  * Hilt module for providing GemmaInferenceSDK related dependencies
  */
@@ -53,6 +52,9 @@ object GemmaModule {
         if (apiKey.isBlank()) {
             Log.e(TAG, "API key is missing! Get a valid key from https://aistudio.google.com/app/apikey")
         }
+        
+        // Choose model based on device capabilities
+        val isLowEndDevice = isLowEndDevice(context)
         
         // Use standard Gemini model names that are supported by the API
         val modelName = MODEL_GEMINI_PRO
@@ -113,4 +115,4 @@ object GemmaModule {
         // Devices with less than 3GB RAM are considered low-end for LLM inference
         return memoryInfo.totalMem < 3L * 1024L * 1024L * 1024L
     }
-} 
+}

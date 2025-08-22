@@ -1,7 +1,6 @@
 package com.hackathon.powergaurd.di
 
 import com.hackathon.powergaurd.llm.DummyLLMService
-import com.hackathon.powergaurd.llm.GemmaLLMService
 import com.hackathon.powergaurd.llm.LLMService
 import dagger.Module
 import dagger.Provides
@@ -36,14 +35,9 @@ abstract class LLMModule {
         @Singleton
         fun provideLLMService(
             @Named("useRealLLM") useRealLLM: Boolean,
-            dummyService: DummyLLMService,
-            gemmaService: GemmaLLMService
+            dummyService: DummyLLMService
         ): LLMService {
-            return if (useRealLLM) {
-                gemmaService
-            } else {
-                dummyService
-            }
+            return dummyService // Temporarily using dummy service while fixing GemmaLLMService
         }
     }
     

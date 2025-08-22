@@ -10,8 +10,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Repository for device data analysis using on-device ML inference.
- * Simplified to only use Gemma SDK since remote API is not used.
+ * Repository for device data analysis using on-device ML inference via GemmaInferenceSDK.
+ * This repository serves as the main entry point for AI-powered device analysis.
  */
 @Singleton
 class PowerGuardAnalysisRepository @Inject constructor(
@@ -30,26 +30,38 @@ class PowerGuardAnalysisRepository @Inject constructor(
     suspend fun analyzeDeviceData(deviceData: DeviceData): Result<AnalysisResponse> =
         withContext(Dispatchers.IO) {
             try {
-                Log.d(TAG, "Using Gemma for analysis")
-                gemmaRepository.analyzeDeviceData(deviceData)
+                Log.d(TAG, "Starting on-device analysis with GemmaInferenceSDK")
+                val result = gemmaRepository.analyzeDeviceData(deviceData)
+                Log.d(TAG, "Analysis completed successfully")
+                result
             } catch (e: Exception) {
-                Log.e(TAG, "Analysis failed", e)
+                Log.e(TAG, "On-device analysis failed: ${e.message}", e)
                 Result.failure(e)
             }
         }
 
     /**
-     * Initializes the Gemma SDK.
-     * Should be called early in the app lifecycle.
+     * Initializes the GemmaInferenceSDK for on-device inference.
      */
     suspend fun initializeGemma(): Boolean {
-        return gemmaRepository.initialize()
+        return try {
+            Log.d(TAG, "Initializing GemmaInferenceSDK")
+            val result = gemmaRepository.initialize()
+            Log.d(TAG, "GemmaInferenceSDK initialization result: $result")
+            result
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize GemmaInferenceSDK: ${e.message}", e)
+            false
+        }
     }
 
     /**
-     * Releases resources used by the Gemma SDK.
+     * Releases resources used by the GemmaInferenceSDK.
+     * Note: The SDK handles its own lifecycle management through lifecycle observers.
      */
     fun shutdownGemma() {
-        // Gemma SDK resource cleanup if needed
+        Log.d(TAG, "GemmaInferenceSDK shutdown requested - handled by SDK lifecycle management")
+        // The GemmaInferenceSDK handles its own resource cleanup through lifecycle observers
+        // No explicit cleanup needed here
     }
 } 

@@ -19,9 +19,5 @@ object AppModule {
         return PowerGuardDatabase.getInstance(context)
     }
     
-    @Provides
-    @Singleton
-    fun provideContext(@ApplicationContext context: Context): Context {
-        return context
-    }
+
 }

@@ -16,7 +16,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
@@ -219,8 +219,6 @@ fun PowerGuardAppUI(
 
     // Get the local context to access resources
     val context = LocalContext.current
-
-    val scrollState = rememberScrollState()
 
     // Use rememberCoroutineScope to create a CoroutineScope that is scoped to the composition
     val coroutineScope = rememberCoroutineScope()

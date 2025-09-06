@@ -4,7 +4,7 @@
 set -e
 
 # Define the package name
-PACKAGE_NAME="com.hackathon.powergaurd"
+PACKAGE_NAME="com.hackathon.powerguard"
 
 # Check if adb is available
 ADB_CMD="adb"
@@ -34,6 +34,11 @@ $ADB_CMD -s $DEVICE shell pm grant $PACKAGE_NAME android.permission.WRITE_SECURE
 
 echo "  - Granting READ_LOGS permission..."
 $ADB_CMD -s $DEVICE shell pm grant $PACKAGE_NAME android.permission.READ_LOGS
+
+# CHANGE_APP_IDLE_STATE cannot be granted via pm grant
+echo "  - Note: CHANGE_APP_IDLE_STATE permission cannot be granted via pm grant"
+echo "    This permission is automatically granted to privileged system apps only"
+echo "    If your app is a privileged system app, ensure this is in privapp-permissions XML"
 
 # Privileged permissions - cannot be granted with pm grant but are available automatically
 echo "  - Note: FORCE_STOP_PACKAGES permission is automatically granted to privileged system apps"

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.powergaurd.llm"
+    namespace = "com.powerguard.llm"
     compileSdk = 34
 
     defaultConfig {

@@ -6,7 +6,7 @@
       "type": "shell",
       "command": "bash",
       "args": [
-        "/Users/hitesh.chopra/AndroidStudioProjects/PowerGaurd/run_android.sh"
+        "/Users/hitesh.chopra/AndroidStudioProjects/PowerGuard/run_android.sh"
       ],
       "group": {
         "kind": "build",

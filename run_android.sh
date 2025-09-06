@@ -11,7 +11,7 @@ MAIN_ACTIVITY="com.hackathon.powerguard.MainActivity"
 MODULE="app"
 
 # Go to your project directory
-cd /Users/hitesh.chopra/AndroidStudioProjects/PowerGaurd || exit
+cd /Users/hitesh.chopra/AndroidStudioProjects/PowerGuard || exit
 
 # Check if Gradle wrapper exists, otherwise fallback to system Gradle
 if [ -f "./gradlew" ]; then

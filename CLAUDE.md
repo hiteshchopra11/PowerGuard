@@ -30,30 +30,41 @@ PowerGuard is an AI-powered Android battery optimization app using on-device Gem
 
 ### Application Architecture
 ```
-UI Layer (Jetpack Compose)
+UI Layer (Jetpack Compose) - com.hackathon.powerguard.ui.*
 ├── screens/ - Main app screens (Dashboard, Explore, History)
 ├── components/ - Reusable UI components
-└── viewmodels/ - MVVM ViewModels with Hilt DI
+├── viewmodels/ - MVVM ViewModels with Hilt DI
+└── navigation/ - Navigation components
 
-Domain Layer
+Domain Layer - com.hackathon.powerguard.domain.*
 ├── usecase/ - Business logic use cases
-└── model/ - Domain models
+└── model/ - Domain models (data transfer objects)
 
-Data Layer
+Data Layer - com.hackathon.powerguard.data.*
 ├── local/ - Room database with DAOs and entities
 ├── gemma/ - Gemma LLM integration (primary analysis source)
-└── collector/ - Usage data collection services
+├── model/ - Data models and DTOs
+└── di/ - Data layer dependency injection modules
+
+Infrastructure Layer - com.hackathon.powerguard.*
+├── collector/ - Usage data collection services
+├── actionable/ - Battery optimization execution system
+├── services/ - Background services
+├── receivers/ - Broadcast receivers
+├── widget/ - App widget implementation
+└── utils/ - Utility classes and helpers
 ```
 
 ### Key Components
 
 #### Dependency Injection (Hilt)
-- **AppModule**: Core application dependencies
-- **DatabaseModule**: Room database configuration
-- **LLMModule**: Gemma SDK integration
-- **ActionableModule**: Battery optimization actions
-- **CollectorModule**: Usage data collection
-- **RepositoryModule**: Simplified repository patterns
+- **AppModule**: Core application dependencies and database integration
+- **DatabaseModule**: Room database configuration (data layer)
+- **LLMModule**: Gemma SDK integration and LLM service bindings
+- **ActionableModule**: Battery optimization action handlers and executors
+- **CollectorModule**: Usage data collection service providers
+- **GemmaModule**: Gemma repository and device info providers (data layer)
+- **AppRepository**: Simplified repository pattern implementations
 
 #### Actionable System
 Located in `actionable/` - executes AI-generated optimization strategies:
@@ -69,13 +80,31 @@ Located in `actionable/` - executes AI-generated optimization strategies:
 - **PowerGuardDatabase**: Room database storing insights and actionables
 
 #### Gemma LLM Integration
-The custom **GemmaInferenceSDK** provides:
+The custom **GemmaInferenceSDK** (`com.powerguard.llm.*`) provides:
 - On-device inference with Google Gemma 2B model
-- Battery-efficient inference modes
+- Battery-efficient inference modes  
 - JSON response parsing for structured AI outputs
 - Lifecycle-aware resource management
+- Exception handling for connectivity and API key issues
+- Model management and prompt formatting utilities
 
 ## Development Guidelines
+
+### Package Structure
+The project follows a consistent package naming convention:
+- **Main Application**: `com.hackathon.powerguard.*`
+- **GemmaInferenceSDK**: `com.powerguard.llm.*`
+
+**Key Package Organization:**
+- `actionable/` - Battery optimization handlers and execution system
+- `collector/` - System and usage data collection services
+- `data/` - Data layer with repositories, models, and database integration
+- `di/` - Dependency injection modules organized by feature
+- `domain/` - Use cases and business logic
+- `services/` - Background services and system integration
+- `ui/` - Jetpack Compose UI components, screens, and ViewModels
+- `utils/` - Shared utility classes and helper functions
+- `widget/` - App widget implementation
 
 ### API Level Targeting
 - **Minimum SDK**: API 35 (Android 15)
@@ -118,3 +147,18 @@ Use `grant_permissions.sh` for automated permission setup during development.
 - **Debug builds**: Include UI tooling and test manifests
 - **ProGuard**: Disabled in debug builds for easier debugging
 - **Utilities**: Centralized TimeUtils for date/time formatting across the app
+
+### Recent Changes & Improvements
+- **Package Structure**: Corrected package naming from `powergaurd` to `powerguard` throughout the entire codebase
+- **GemmaInferenceSDK**: Enhanced with better exception handling and model management
+- **Architecture**: Improved separation of concerns with clearer layer boundaries
+- **Build System**: Optimized Gradle configuration for faster builds and better caching
+- **Development Tools**: Added comprehensive shell scripts for quick development workflow
+
+### Code Quality Standards
+- Follow clean architecture principles with clear separation between UI, Domain, and Data layers
+- Use dependency injection (Hilt) for testable and maintainable code
+- Implement proper error handling and resource management
+- Write unit tests for business logic (use cases, repositories, ViewModels)
+- Use coroutines for asynchronous operations with appropriate dispatchers
+- Follow Android development best practices and Material Design guidelines

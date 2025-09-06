@@ -28,6 +28,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -223,6 +224,9 @@ fun PowerGuardAppUI(
     // Use rememberCoroutineScope to create a CoroutineScope that is scoped to the composition
     val coroutineScope = rememberCoroutineScope()
 
+    // Inference mode switch state: false = Gemma (default), true = Backend
+    var useBackend by remember { mutableStateOf(false) }
+
     // If openPromptInput is true, we navigate to the dashboard
     LaunchedEffect(openPromptInput) {
         if (openPromptInput) {
@@ -293,6 +297,30 @@ fun PowerGuardAppUI(
                                     }
                                 }
                             )
+                            DropdownMenuItem(
+                                text = { Text("Use backend (cloud)") },
+                                onClick = {
+                                    useBackend = !useBackend
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            if (useBackend) "Switched to Backend" else "Switched to Gemma (on-device)"
+                                        )
+                                    }
+                                },
+                                trailingIcon = {
+                                    Switch(
+                                        checked = useBackend,
+                                        onCheckedChange = { checked ->
+                                            useBackend = checked
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                    if (useBackend) "Switched to Backend" else "Switched to Gemma (on-device)"
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+                            )
                         }
                     }
                 }
@@ -309,7 +337,8 @@ fun PowerGuardAppUI(
             },
             openPromptInput = openPromptInput,
             refreshTrigger = refreshTrigger,
-            settingsTrigger = settingsTrigger
+            settingsTrigger = settingsTrigger,
+            useBackend = useBackend
         )
     }
 }

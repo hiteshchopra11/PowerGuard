@@ -94,7 +94,8 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
     openPromptInput: Boolean = false,
     refreshTrigger: Boolean = false,
-    settingsTrigger: Boolean = false
+    settingsTrigger: Boolean = false,
+    useBackend: Boolean = false
 ) {
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -134,6 +135,11 @@ fun DashboardScreen(
             previousSettingsTrigger = settingsTrigger
             showTestValuesBottomSheet = true
         }
+    }
+    // Listen for backend toggle and update ViewModel
+    LaunchedEffect(useBackend) {
+        // useBackend=true means switch off Gemma
+        viewModel.toggleInferenceMode(useGemma = !useBackend)
     }
     
     // Declare FocusRequester

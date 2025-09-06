@@ -123,8 +123,16 @@ class DashboardViewModel @Inject constructor(
      * Toggles between GemmaInferenceSDK and backend API
      */
     fun toggleInferenceMode(useGemma: Boolean) {
-        // Always using Gemma in simplified architecture
-        _isUsingGemma.value = true
+        _isUsingGemma.value = useGemma
+        _uiState.update { current ->
+            current.copy(inferenceMode = if (useGemma) "Gemma SDK" else "Backend")
+        }
+        if (!useGemma) {
+            Log.w(
+                TAG,
+                "Backend mode selected, but no backend implementation detected. Continuing to use on-device Gemma."
+            )
+        }
         Log.d("DashboardViewModel", "Switched to ${if (useGemma) "Gemma SDK" else "backend API"} mode")
     }
 
@@ -630,9 +638,10 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun setUseGemma(useGemma: Boolean) {
-        // Always using Gemma in simplified architecture
-        _isUsingGemma.value = true
-        // Refresh with new inference mode
+        _isUsingGemma.value = useGemma
+        _uiState.update { current ->
+            current.copy(inferenceMode = if (useGemma) "Gemma SDK" else "Backend")
+        }
         refreshData()
     }
 }

@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.hackathon.powergaurd"
+    namespace = "com.hackathon.powerguard"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.hackathon.powergaurd"
+        applicationId = "com.hackathon.powerguard"
         minSdk = 35
         targetSdk = 35
         versionCode = 1

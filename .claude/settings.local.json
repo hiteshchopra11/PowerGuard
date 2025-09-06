@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(adb shell:*)",
+      "Bash(./grant_permissions.sh:*)",
+      "Bash(adb:*)",
+      "Bash(./gradlew:*)",
+      "Bash(rm:*)",
+      "Bash(./run_android.sh)",
+      "Bash(find:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -4,8 +4,8 @@
 set -e
 
 # Define the package and main activity
-PACKAGE_NAME="com.hackathon.powergaurd"
-MAIN_ACTIVITY="com.hackathon.powergaurd.MainActivity"
+PACKAGE_NAME="com.hackathon.powerguard"
+MAIN_ACTIVITY="com.hackathon.powerguard.MainActivity"
 
 # Define the module (lowercase for directory path)
 MODULE="app"

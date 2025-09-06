@@ -4,7 +4,7 @@
 set -e
 
 # Define the package name
-PACKAGE_NAME="com.hackathon.powergaurd"
+PACKAGE_NAME="com.hackathon.powerguard"
 
 # Check if adb is available
 ADB_CMD="adb"

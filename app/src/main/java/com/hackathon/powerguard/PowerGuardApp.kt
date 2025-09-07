@@ -2,6 +2,7 @@ package com.hackathon.powerguard
 
 import android.app.Application
 import android.util.Log
+import com.google.firebase.FirebaseApp
 import com.hackathon.powerguard.data.PowerGuardAnalysisRepository
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -19,6 +20,10 @@ class PowerGuardApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Ensure FirebaseApp is initialized (safe to call multiple times)
+        if (FirebaseApp.getApps(this).isEmpty()) {
+            FirebaseApp.initializeApp(this)
+        }
         
         // Log app initialization
         Log.d(TAG, "Initializing PowerGuard App")

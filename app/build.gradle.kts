@@ -2,8 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.hilt.android) // Hilt Plugin
-    // Apply Google Services if you add google-services.json
-    // alias(libs.plugins.google.services)
+    // Apply Google Services for Firebase initialization (google-services.json present)
+    alias(libs.plugins.google.services)
     kotlin("kapt")
 }
 

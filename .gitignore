@@ -1,16 +1,58 @@
+# Gradle files
 *.iml
 .gradle
 /local.properties
+gradle-wrapper.properties
+
+# IDE files
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
+/.idea/shelf
+/.idea/misc.xml
+/.idea/deploymentTargetSelector.xml
+/.idea/runConfigurations.xml
+/.idea/kotlinc.xml
+/.idea/studiobot.xml
+/.vscode/
+/.cursor/
+/.claude/
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Build files
 /build
+*/build/
 /captures
 .externalNativeBuild
 .cxx
+*.apk
+*.aab
+*.dex
+
+# Sensitive files
+/app/google-services.json
+*.keystore
+*.jks
+*.p12
+*.pem
+*.key
+*_key*
+*.env*
+*secret*
+*password*
+*token*
+
+# Logs and temporary files
+*.log
+*.tmp
+*.cache
+*.pid
+
+# Local properties
 local.properties
-app/src/main/assets/gemma_api.properties

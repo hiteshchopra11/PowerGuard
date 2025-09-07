@@ -33,14 +33,10 @@ fun PowerGuardTheme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            // Always use dynamic dark theme
-            dynamicDarkColorScheme(context)
-        }
-
-        else -> DarkColorScheme // Always use dark theme
+    // minSdk is 35; dynamic color is available. Always use dynamic dark scheme.
+    val colorScheme = run {
+        val context = LocalContext.current
+        dynamicDarkColorScheme(context)
     }
 
     val view = LocalView.current

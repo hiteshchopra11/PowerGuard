@@ -289,23 +289,11 @@ class PowerGuardService : Service() {
     }
 
     private fun getInstalledApps(): List<ApplicationInfo> {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            // For Android 7+ (API 24+), use MATCH_* flags
-            packageManager.getInstalledApplications(PackageManager.MATCH_UNINSTALLED_PACKAGES).filter {
-                // Filter out system apps if needed
-                it.packageName != "android" &&
-                        it.packageName != "com.android.systemui" &&
-                        it.packageName != applicationContext.packageName
-            }
-        } else {
-            // For older versions, use GET_* flags
-            @Suppress("DEPRECATION")
-            packageManager.getInstalledApplications(PackageManager.GET_META_DATA).filter {
-                // Filter out system apps if needed
-                it.packageName != "android" &&
-                        it.packageName != "com.android.systemui" &&
-                        it.packageName != applicationContext.packageName
-            }
+        // minSdk is 35; use modern MATCH_* flags unconditionally
+        return packageManager.getInstalledApplications(PackageManager.MATCH_UNINSTALLED_PACKAGES).filter {
+            it.packageName != "android" &&
+                it.packageName != "com.android.systemui" &&
+                it.packageName != applicationContext.packageName
         }
     }
 

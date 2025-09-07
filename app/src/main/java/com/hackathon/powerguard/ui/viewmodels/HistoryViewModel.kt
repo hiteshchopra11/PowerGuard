@@ -16,9 +16,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 
 data class HistoryUiState(
@@ -205,16 +202,4 @@ class HistoryViewModel @Inject constructor(
             return INSTANCE
         }
     }
-}
-
-// Extension function to display the timestamp in a readable format
-fun DeviceInsightEntity.getFormattedDate(): String {
-    val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-    return dateFormat.format(Date(timestamp))
-}
-
-// Extension function to display the timestamp in a readable format
-fun DeviceActionableEntity.getFormattedDate(): String {
-    val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-    return dateFormat.format(Date(timestamp))
 }

@@ -47,7 +47,7 @@ android {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.11"
+        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
     }
     kotlinOptions {
         jvmTarget = "11"
@@ -90,18 +90,18 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
 
     // Compose with Hilt Navigation
-    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+    implementation(libs.androidx.hilt.navigation.compose)
 
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
 
     // Charts
-    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+    implementation(libs.mpandroidchart)
 
     // Networking
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
-    implementation("com.squareup.retrofit2:converter-moshi:2.9.0")
+    implementation(libs.retrofit.converter.moshi)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.gson)
@@ -111,8 +111,8 @@ dependencies {
     implementation(libs.firebase.ai)
 
     // Moshi
-    implementation("com.squareup.moshi:moshi:1.14.0")
-    implementation("com.squareup.moshi:moshi-kotlin:1.14.0")
+    implementation(libs.moshi)
+    implementation(libs.moshi.kotlin)
 
     // Room Database
     implementation(libs.androidx.room.runtime)
@@ -130,17 +130,15 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation("androidx.test:core:1.5.0")
-    testImplementation("androidx.test:core-ktx:1.5.0")
-    testImplementation("org.robolectric:robolectric:4.10.3")
-    testImplementation("io.mockk:mockk:1.13.8")
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.core.ktx)
+    testImplementation(libs.robolectric)
     
     // Android Testing
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.6.0")
-    androidTestImplementation("org.mockito:mockito-android:5.5.0")
-    androidTestImplementation("org.mockito:mockito-core:5.5.0")
-    debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.0")
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    androidTestImplementation(libs.mockito.android)
+    androidTestImplementation(libs.mockito.core)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }

@@ -5,10 +5,10 @@ plugins {
 
 android {
     namespace = "com.powerguard.llm"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
-        minSdk = 24
+        minSdk = 30
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")

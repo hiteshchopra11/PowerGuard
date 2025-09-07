@@ -73,9 +73,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
-    implementation(libs.androidx.work.runtime.ktx)
-    implementation(libs.androidx.hilt.work)
-    implementation(libs.androidx.foundation.layout.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -92,27 +89,14 @@ dependencies {
     // Compose with Hilt Navigation
     implementation(libs.androidx.hilt.navigation.compose)
 
-    // WorkManager
-    implementation(libs.androidx.work.runtime.ktx)
-
-    // Charts
-    implementation(libs.mpandroidchart)
-
-    // Networking
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.gson)
-    implementation(libs.retrofit.converter.moshi)
-    implementation(libs.okhttp)
-    implementation(libs.okhttp.logging.interceptor)
-    implementation(libs.gson)
 
     // Firebase AI (client usage should be wrapped in AiInferenceSDK)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.ai)
+    
+    // Gson for JSON serialization
+    implementation(libs.gson)
 
-    // Moshi
-    implementation(libs.moshi)
-    implementation(libs.moshi.kotlin)
 
     // Room Database
     implementation(libs.androidx.room.runtime)
@@ -132,13 +116,10 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.core.ktx)
-    testImplementation(libs.robolectric)
     
     // Android Testing
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.ui.test.junit4)
-    androidTestImplementation(libs.mockito.android)
-    androidTestImplementation(libs.mockito.core)
     debugImplementation(libs.androidx.ui.test.manifest)
 }

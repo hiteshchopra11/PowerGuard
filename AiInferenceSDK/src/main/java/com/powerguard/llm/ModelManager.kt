@@ -7,91 +7,53 @@ import com.google.firebase.ai.ai
 import com.google.firebase.ai.GenerativeModel
 import com.google.firebase.ai.type.GenerationConfig
 import com.google.firebase.ai.type.generationConfig
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import com.google.firebase.ai.type.GenerativeBackend
 
 /**
- * Manages the lifecycle of the LLM model, handling initialization, configuration, and cleanup.
+ * Simplified model manager for Firebase AI Logic.
+ * No complex initialization needed - models are created on demand.
  */
 class ModelManager(
     private val context: Context,
     private val config: AiConfig
 ) {
-    private val mutex = Mutex()
-    private var model: GenerativeModel? = null
     private val tag = "AiSDK_ModelManager"
     
     /**
-     * Initializes the LLM model with the provided configuration.
-     * This should be called before any inference operations.
-     */
-    suspend fun initialize() {
-        mutex.withLock {
-            if (model == null) {
-                logDebug("Initializing model: ${config.modelName}")
-                try {
-                    // Initialize the model using Gemma API
-                    model = createGenerativeModel()
-                    logDebug("Model initialization successful")
-                } catch (e: Exception) {
-                    logError("Model initialization failed", e)
-                    throw e
-                }
-            }
-        }
-    }
-    
-    /**
-     * Retrieves the GenerativeModel instance, initializing it if necessary.
+     * Creates a GenerativeModel instance on demand - no initialization needed.
      * 
-     * @return The initialized GenerativeModel instance
-     * @throws IllegalStateException if model initialization fails
+     * @return A new GenerativeModel instance
      */
-    suspend fun getModel(): GenerativeModel {
-        mutex.withLock {
-            if (model == null) {
-                logDebug("Model not initialized, initializing now")
-                initialize()
-            }
-            return requireNotNull(model) { "Model initialization failed" }
-        }
+    fun getModel(): GenerativeModel {
+        logDebug("Creating model: ${config.modelName}")
+        return createGenerativeModel()
     }
     
     /**
-     * Retrieves the GenerativeModel instance with a custom generation config.
-     * If the model is already initialized, a new instance is created with the provided config.
+     * Creates a GenerativeModel instance with custom generation config.
      * 
      * @param generationConfig Custom generation configuration to use
      * @return The GenerativeModel instance with the specified configuration
      */
-    suspend fun getModel(generationConfig: GenerationConfig): GenerativeModel {
-        mutex.withLock {
-            // First ensure the standard model is initialized
-            if (model == null) {
-                logDebug("Model not initialized, initializing now")
-                initialize()
-            }
-            
-            // Then create a new model with the custom config
-            return createGenerativeModel(generationConfig)
-        }
+    fun getModel(generationConfig: GenerationConfig): GenerativeModel {
+        logDebug("Creating model with custom config: ${config.modelName}")
+        return createGenerativeModel(generationConfig)
     }
     
     /**
-     * Creates a new GenerativeModel instance with the configured settings
+     * Creates a new GenerativeModel instance using Firebase AI with Google AI backend
      */
     private fun createGenerativeModel(): GenerativeModel {
-        return Firebase.ai.generativeModel(config.modelName)
+        return Firebase.ai(backend = GenerativeBackend.googleAI())
+            .generativeModel(config.modelName)
     }
     
     /**
      * Creates a new GenerativeModel instance with custom generation config
      */
     private fun createGenerativeModel(generationConfig: GenerationConfig): GenerativeModel {
-        return Firebase.ai.generativeModel(
-            config.modelName,
-            generationConfig
-        )
+        return Firebase.ai(backend = GenerativeBackend.googleAI())
+            .generativeModel(config.modelName, generationConfig)
     }
     
     /**
@@ -111,19 +73,10 @@ class ModelManager(
     }
     
     /**
-     * Releases all resources associated with the model.
-     * This should be called when the model is no longer needed.
+     * No cleanup needed for Firebase AI Logic models.
      */
     fun release() {
-        if (mutex.tryLock()) {
-            try {
-                logDebug("Releasing model resources")
-                model = null
-                // Any additional cleanup code here
-            } finally {
-                mutex.unlock()
-            }
-        }
+        logDebug("Release called - no cleanup needed for Firebase AI Logic")
     }
     
     private fun logDebug(message: String) {

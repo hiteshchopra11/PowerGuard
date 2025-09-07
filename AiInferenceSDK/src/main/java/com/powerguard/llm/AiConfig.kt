@@ -2,10 +2,9 @@ package com.powerguard.llm
 
 /**
  * Configuration class for the AI Inference SDK.
- * Contains all the settings needed for AI model configuration and inference parameters.
+ * Contains all the settings needed for Firebase AI Logic model configuration and inference parameters.
  */
 data class AiConfig(
-    val apiKey: String = "",
     val modelName: String = "models/gemini-2.0-flash",
     val temperature: Float = 0.7f,
     val maxTokens: Int = 4096,

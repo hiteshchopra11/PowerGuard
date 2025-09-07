@@ -9,7 +9,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import com.powerguard.llm.exceptions.NoConnectivityException
-import com.powerguard.llm.exceptions.InvalidAPIKeyException
 
 /**
  * Engine for performing inference operations with the LLM model.
@@ -53,10 +52,7 @@ class InferenceEngine(
             throw NoConnectivityException("No internet connection available")
         }
         
-        // Check for empty or placeholder API keys
-        if (config.apiKey.isBlank()) {
-            throw InvalidAPIKeyException("API key is not set or is using the placeholder value.")
-        }
+        logDebug("Using Firebase AI Logic")
 
         return withContext(Dispatchers.Default) {
             logDebug("Generating text for prompt: ${prompt}")
@@ -80,10 +76,6 @@ class InferenceEngine(
                     result
                 }
             } catch (e: Exception) {
-                if (e.message?.contains("API key not valid") == true || 
-                    e.toString().contains("InvalidAPIKeyException")) {
-                    throw InvalidAPIKeyException("The API key is invalid or has expired.", e)
-                }
                 logError("Text generation failed", e)
                 null
             }

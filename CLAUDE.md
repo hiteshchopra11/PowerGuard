@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-PowerGuard is an AI-powered Android battery optimization app using an on-device AI LLM (previously Gemma). The project follows clean architecture with these key layers:
+PowerGuard is an AI-powered Android battery optimization app using Firebase AI for intelligent analysis. The project follows clean architecture with these key layers:
 
 ### Core Modules
 - **app**: Main Android application module
@@ -42,7 +42,7 @@ Domain Layer - com.hackathon.powerguard.domain.*
 
 Data Layer - com.hackathon.powerguard.data.*
 ├── local/ - Room database with DAOs and entities
-├── gemma/ - Gemma LLM integration (primary analysis source)
+├── firebase/ - Firebase AI integration (primary analysis source)
 ├── model/ - Data models and DTOs
 └── di/ - Data layer dependency injection modules
 
@@ -63,7 +63,7 @@ Infrastructure Layer - com.hackathon.powerguard.*
 - **LLMModule**: AI SDK integration and LLM service bindings
 - **ActionableModule**: Battery optimization action handlers and executors
 - **CollectorModule**: Usage data collection service providers
-- **GemmaModule**: AI repository and device info providers (data layer)
+- **FirebaseModule**: AI repository and device info providers (data layer)
 - **AppRepository**: Simplified repository pattern implementations
 
 #### Actionable System
@@ -79,21 +79,21 @@ Located in `actionable/` - executes AI-generated optimization strategies:
 - **DeviceInfoProvider**: Gathers device capabilities and current state
 - **PowerGuardDatabase**: Room database storing insights and actionables
 
-#### AI LLM Integration
-The custom **AiInferenceSDK** (`com.powerguard.llm.*`) provides:
-- On-device inference with Google Gemma 2B model
-- Battery-efficient inference modes  
+#### Firebase AI Integration
+The **AiInferenceSDK** (`com.powerguard.llm.*`) provides:
+- Cloud-based inference with Firebase AI
+- Efficient network request handling
 - JSON response parsing for structured AI outputs
 - Lifecycle-aware resource management
 - Exception handling for connectivity and API key issues
-- Model management and prompt formatting utilities
+- Request formatting and response processing utilities
 
 ## Development Guidelines
 
 ### Package Structure
 The project follows a consistent package naming convention:
 - **Main Application**: `com.hackathon.powerguard.*`
-- **GemmaInferenceSDK**: `com.powerguard.llm.*`
+- **AiInferenceSDK**: `com.powerguard.llm.*`
 
 **Key Package Organization:**
 - `actionable/` - Battery optimization handlers and execution system
@@ -121,7 +121,7 @@ The project follows a consistent package naming convention:
 - **DI**: Dagger Hilt
 - **Database**: Room with coroutines
 - **Charts**: MPAndroidChart for analytics visualization
-- **AI**: Custom AI SDK (on-device inference only)
+- **AI**: Firebase AI integration via custom SDK
 - **Utilities**: Consolidated TimeUtils for formatting
 
 ### System Permissions
@@ -137,8 +137,8 @@ The app requires core system permissions for optimization features:
 Use `grant_permissions.sh` for automated permission setup during development.
 
 ### Performance Considerations
-- **Gemma LLM**: ~2-3 second inference time, ~1.5GB RAM usage during active inference
-- **Battery optimization**: SDK includes low-battery detection for efficient inference
+- **Firebase AI**: Network-dependent response times, minimal local memory usage
+- **Battery optimization**: Network requests optimized for battery efficiency
 - **Background processing**: Uses coroutines with appropriate dispatchers
 - **Database**: Room with KTX extensions for suspend functions
 
@@ -150,7 +150,7 @@ Use `grant_permissions.sh` for automated permission setup during development.
 
 ### Recent Changes & Improvements
 - **Package Structure**: Corrected package naming from `powergaurd` to `powerguard` throughout the entire codebase
-- **GemmaInferenceSDK**: Enhanced with better exception handling and model management
+- **AiInferenceSDK**: Migrated from on-device Gemma to Firebase AI with enhanced error handling
 - **Architecture**: Improved separation of concerns with clearer layer boundaries
 - **Build System**: Optimized Gradle configuration for faster builds and better caching
 - **Development Tools**: Added comprehensive shell scripts for quick development workflow

@@ -18,6 +18,4 @@ object AppModule {
     fun providePowerGuardDatabase(@ApplicationContext context: Context): PowerGuardDatabase {
         return PowerGuardDatabase.getInstance(context)
     }
-    
-
 }

@@ -106,7 +106,7 @@ class AiRepository @Inject constructor(
                                 }
                             }
                             latch.await(5, TimeUnit.SECONDS)
-                            if (error != null) throw error!!
+                            error?.let { throw it }
                             if (_sdk == null) throw IllegalStateException("SDK initialization failed")
                         }
                     }
@@ -115,13 +115,10 @@ class AiRepository @Inject constructor(
             return _sdk!!
         }
 
-    suspend fun initialize(): Boolean = withContext(Dispatchers.Main) {
-        try {
-            sdk.initialize()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize SDK: ${e.message}", e)
-            false
-        }
+    fun initialize(): Boolean {
+        // No initialization needed for Firebase AI Logic - always ready to use
+        Log.d(TAG, "Firebase AI Logic SDK is ready - no initialization required")
+        return true
     }
 
     private fun isNetworkAvailable(): Boolean {
@@ -405,7 +402,7 @@ class AiRepository @Inject constructor(
                     8. If no past usage patterns are provided, return an insight requesting more usage data
                     
                     PAST USAGE PATTERNS:
-                    ${deviceData.pastUsagePatterns ?: "No past usage patterns available"}
+                    ${deviceData.pastUsagePatterns}
                 """.trimIndent()
                 )
             }
@@ -491,7 +488,7 @@ class AiRepository @Inject constructor(
                     val packageManager = context.packageManager
                     val appInfo = packageManager.getApplicationInfo(packageName, 0)
                     packageManager.getApplicationLabel(appInfo).toString()
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     // If can't get app name, use package name
                     packageName
                 }
@@ -710,10 +707,5 @@ class AiRepository @Inject constructor(
             performanceScore = 50f,
             estimatedSavings = AnalysisResponse.EstimatedSavings(15f, 100f)
         )
-    }
-
-    private suspend fun ensureSdkInitialized() {
-        if (_sdk == null) sdk
-        if (!sdk.initialize()) throw IllegalStateException("SDK initialization failed")
     }
 }

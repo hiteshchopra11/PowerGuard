@@ -10,9 +10,9 @@ import java.util.UUID
 /**
  * Parser for LLM model responses, handling JSON parsing and error recovery.
  */
-class ResponseParser(private val config: GemmaConfig) {
+class ResponseParser(private val config: AiConfig) {
     private val gson = Gson()
-    private val tag = "GemmaSDK_ResponseParser"
+    private val tag = "AiSDK_ResponseParser"
     
     /**
      * Attempts to parse the LLM response as a JSON object.

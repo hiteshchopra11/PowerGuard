@@ -23,19 +23,19 @@ class PowerGuardApp : Application() {
         // Log app initialization
         Log.d(TAG, "Initializing PowerGuard App")
         
-        // Initialize Gemma SDK
+        // Initialize AI SDK
         applicationScope.launch {
-            val success = analysisRepository.initializeGemma()
-            Log.d(TAG, "Gemma SDK initialization ${if (success) "successful" else "failed"}")
+            val success = analysisRepository.initializeAi()
+            Log.d(TAG, "AI SDK initialization ${if (success) "successful" else "failed"}")
         }
     }
     
     override fun onTerminate() {
         super.onTerminate()
         
-        // Shutdown Gemma SDK
-        analysisRepository.shutdownGemma()
-        Log.d(TAG, "Gemma SDK resources released")
+        // Shutdown AI SDK
+        analysisRepository.shutdownAi()
+        Log.d(TAG, "AI SDK resources released")
     }
 
     companion object {

@@ -22,11 +22,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-PowerGuard is an AI-powered Android battery optimization app using on-device Gemma LLM. The project follows clean architecture with these key layers:
+PowerGuard is an AI-powered Android battery optimization app using an on-device AI LLM (previously Gemma). The project follows clean architecture with these key layers:
 
 ### Core Modules
 - **app**: Main Android application module
-- **GemmaInferenceSDK**: Custom on-device LLM inference SDK for Google Gemma models
+- **AiInferenceSDK**: Custom on-device LLM inference SDK
 
 ### Application Architecture
 ```
@@ -60,10 +60,10 @@ Infrastructure Layer - com.hackathon.powerguard.*
 #### Dependency Injection (Hilt)
 - **AppModule**: Core application dependencies and database integration
 - **DatabaseModule**: Room database configuration (data layer)
-- **LLMModule**: Gemma SDK integration and LLM service bindings
+- **LLMModule**: AI SDK integration and LLM service bindings
 - **ActionableModule**: Battery optimization action handlers and executors
 - **CollectorModule**: Usage data collection service providers
-- **GemmaModule**: Gemma repository and device info providers (data layer)
+- **GemmaModule**: AI repository and device info providers (data layer)
 - **AppRepository**: Simplified repository pattern implementations
 
 #### Actionable System
@@ -79,8 +79,8 @@ Located in `actionable/` - executes AI-generated optimization strategies:
 - **DeviceInfoProvider**: Gathers device capabilities and current state
 - **PowerGuardDatabase**: Room database storing insights and actionables
 
-#### Gemma LLM Integration
-The custom **GemmaInferenceSDK** (`com.powerguard.llm.*`) provides:
+#### AI LLM Integration
+The custom **AiInferenceSDK** (`com.powerguard.llm.*`) provides:
 - On-device inference with Google Gemma 2B model
 - Battery-efficient inference modes  
 - JSON response parsing for structured AI outputs
@@ -121,7 +121,7 @@ The project follows a consistent package naming convention:
 - **DI**: Dagger Hilt
 - **Database**: Room with coroutines
 - **Charts**: MPAndroidChart for analytics visualization
-- **AI**: Custom Gemma SDK (on-device inference only)
+- **AI**: Custom AI SDK (on-device inference only)
 - **Utilities**: Consolidated TimeUtils for formatting
 
 ### System Permissions

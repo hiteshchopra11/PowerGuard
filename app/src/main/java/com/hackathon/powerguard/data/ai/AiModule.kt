@@ -1,9 +1,9 @@
-package com.hackathon.powerguard.data.gemma
+package com.hackathon.powerguard.data.ai
 
 import android.content.Context
 import android.util.Log
 import com.hackathon.powerguard.utils.PackageNameResolver
-import com.powerguard.llm.GemmaConfig
+import com.powerguard.llm.AiConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -13,27 +13,27 @@ import java.util.Properties
 import javax.inject.Singleton
 
 /**
- * Hilt module for providing GemmaInferenceSDK related dependencies
+ * Hilt module for providing AI Inference related dependencies
  */
 @Module
 @InstallIn(SingletonComponent::class)
-object GemmaModule {
-    private const val TAG = "GemmaModule"
+object AiModule {
+    private const val TAG = "AiModule"
     private const val PLACEHOLDER_KEY = "null"
     
     // Standard model names for Gemini API
     private const val MODEL_GEMINI_PRO = "models/gemini-2.0-flash"
     
     /**
-     * Provides the GemmaConfig with appropriate settings for PowerGuard
+     * Provides the AiConfig with appropriate settings for PowerGuard
      */
     @Provides
     @Singleton
-    fun provideGemmaConfig(@ApplicationContext context: Context): GemmaConfig {
+    fun provideAiConfig(@ApplicationContext context: Context): AiConfig {
         // Try to load API key from properties
         val apiKey = try {
             val properties = Properties()
-            context.assets.open("gemma_api.properties").use { 
+            context.assets.open("ai_api.properties").use { 
                 properties.load(it)
             }
             val key = properties.getProperty("API_KEY", "")
@@ -60,7 +60,7 @@ object GemmaModule {
         val modelName = MODEL_GEMINI_PRO
         Log.d(TAG, "Using model: $modelName")
         
-        return GemmaConfig(
+        return AiConfig(
             modelName = modelName,
             apiKey = apiKey, 
             enableLogging = true,
@@ -92,16 +92,16 @@ object GemmaModule {
     }
 
     /**
-     * Provides the GemmaRepository
+     * Provides the AiRepository
      */
     @Provides
     @Singleton
-    fun provideGemmaRepository(
+    fun provideAiRepository(
         @ApplicationContext context: Context,
-        config: GemmaConfig,
+        config: AiConfig,
         packageNameResolver: PackageNameResolver
-    ): GemmaRepository {
-        return GemmaRepository(context, config, packageNameResolver)
+    ): AiRepository {
+        return AiRepository(context, config, packageNameResolver)
     }
     
     /**

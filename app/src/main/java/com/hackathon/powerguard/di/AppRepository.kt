@@ -1,7 +1,7 @@
 package com.hackathon.powerguard.di
 
 import com.hackathon.powerguard.data.PowerGuardAnalysisRepository
-import com.hackathon.powerguard.data.gemma.GemmaRepository
+import com.hackathon.powerguard.data.ai.AiRepository
 import com.hackathon.powerguard.models.AppUsageData
 import com.hackathon.powerguard.models.BatteryOptimizationData
 import com.hackathon.powerguard.models.NetworkUsageData
@@ -22,9 +22,10 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun providesPowerGuardAnalysisRepository(
-        gemmaRepository: GemmaRepository
+        aiRepository: AiRepository
     ): PowerGuardAnalysisRepository {
-        return PowerGuardAnalysisRepository(gemmaRepository)
+        // Using AiRepository (backed by AiInference).
+        return PowerGuardAnalysisRepository(aiRepository)
     }
 }
 

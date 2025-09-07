@@ -1,4 +1,4 @@
-package com.hackathon.powerguard.data.gemma
+package com.hackathon.powerguard.data.ai
 
 import org.json.JSONException
 import org.json.JSONObject

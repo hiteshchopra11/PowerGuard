@@ -4,8 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
-import com.google.ai.client.generativeai.type.GenerationConfig
-import com.google.ai.client.generativeai.type.content
+import com.google.firebase.ai.type.generationConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -19,9 +18,9 @@ import com.powerguard.llm.exceptions.InvalidAPIKeyException
 class InferenceEngine(
     private val context: Context,
     private val modelManager: ModelManager,
-    private val config: GemmaConfig
+    private val config: AiConfig
 ) {
-    private val tag = "GemmaSDK_InferenceEngine"
+    private val tag = "AiSDK_InferenceEngine"
     
     private fun checkNetworkConnectivity(): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -47,7 +46,7 @@ class InferenceEngine(
         temperature: Float = config.temperature
     ): String? {
         if (!isOnlineMode()) {
-            throw NoConnectivityException("Internet connection required for Gemma API")
+            throw NoConnectivityException("Internet connection required for online API mode")
         }
 
         if (!checkNetworkConnectivity()) {
@@ -56,7 +55,7 @@ class InferenceEngine(
         
         // Check for empty or placeholder API keys
         if (config.apiKey.isBlank()) {
-            throw InvalidAPIKeyException("API key is not set or is using the placeholder value. Please obtain a valid API key from https://aistudio.google.com/app/apikey")
+            throw InvalidAPIKeyException("API key is not set or is using the placeholder value.")
         }
 
         return withContext(Dispatchers.Default) {
@@ -66,24 +65,16 @@ class InferenceEngine(
                 // Use timeout to prevent long-running inference
                 withTimeoutOrNull(config.timeoutMs) {
                     // Create a generation config
-                    val generationConfig = GenerationConfig.builder().apply {
+                    val generationConfig = generationConfig {
                         maxOutputTokens = 20000
                         this.temperature = temperature
                         topK = config.topK
                         topP = config.topP
-                    }.build()
+                    }
                     
                     // Get the model with this specific generation config
                     val model = modelManager.getModel(generationConfig)
-                    
-                    // Create content from prompt
-                    val promptContent = content(role = "user") { text(prompt) }
-                    
-                    // Generate content - no need to pass generationConfig here as it's already
-                    // part of the model configuration
-                    val response = model.generateContent(promptContent)
-                    
-                    // Extract and return the text response
+                    val response = model.generateContent(prompt)
                     val result = response.text
                     logDebug("Generated ${result?.length ?: 0} characters of text")
                     result
@@ -91,7 +82,7 @@ class InferenceEngine(
             } catch (e: Exception) {
                 if (e.message?.contains("API key not valid") == true || 
                     e.toString().contains("InvalidAPIKeyException")) {
-                    throw InvalidAPIKeyException("The API key is invalid or has expired. Please obtain a new key from https://aistudio.google.com/app/apikey", e)
+                    throw InvalidAPIKeyException("The API key is invalid or has expired.", e)
                 }
                 logError("Text generation failed", e)
                 null

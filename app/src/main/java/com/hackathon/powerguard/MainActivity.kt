@@ -224,7 +224,7 @@ fun PowerGuardAppUI(
     // Use rememberCoroutineScope to create a CoroutineScope that is scoped to the composition
     val coroutineScope = rememberCoroutineScope()
 
-    // Inference mode switch state: false = Gemma (default), true = Backend
+    // Inference mode switch state: false = AI (default), true = Backend
     var useBackend by remember { mutableStateOf(false) }
 
     // If openPromptInput is true, we navigate to the dashboard
@@ -303,7 +303,7 @@ fun PowerGuardAppUI(
                                     useBackend = !useBackend
                                     coroutineScope.launch {
                                         snackbarHostState.showSnackbar(
-                                            if (useBackend) "Switched to Backend" else "Switched to Gemma (on-device)"
+                                            if (useBackend) "Switched to Backend" else "Switched to AI (on-device)"
                                         )
                                     }
                                 },
@@ -314,7 +314,7 @@ fun PowerGuardAppUI(
                                             useBackend = checked
                                             coroutineScope.launch {
                                                 snackbarHostState.showSnackbar(
-                                                    if (useBackend) "Switched to Backend" else "Switched to Gemma (on-device)"
+                                                    if (useBackend) "Switched to Backend" else "Switched to AI (on-device)"
                                                 )
                                             }
                                         }

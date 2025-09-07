@@ -2,9 +2,11 @@ package com.powerguard.llm
 
 import android.content.Context
 import android.util.Log
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.GenerationConfig
-import com.google.ai.client.generativeai.type.RequestOptions
+import com.google.firebase.Firebase
+import com.google.firebase.ai.ai
+import com.google.firebase.ai.GenerativeModel
+import com.google.firebase.ai.type.GenerationConfig
+import com.google.firebase.ai.type.generationConfig
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -13,11 +15,11 @@ import kotlinx.coroutines.sync.withLock
  */
 class ModelManager(
     private val context: Context,
-    private val config: GemmaConfig
+    private val config: AiConfig
 ) {
     private val mutex = Mutex()
     private var model: GenerativeModel? = null
-    private val tag = "GemmaSDK_ModelManager"
+    private val tag = "AiSDK_ModelManager"
     
     /**
      * Initializes the LLM model with the provided configuration.
@@ -26,7 +28,7 @@ class ModelManager(
     suspend fun initialize() {
         mutex.withLock {
             if (model == null) {
-                logDebug("Initializing Gemma model: ${config.modelName}")
+                logDebug("Initializing model: ${config.modelName}")
                 try {
                     // Initialize the model using Gemma API
                     model = createGenerativeModel()
@@ -79,20 +81,16 @@ class ModelManager(
      * Creates a new GenerativeModel instance with the configured settings
      */
     private fun createGenerativeModel(): GenerativeModel {
-        return GenerativeModel(
-            modelName = config.modelName,
-            apiKey = config.apiKey
-        )
+        return Firebase.ai.generativeModel(config.modelName)
     }
     
     /**
      * Creates a new GenerativeModel instance with custom generation config
      */
     private fun createGenerativeModel(generationConfig: GenerationConfig): GenerativeModel {
-        return GenerativeModel(
-            modelName = config.modelName,
-            apiKey = config.apiKey,
-            generationConfig = generationConfig
+        return Firebase.ai.generativeModel(
+            config.modelName,
+            generationConfig
         )
     }
     
@@ -102,17 +100,14 @@ class ModelManager(
      * @return Configuration for text generation
      */
     fun buildGenerationConfig(): GenerationConfig {
-        return GenerationConfig.builder()
-            .apply {
-                maxOutputTokens = config.maxTokens
-                temperature = config.temperature
-                topK = config.topK
-                topP = config.topP
-                // These aren't required since they're nullable, but you can set them if needed
-                candidateCount = 1 // Default to 1 candidate
-                stopSequences = null // No stop sequences by default
-            }
-            .build()
+        return generationConfig {
+            maxOutputTokens = config.maxTokens
+            temperature = config.temperature
+            topK = config.topK
+            topP = config.topP
+            candidateCount = 1
+            stopSequences = null
+        }
     }
     
     /**

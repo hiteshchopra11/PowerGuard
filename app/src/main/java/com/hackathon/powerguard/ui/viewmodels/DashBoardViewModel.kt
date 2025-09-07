@@ -5,17 +5,13 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hackathon.powerguard.actionable.ActionableExecutor
-import com.hackathon.powerguard.actionable.ActionableTypes
 import com.hackathon.powerguard.collector.UsageDataCollector
-import com.hackathon.powerguard.data.PowerGuardAnalysisRepository
-import com.hackathon.powerguard.data.gemma.GemmaRepository.Companion.RESTRICT_BACKGROUND_DATA
+import com.hackathon.powerguard.data.ai.AiRepository.Companion.RESTRICT_BACKGROUND_DATA
 import com.hackathon.powerguard.data.local.entity.DeviceInsightEntity
 import com.hackathon.powerguard.data.model.Actionable
 import com.hackathon.powerguard.data.model.AnalysisResponse
 import com.hackathon.powerguard.data.model.DeviceData
 import com.hackathon.powerguard.domain.usecase.AnalyzeDeviceDataUseCase
-import com.hackathon.powerguard.domain.usecase.GetAllActionableUseCase
-import com.hackathon.powerguard.domain.usecase.GetCurrentInsightsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,10 +26,7 @@ import javax.inject.Inject
 class DashboardViewModel @Inject constructor(
     private val usageDataCollector: UsageDataCollector,
     private val analyzeDeviceDataUseCase: AnalyzeDeviceDataUseCase,
-    private val getAllActionableUseCase: GetAllActionableUseCase,
-    private val getCurrentInsightsUseCase: GetCurrentInsightsUseCase,
-    private val actionableExecutor: ActionableExecutor,
-    private val analysisRepository: PowerGuardAnalysisRepository
+    private val actionableExecutor: ActionableExecutor
 ) : ViewModel() {
 
     companion object {
@@ -46,7 +39,6 @@ class DashboardViewModel @Inject constructor(
 
     // Device data
     private val _deviceData = MutableStateFlow<DeviceData?>(null)
-    val deviceData: StateFlow<DeviceData?> = _deviceData.asStateFlow()
 
     // Analysis response
     private val _analysisResponse = MutableStateFlow<AnalysisResponse?>(null)
@@ -70,17 +62,14 @@ class DashboardViewModel @Inject constructor(
     val executionResults: StateFlow<Map<String, Boolean>> = _executionResults.asStateFlow()
     
     // Track which implementation is currently active
-    // Always using Gemma now - simplified architecture
-    private val _isUsingGemma = MutableStateFlow(true)
-    val isUsingGemma: StateFlow<Boolean> = _isUsingGemma.asStateFlow()
+    private val _isUsingAi = MutableStateFlow(true)
+    val isUsingAi: StateFlow<Boolean> = _isUsingAi.asStateFlow()
 
     // Add state flows for data settings
     private val _totalDataMb = MutableStateFlow(0f)
-    val totalDataMb: StateFlow<Float> = _totalDataMb.asStateFlow()
-    
+
     private val _currentDataMb = MutableStateFlow(0f)
-    val currentDataMb: StateFlow<Float> = _currentDataMb.asStateFlow()
-    
+
     // Custom battery level for testing
     private val _customBatteryLevel = MutableStateFlow(0)
     val customBatteryLevel: StateFlow<Int> = _customBatteryLevel.asStateFlow()
@@ -91,11 +80,10 @@ class DashboardViewModel @Inject constructor(
     
     // Past usage patterns
     private val _pastUsagePatterns = MutableStateFlow<List<String>>(emptyList())
-    val pastUsagePatterns: StateFlow<List<String>> = _pastUsagePatterns.asStateFlow()
 
     init {
-        // Always using Gemma in simplified architecture
-        _isUsingGemma.value = true
+        // Always using on-device AI in simplified architecture
+        _isUsingAi.value = true
         Log.d("TEST12345","Testing actionable RestrictDataHandler")
         viewModelScope.launch {
             actionableExecutor.executeActionable(
@@ -120,20 +108,20 @@ class DashboardViewModel @Inject constructor(
     }
 
     /**
-     * Toggles between GemmaInferenceSDK and backend API
+     * Toggles between on-device AI and backend API
      */
-    fun toggleInferenceMode(useGemma: Boolean) {
-        _isUsingGemma.value = useGemma
+    fun toggleInferenceMode(useAi: Boolean) {
+        _isUsingAi.value = useAi
         _uiState.update { current ->
-            current.copy(inferenceMode = if (useGemma) "Gemma SDK" else "Backend")
+            current.copy(inferenceMode = if (useAi) "AI SDK" else "Backend")
         }
-        if (!useGemma) {
+        if (!useAi) {
             Log.w(
                 TAG,
-                "Backend mode selected, but no backend implementation detected. Continuing to use on-device Gemma."
+                "Backend mode selected, but no backend implementation detected. Continuing to use on-device AI."
             )
         }
-        Log.d("DashboardViewModel", "Switched to ${if (useGemma) "Gemma SDK" else "backend API"} mode")
+        Log.d("DashboardViewModel", "Switched to ${if (useAi) "AI SDK" else "backend API"} mode")
     }
 
     @SuppressLint("NewApi")
@@ -151,7 +139,7 @@ class DashboardViewModel @Inject constructor(
                 Log.d(TAG, "Device data collected successfully")
                 
                 // Analyze it
-                Log.d(TAG, "Starting analysis with Gemma")
+                Log.d(TAG, "Starting analysis with AI")
                 val result = analyzeDeviceDataUseCase(deviceData)
                 
                 if (result.isSuccess) {
@@ -225,43 +213,6 @@ class DashboardViewModel @Inject constructor(
                     .take(3)
                     .map { "${it.appName} (${formatDataUsage(it.dataUsage.background)})" }
             )
-        }
-    }
-
-    /**
-     * Kills a specific app to immediately reduce resource usage
-     */
-    fun killApp(packageName: String, appName: String) {
-        viewModelScope.launch {
-            try {
-                Log.d("DashboardViewModel", "Attempting to kill app: $packageName")
-                
-                val actionable = Actionable(
-                    id = UUID.randomUUID().toString(),
-                    type = ActionableTypes.KILL_APP,
-                    description = "Force stop $appName to save resources",
-                    packageName = packageName,
-                    estimatedBatterySavings = 8.0f,
-                    estimatedDataSavings = 10.0f,
-                    severity = 5,
-                    newMode = null,
-                    enabled = true,
-                    throttleLevel = null,
-                    reason = "Immediate resource optimization"
-                )
-                
-                val result = actionableExecutor.executeActionables(listOf(actionable))
-                
-                if (result.values.first().success) {
-                    Log.d("DashboardViewModel", "Successfully killed app: $packageName")
-                } else {
-                    Log.e("DashboardViewModel", "Failed to kill app: $packageName")
-                    _error.value = "Failed to force stop $appName"
-                }
-            } catch (e: Exception) {
-                Log.e("DashboardViewModel", "Error killing app", e)
-                _error.value = "Error stopping $appName: ${e.message}"
-            }
         }
     }
 
@@ -500,69 +451,6 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    private fun updateUiStateWithInsights(insightEntities: List<DeviceInsightEntity>) {
-        // Extract basic statistics and scores from insights
-        val batteryInsights = insightEntities.filter { it.insightType == "BATTERY" }
-        val dataInsights = insightEntities.filter { it.insightType == "DATA" }
-        val performanceInsights = insightEntities.filter { it.insightType == "PERFORMANCE" }
-
-        // Calculate simple scores based on number and severity of insights
-        val batteryScore = calculateScore(batteryInsights)
-        val dataScore = calculateScore(dataInsights)
-        val performanceScore = calculateScore(performanceInsights)
-
-        _uiState.update { currentState ->
-            currentState.copy(
-                batteryScore = batteryScore,
-                dataScore = dataScore,
-                performanceScore = performanceScore,
-                insights = insightEntities,
-                aiSummary = generateAiSummary(insightEntities)
-            )
-        }
-    }
-
-    private fun calculateScore(insights: List<DeviceInsightEntity>): Int {
-        // Start with a base score
-        var score = 90
-
-        // Adjust based on number and severity of insights
-        insights.forEach { insight ->
-            score -= when(insight.severity) {
-                "HIGH" -> 15
-                "MEDIUM" -> 10
-                else -> 5
-            }
-        }
-
-        // Ensure score is between 0 and 100
-        return score.coerceIn(0, 100)
-    }
-
-    private fun generateAiSummary(insights: List<DeviceInsightEntity>): String {
-        if (insights.isEmpty()) {
-            return "Your device is operating efficiently. We'll continue monitoring for optimization opportunities."
-        }
-
-        val highSeverityInsights = insights.filter { it.severity == "HIGH" }
-        val mediumSeverityInsights = insights.filter { it.severity == "MEDIUM" }
-
-        return when {
-            highSeverityInsights.isNotEmpty() -> {
-                val insight = highSeverityInsights.first()
-                insight.insightDescription
-            }
-            mediumSeverityInsights.isNotEmpty() -> {
-                val insight = mediumSeverityInsights.first()
-                insight.insightDescription
-            }
-            else -> {
-                val insight = insights.first()
-                insight.insightDescription
-            }
-        }
-    }
-
     private fun formatDataUsage(bytes: Long): String {
         return when {
             bytes < 1024 -> "$bytes B"
@@ -636,14 +524,6 @@ class DashboardViewModel @Inject constructor(
             }
         }
     }
-
-    fun setUseGemma(useGemma: Boolean) {
-        _isUsingGemma.value = useGemma
-        _uiState.update { current ->
-            current.copy(inferenceMode = if (useGemma) "Gemma SDK" else "Backend")
-        }
-        refreshData()
-    }
 }
 
 data class DashboardUiState(
@@ -659,7 +539,7 @@ data class DashboardUiState(
     val performanceScore: Int = 90,
     val insights: List<DeviceInsightEntity> = emptyList(),
     val aiSummary: String = "Analyzing your device usage patterns...",
-    val inferenceMode: String = "Gemma SDK",
+    val inferenceMode: String = "AI SDK",
     val estimatedBatterySavings: Float = 0f,
     val estimatedDataSavings: Float = 0f
 )

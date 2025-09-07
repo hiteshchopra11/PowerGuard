@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "947178170346",
+    "project_id": "powerguard-3ef13",
+    "storage_bucket": "powerguard-3ef13.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:947178170346:android:2232e0de9889948bea7493",
+        "android_client_info": {
+          "package_name": "com.hackathon.powerguard"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCWfdb9MlEIBGe2GVP0RMM0UoNiIL0bSD4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

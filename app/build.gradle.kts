@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.hilt.android) // Hilt Plugin
+    // Apply Google Services if you add google-services.json
+    // alias(libs.plugins.google.services)
     kotlin("kapt")
 }
 
@@ -66,7 +68,7 @@ androidComponents {
 
 dependencies {
     // Internal modules
-    implementation(project(":GemmaInferenceSDK"))
+    implementation(project(":AiInferenceSDK"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -104,8 +106,9 @@ dependencies {
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.gson)
 
-    // GenerativeAI API
-    implementation("com.google.ai.client.generativeai:generativeai:0.2.1")
+    // Firebase AI (client usage should be wrapped in AiInferenceSDK)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.ai)
 
     // Moshi
     implementation("com.squareup.moshi:moshi:1.14.0")

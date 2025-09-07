@@ -6,12 +6,12 @@
   [![Android](https://img.shields.io/badge/Android-15+-green.svg)](https://android.com)
   [![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-blue.svg)](https://kotlinlang.org)
   [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-  [![AI](https://img.shields.io/badge/AI-Gemma%20LLM-purple.svg)](https://ai.google.dev/edge/gemma)
+[![AI](https://img.shields.io/badge/AI-On--device%20LLM-purple.svg)]()
 </div>
 
 ## 🎯 Overview
 
-PowerGuard is an intelligent Android application that leverages **on-device AI** to analyze your device's power consumption and data usage patterns. Using Google's **Gemma LLM** running entirely on your device, PowerGuard provides personalized, actionable recommendations to optimize battery life and reduce data consumption without compromising your privacy.
+PowerGuard is an intelligent Android application that leverages **on-device AI** to analyze your device's power consumption and data usage patterns. Using an **on-device LLM**, PowerGuard provides personalized, actionable recommendations to optimize battery life and reduce data consumption without compromising your privacy.
 
 ## 🎥 Demo Video
 
@@ -78,7 +78,7 @@ PowerGuard follows a modern Android architecture with clean separation of concer
 ├─────────────────────────────┼─────────────────────────────────┤
 │                        Data Layer                           │
 │  ┌─────────────────┐ ┌─────┴─────┐ ┌─────────────────┐      │
-│  │   Local DB      │ │  Gemma    │ │   Collectors    │      │
+│  │   Local DB      │ │   AI      │ │   Collectors    │      │
 │  │   (Room)        │ │   SDK     │ │   (Usage/Bat)   │      │
 │  └─────────────────┘ └───────────┘ └─────────────────┘      │
 └─────────────────────────────────────────────────────────────┘
@@ -86,7 +86,7 @@ PowerGuard follows a modern Android architecture with clean separation of concer
 
 ### 🧩 **Core Components**
 
-- **Gemma Inference SDK**: Custom on-device LLM integration
+- **AI Inference SDK**: Custom on-device LLM integration
 - **Actionable Engine**: Executes AI-generated optimization strategies
 - **Usage Collectors**: Monitors device metrics and app behavior
 - **Permission Manager**: Handles system-level permissions gracefully
@@ -170,7 +170,7 @@ PowerGuard requires several system-level permissions for full functionality:
 ## 🛠️ Technical Details
 
 ### **On-Device AI**
-PowerGuard uses Google's Gemma 2B model optimized for mobile devices:
+PowerGuard uses a compact on-device LLM optimized for mobile devices:
 - **Inference Time**: ~2-3 seconds on modern devices
 - **Memory Usage**: ~1.5GB RAM during active inference
 - **Privacy**: All processing happens locally, no data leaves your device
@@ -211,7 +211,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **Google AI** for the Gemma LLM model
+- **Google AI** for on-device LLM research
 - **Android Open Source Project** for system APIs
 - **Material Design** for UI/UX guidelines
 - **Jetpack Compose** for modern Android UI development

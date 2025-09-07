@@ -8,7 +8,10 @@
       "Bash(rm:*)",
       "Bash(./run_android.sh)",
       "Bash(find:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
+      "WebSearch",
+      "WebFetch(domain:firebase.google.com)"
     ],
     "deny": [],
     "ask": []

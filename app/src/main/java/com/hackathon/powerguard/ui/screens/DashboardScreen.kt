@@ -102,7 +102,7 @@ fun DashboardScreen(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val analysisResponse by viewModel.analysisResponse.collectAsStateWithLifecycle()
-    val isUsingGemma by viewModel.isUsingGemma.collectAsState()
+    val isUsingAi by viewModel.isUsingAi.collectAsState()
     
     var showActionableDialog by remember { mutableStateOf(false) }
     var isAnalyzing by remember { mutableStateOf(false) }
@@ -138,8 +138,8 @@ fun DashboardScreen(
     }
     // Listen for backend toggle and update ViewModel
     LaunchedEffect(useBackend) {
-        // useBackend=true means switch off Gemma
-        viewModel.toggleInferenceMode(useGemma = !useBackend)
+        // useBackend=true means switch off on-device AI
+        viewModel.toggleInferenceMode(useAi = !useBackend)
     }
     
     // Declare FocusRequester
@@ -225,7 +225,7 @@ fun DashboardScreen(
                 focusRequester = focusRequester,
                 promptText = promptText,
                 onPromptChange = { promptText = it },
-                isUsingGemma = isUsingGemma
+                isUsingAi = isUsingAi
             )
         }
     }
@@ -258,7 +258,7 @@ private fun DashboardContent(
     focusRequester: FocusRequester,
     promptText: String,
     onPromptChange: (String) -> Unit,
-    isUsingGemma: Boolean
+    isUsingAi: Boolean
 ) {
     // Track whether first API response has been received
     var hasReceivedFirstResponse by remember { mutableStateOf(false) }

@@ -1,4 +1,4 @@
-package com.hackathon.powerguard.data.gemma
+package com.hackathon.powerguard.data.ai
 
 import android.content.Context
 import android.os.Build

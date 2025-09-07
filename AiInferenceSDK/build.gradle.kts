@@ -44,8 +44,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-process:2.7.0")
 
-    // LLM Inference API
-    api("com.google.ai.client.generativeai:generativeai:0.2.1")
+    // Firebase AI (added; migration in progress)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.ai)
+
+    // Generative AI client removed after migration to Firebase AI
 
     // JSON parsing
     implementation("com.google.code.gson:gson:2.10.1")

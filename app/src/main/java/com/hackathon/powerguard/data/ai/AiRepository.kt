@@ -1,4 +1,4 @@
-package com.hackathon.powerguard.data.gemma
+package com.hackathon.powerguard.data.ai
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -12,8 +12,8 @@ import com.hackathon.powerguard.data.model.AnalysisResponse
 import com.hackathon.powerguard.data.model.DeviceData
 import com.hackathon.powerguard.data.model.Insight
 import com.hackathon.powerguard.utils.PackageNameResolver
-import com.powerguard.llm.GemmaConfig
-import com.powerguard.llm.GemmaInferenceSDK
+import com.powerguard.llm.AiConfig
+import com.powerguard.llm.AiInference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
@@ -32,22 +32,22 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Repository for handling on-device AI inference using GemmaInferenceSDK.
+ * Repository for handling on-device AI inference using AiInferenceSDK.
  */
 @Singleton
-class GemmaRepository @Inject constructor(
+class AiRepository @Inject constructor(
     private val context: Context,
-    private val config: GemmaConfig,
+    private val config: AiConfig,
     private val packageNameResolver: PackageNameResolver
 ) : AnalysisRepository {
     companion object {
-        private const val TAG = "GemmaRepository"
+        private const val TAG = "AiRepository"
 
         // Log tags
-        private const val LOG_SDK = "GemmaSDK_Debug"
-        private const val LOG_PROMPT = "GemmaPrompt_Debug"
-        private const val LOG_QUERY = "GemmaQuery_Debug"
-        private const val LOG_ERROR = "GemmaError_Debug"
+        private const val LOG_SDK = "AiSDK_Debug"
+        private const val LOG_PROMPT = "AiPrompt_Debug"
+        private const val LOG_QUERY = "AiQuery_Debug"
+        private const val LOG_ERROR = "AiError_Debug"
 
         // Constants
         private const val GENERATION_TIMEOUT_MS = 10000L
@@ -83,22 +83,22 @@ class GemmaRepository @Inject constructor(
         )
     }
 
-    private var _sdk: GemmaInferenceSDK? = null
+    private var _sdk: AiInference? = null
 
-    private val sdk: GemmaInferenceSDK
+    private val sdk: AiInference
         get() {
             if (_sdk == null) {
                 synchronized(this) {
                     if (_sdk == null) {
                         if (Looper.myLooper() == Looper.getMainLooper()) {
-                            _sdk = GemmaInferenceSDK(context, config)
-                            Log.d(TAG, "GemmaInferenceSDK created on main thread")
+                            _sdk = AiInference(context, config)
+                            Log.d(TAG, "AiInference created on main thread")
                         } else {
                             val latch = CountDownLatch(1)
                             var error: Exception? = null
                             MainScope().launch(Dispatchers.Main) {
                                 try {
-                                    _sdk = GemmaInferenceSDK(context, config)
+                                    _sdk = AiInference(context, config)
                                 } catch (e: Exception) {
                                     error = e
                                 } finally {
@@ -181,7 +181,7 @@ class GemmaRepository @Inject constructor(
                 }
 
                 try {
-                    val result = processPromptWithGemma(prompt, dataToProcess, resourceType)
+                    val result = processPromptWithAi(prompt, dataToProcess, resourceType)
                     Log.d(LOG_SDK, "LLM processing completed")
                     return@withContext result
                 } catch (e: Exception) {
@@ -418,7 +418,7 @@ class GemmaRepository @Inject constructor(
         return prompt.toString()
     }
 
-    private suspend fun processPromptWithGemma(
+    private suspend fun processPromptWithAi(
         prompt: String,
         deviceData: DeviceData,
         resourceType: String
@@ -427,7 +427,7 @@ class GemmaRepository @Inject constructor(
             val jsonResponse = withTimeout(GENERATION_TIMEOUT_MS) {
                 sdk.generateJsonResponse(prompt)
             }
-            return Result.success(jsonResponse?.let { parseGemmaResponse(it, resourceType) }
+            return Result.success(jsonResponse?.let { parseAiResponse(it, resourceType) }
                 ?: simulateAnalysisResponse(deviceData, resourceType, CATEGORY_OPTIMIZATION))
         } catch (e: Exception) {
             Log.w(LOG_ERROR, "LLM processing failed, using offline analysis: ${e.message}")
@@ -441,7 +441,7 @@ class GemmaRepository @Inject constructor(
         }
     }
 
-    private fun parseGemmaResponse(json: JSONObject, resourceType: String = RESOURCE_OTHER): AnalysisResponse {
+    private fun parseAiResponse(json: JSONObject, resourceType: String = RESOURCE_OTHER): AnalysisResponse {
         val insights = mutableListOf<Insight>()
         val actionables = mutableListOf<Actionable>()
         val insightsArray = json.optJSONArray("insights") ?: JSONArray()
@@ -530,7 +530,7 @@ class GemmaRepository @Inject constructor(
             id = UUID.randomUUID().toString(),
             timestamp = System.currentTimeMillis().toFloat(),
             success = true,
-            message = "Gemma response parsed successfully",
+            message = "AI response parsed successfully",
             responseType = "analysis",
             actionable = actionables,
             insights = insights,

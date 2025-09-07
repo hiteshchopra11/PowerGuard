@@ -35,12 +35,10 @@ object AiModule {
         return AiConfig(
             modelName = modelName,
             enableLogging = true,
-            maxTokens = 50000,
             temperature = 0.1f,  // Keep low temperature for deterministic responses
             topK = 20,  // Reduced from 40 to 20 for more focused token selection
             topP = 0.7f,  // Reduced from 0.8 to 0.7 for more predictable responses
-            autoInitialize = true,
-            releaseOnBackground = true  // Always release on background to free resources
+            
         )
     }
 

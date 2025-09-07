@@ -204,7 +204,7 @@ class AiRepository @Inject constructor(
             """.trimIndent()
 
             val response = withTimeout(15000) {
-                sdk.generateResponseSuspend(prompt, maxTokens = 10, temperature = 0.1f)
+                sdk.generateResponseSuspend(prompt, temperature = 0.1f)
             }.trim().uppercase()
 
             return when (response) {
@@ -232,7 +232,7 @@ class AiRepository @Inject constructor(
             """.trimIndent()
 
             val response = withTimeout(15000) {
-                sdk.generateResponseSuspend(categorizePrompt, maxTokens = 5, temperature = 0.1f)
+                sdk.generateResponseSuspend(categorizePrompt, temperature = 0.1f)
             }.trim().toIntOrNull()
 
             return response?.coerceIn(0, 5) ?: CATEGORY_INVALID

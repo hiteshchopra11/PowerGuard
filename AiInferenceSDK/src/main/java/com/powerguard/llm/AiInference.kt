@@ -49,7 +49,6 @@ class AiInference(
 
     suspend fun generateResponseSuspend(
         prompt: String,
-        maxTokens: Int = config.maxTokens,
         temperature: Float = config.temperature
     ): String = suspendCoroutine { continuation ->
         generateResponse(prompt, temperature) { result, error ->
@@ -60,10 +59,9 @@ class AiInference(
 
     suspend fun generateJsonResponse(
         prompt: String,
-        maxTokens: Int = config.maxTokens,
         temperature: Float = config.temperature
     ): JSONObject? {
-        val response = generateResponseSuspend(prompt, maxTokens, temperature)
+        val response = generateResponseSuspend(prompt, temperature)
         return responseParser.parseJsonResponse(response)
     }
 

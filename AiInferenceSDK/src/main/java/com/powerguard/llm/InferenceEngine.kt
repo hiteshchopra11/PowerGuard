@@ -36,7 +36,6 @@ class InferenceEngine(
      * Generates text based on the provided prompt.
      *
      * @param prompt The input prompt for generation
-     * @param maxTokens Override the default max tokens setting (optional)
      * @param temperature Override the default temperature setting (optional)
      * @return The generated text response or null if generation fails/times out
      */
@@ -80,20 +79,6 @@ class InferenceEngine(
                 null
             }
         }
-    }
-    
-    /**
-     * Performs battery-efficient inference by reducing model parameters.
-     * Useful for background operations or low-battery situations.
-     *
-     * @param prompt The input prompt for generation
-     * @return The generated text response or null if generation fails/times out
-     */
-    suspend fun generateTextEfficient(prompt: String): String? {
-        return generateText(
-            prompt = prompt,
-            temperature = 0.1f
-        )
     }
     
     private fun logDebug(message: String) {

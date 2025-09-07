@@ -20,12 +20,12 @@ import javax.inject.Singleton
  */
 @Singleton
 class ActionableExecutor @Inject constructor(
-    private val killAppHandler: KillAppHandler,
-    private val manageWakeLocksHandler: ManageWakeLocksHandler,
-    private val restrictBackgroundDataHandler: RestrictBackgroundDataHandler,
-    private val setStandbyBucketHandler: SetStandbyBucketHandler,
-    private val batteryAlertHandler: BatteryAlertHandler,
-    private val dataAlertHandler: DataAlertHandler
+    killAppHandler: KillAppHandler,
+    manageWakeLocksHandler: ManageWakeLocksHandler,
+    restrictBackgroundDataHandler: RestrictBackgroundDataHandler,
+    setStandbyBucketHandler: SetStandbyBucketHandler,
+    batteryAlertHandler: BatteryAlertHandler,
+    dataAlertHandler: DataAlertHandler
 ) {
     private val TAG = "ActionableExecutor"
 

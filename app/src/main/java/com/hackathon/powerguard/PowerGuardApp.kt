@@ -13,7 +13,6 @@ class PowerGuardApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Ensure FirebaseApp is initialized (safe to call multiple times)
         if (FirebaseApp.getApps(this).isEmpty()) {
             FirebaseApp.initializeApp(this)
         }

@@ -13,6 +13,17 @@
 
 PowerGuard is an intelligent Android application that leverages **dual AI service architecture** to analyze your device's power consumption and data usage patterns. The app supports seamless switching between **Firebase AI** for cloud-based inference and a **custom backend API** for specialized analysis, providing personalized, actionable recommendations to optimize battery life and reduce data consumption.
 
+## 🔗 Related Repositories
+
+### 📡 **Backend API Project**
+> **🌐 Backend Repository**: **[PowerGuardBackend](https://github.com/hiteshchopra11/PowerGuardBackend)**
+> 
+> The PowerGuard Android app integrates with a dedicated backend API service that provides specialized device analysis and optimization recommendations. The backend project contains:
+> - REST API server implementation
+> - Custom AI analysis algorithms for battery and data optimization
+> - API documentation and deployment configurations
+> - Database schemas and migration scripts
+
 ## ✨ Key Features
 
 ### 🧠 **Dual AI Service Architecture**

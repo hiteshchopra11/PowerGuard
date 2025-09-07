@@ -115,12 +115,6 @@ class AiRepository @Inject constructor(
             return _sdk!!
         }
 
-    fun initialize(): Boolean {
-        // No initialization needed for Firebase AI Logic - always ready to use
-        Log.d(TAG, "Firebase AI Logic SDK is ready - no initialization required")
-        return true
-    }
-
     private fun isNetworkAvailable(): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val nc = cm.activeNetwork?.let { cm.getNetworkCapabilities(it) }

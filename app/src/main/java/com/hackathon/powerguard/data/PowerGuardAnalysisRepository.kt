@@ -39,29 +39,4 @@ class PowerGuardAnalysisRepository @Inject constructor(
                 Result.failure(e)
             }
         }
-
-    /**
-     * Initializes the AiInferenceSDK for on-device inference.
-     */
-    suspend fun initializeAi(): Boolean {
-        return try {
-            Log.d(TAG, "Initializing AiInference SDK")
-            val result = aiRepository.initialize()
-            Log.d(TAG, "AiInference initialization result: $result")
-            result
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize AiInference: ${e.message}", e)
-            false
-        }
-    }
-
-    /**
-     * Releases resources used by the AiInference SDK.
-     * Note: The SDK handles its own lifecycle management through lifecycle observers.
-     */
-    fun shutdownAi() {
-        Log.d(TAG, "AiInference shutdown requested - handled by SDK lifecycle management")
-        // The AiInferenceSDK handles its own resource cleanup through lifecycle observers
-        // No explicit cleanup needed here
-    }
 } 

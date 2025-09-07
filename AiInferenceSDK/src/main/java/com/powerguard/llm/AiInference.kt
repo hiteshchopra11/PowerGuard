@@ -5,7 +5,6 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -17,15 +16,14 @@ import kotlin.coroutines.suspendCoroutine
  * No initialization required - ready to use immediately.
  */
 class AiInference(
-    private val context: Context,
+    context: Context,
     private val config: AiConfig = AiConfig.DEFAULT
 ) {
 
     private val tag = "AiInference"
-    private val modelManager = ModelManager(context, config)
+    private val modelManager = ModelManager(config)
     private val inferenceEngine = InferenceEngine(context, modelManager, config)
     private val responseParser = ResponseParser(config)
-    private val promptFormatter = PromptFormatter()
 
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         logError("Coroutine exception in AiInference", Exception(exception))
@@ -67,25 +65,6 @@ class AiInference(
     ): JSONObject? {
         val response = generateResponseSuspend(prompt, maxTokens, temperature)
         return responseParser.parseJsonResponse(response)
-    }
-
-    suspend fun <T> generateTypedResponse(
-        prompt: String,
-        responseClass: Class<T>,
-        maxTokens: Int = config.maxTokens,
-        temperature: Float = config.temperature
-    ): T? {
-        val response = generateResponseSuspend(prompt, maxTokens, temperature)
-        return responseParser.parseTypedResponse(response, responseClass)
-    }
-
-    suspend fun generateEfficientResponse(prompt: String): String? {
-        return inferenceEngine.generateTextEfficient(prompt)
-    }
-
-    fun shutdown() {
-        modelManager.release()
-        coroutineScope.cancel("SDK shutdown")
     }
 
     private fun logError(message: String, e: Exception) {

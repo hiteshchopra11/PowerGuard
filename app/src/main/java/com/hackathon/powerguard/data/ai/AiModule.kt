@@ -45,24 +45,6 @@ object AiModule {
     }
 
     /**
-     * Provides the JsonParser for parsing JSON responses
-     */
-    @Provides
-    @Singleton
-    fun provideJsonParser(): JsonParser {
-        return JsonParser()
-    }
-
-    /**
-     * Provides the DeviceInfoProvider
-     */
-    @Provides
-    @Singleton
-    fun provideDeviceInfoProvider(@ApplicationContext context: Context): DeviceInfoProvider {
-        return DeviceInfoProvider(context)
-    }
-
-    /**
      * Provides the AiRepository
      */
     @Provides

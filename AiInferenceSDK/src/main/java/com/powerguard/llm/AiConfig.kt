@@ -45,6 +45,3 @@ data class AiConfig(
         )
     }
 }
-
-@Deprecated("Use AiConfig instead", ReplaceWith("AiConfig"))
-typealias GemmaConfig = AiConfig

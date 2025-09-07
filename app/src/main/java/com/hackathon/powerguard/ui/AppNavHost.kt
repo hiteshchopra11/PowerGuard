@@ -22,7 +22,8 @@ fun AppNavHost(
     showSnackbar: (String) -> Unit,
     openPromptInput: Boolean = false,
     refreshTrigger: Boolean = false,
-    settingsTrigger: Boolean = false
+    settingsTrigger: Boolean = false,
+    useBackend: Boolean = false
 ) {
     // Initialize HistoryViewModel at the app level to ensure it's available
     // This prevents the "HistoryViewModel not initialized yet" error
@@ -39,7 +40,8 @@ fun AppNavHost(
                 showSnackbar = showSnackbar,
                 openPromptInput = openPromptInput,
                 refreshTrigger = refreshTrigger,
-                settingsTrigger = settingsTrigger
+                settingsTrigger = settingsTrigger,
+                useBackend = useBackend
             ) 
         }
         composable(Screen.Explore.route) { ExploreScreen() }

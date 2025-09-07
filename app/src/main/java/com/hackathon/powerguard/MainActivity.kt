@@ -2,7 +2,6 @@ package com.hackathon.powerguard
 
 import android.Manifest
 import android.app.AppOpsManager
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -14,11 +13,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
@@ -32,9 +28,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,22 +39,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.hackathon.powerguard.services.PowerGuardService
 import com.hackathon.powerguard.theme.PowerGuardTheme
 import com.hackathon.powerguard.ui.AppNavHost
 import com.hackathon.powerguard.ui.BottomNavBar
 import com.hackathon.powerguard.ui.navigation.Screen
+import com.hackathon.powerguard.data.preferences.AnalysisPreferences
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    
+    @Inject
+    lateinit var analysisPreferences: AnalysisPreferences
     
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -87,7 +88,8 @@ class MainActivity : ComponentActivity() {
             PowerGuardTheme { 
                 PowerGuardAppUI(
                     openPromptInput = openDashboard,
-                    onRefreshData = { refreshDeviceData() }
+                    onRefreshData = { refreshDeviceData() },
+                    analysisPreferences = analysisPreferences
                 ) 
             } 
         }
@@ -200,7 +202,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun PowerGuardAppUI(
     openPromptInput: Boolean = false,
-    onRefreshData: () -> Unit
+    onRefreshData: () -> Unit,
+    analysisPreferences: AnalysisPreferences
 ) {
     // Store NavController in a variable so we can use it
     val navController = rememberNavController()
@@ -222,6 +225,9 @@ fun PowerGuardAppUI(
 
     // Use rememberCoroutineScope to create a CoroutineScope that is scoped to the composition
     val coroutineScope = rememberCoroutineScope()
+
+    // Inference mode switch state: false = AI (default), true = Backend
+    var useBackend by remember { mutableStateOf(analysisPreferences.useBackendApi()) }
 
     // If openPromptInput is true, we navigate to the dashboard
     LaunchedEffect(openPromptInput) {
@@ -293,6 +299,34 @@ fun PowerGuardAppUI(
                                     }
                                 }
                             )
+                            DropdownMenuItem(
+                                text = { Text("Use backend (cloud)") },
+                                onClick = {
+                                    useBackend = !useBackend
+                                    analysisPreferences.setUseBackendApi(useBackend)
+                                    showMenu = false
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            if (useBackend) "Switched to Backend API" else "Switched to Firebase AI"
+                                        )
+                                    }
+                                },
+                                trailingIcon = {
+                                    Switch(
+                                        checked = useBackend,
+                                        onCheckedChange = { checked ->
+                                            useBackend = checked
+                                            analysisPreferences.setUseBackendApi(useBackend)
+                                            showMenu = false
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                    if (useBackend) "Switched to Backend API" else "Switched to Firebase AI"
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+                            )
                         }
                     }
                 }
@@ -309,7 +343,8 @@ fun PowerGuardAppUI(
             },
             openPromptInput = openPromptInput,
             refreshTrigger = refreshTrigger,
-            settingsTrigger = settingsTrigger
+            settingsTrigger = settingsTrigger,
+            useBackend = useBackend
         )
     }
 }

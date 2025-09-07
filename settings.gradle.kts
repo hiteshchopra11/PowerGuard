@@ -22,4 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "PowerGuard"
 include(":app")
-include(":GemmaInferenceSDK")
+include(":AiInferenceSDK")

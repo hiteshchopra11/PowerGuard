@@ -65,14 +65,12 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -94,15 +92,15 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
     openPromptInput: Boolean = false,
     refreshTrigger: Boolean = false,
-    settingsTrigger: Boolean = false
+    settingsTrigger: Boolean = false,
+    useBackend: Boolean = false
 ) {
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val analysisResponse by viewModel.analysisResponse.collectAsStateWithLifecycle()
-    val isUsingGemma by viewModel.isUsingGemma.collectAsState()
-    
+
     var showActionableDialog by remember { mutableStateOf(false) }
     var isAnalyzing by remember { mutableStateOf(false) }
     var promptText by remember { mutableStateOf("") }
@@ -134,6 +132,11 @@ fun DashboardScreen(
             previousSettingsTrigger = settingsTrigger
             showTestValuesBottomSheet = true
         }
+    }
+    // Listen for backend toggle and update ViewModel
+    LaunchedEffect(useBackend) {
+        // useBackend=true means switch off on-device AI
+        viewModel.toggleInferenceMode(useAi = !useBackend)
     }
     
     // Declare FocusRequester
@@ -214,12 +217,9 @@ fun DashboardScreen(
                     showActionableDialog = show
                     isAnalyzing = analyzing
                 },
-                showActionableDialog = showActionableDialog,
-                isAnalyzing = isAnalyzing,
                 focusRequester = focusRequester,
                 promptText = promptText,
-                onPromptChange = { promptText = it },
-                isUsingGemma = isUsingGemma
+                onPromptChange = { promptText = it }
             )
         }
     }
@@ -247,12 +247,9 @@ private fun DashboardContent(
     openPromptInput: Boolean,
     analysisResponse: AnalysisResponse?,
     onShowAnalysisDialog: (Boolean, Boolean) -> Unit,
-    showActionableDialog: Boolean,
-    isAnalyzing: Boolean,
     focusRequester: FocusRequester,
     promptText: String,
-    onPromptChange: (String) -> Unit,
-    isUsingGemma: Boolean
+    onPromptChange: (String) -> Unit
 ) {
     // Track whether first API response has been received
     var hasReceivedFirstResponse by remember { mutableStateOf(false) }
@@ -304,8 +301,7 @@ private fun DashboardContent(
                     }
                 },
                 focusRequester = focusRequester,
-                isLoading = isRefreshing,
-                viewModel = viewModel
+                isLoading = isRefreshing
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -330,15 +326,13 @@ private fun DashboardContent(
             // Network usage and optimization
             NetworkUsageCard(
                 networkType = uiState.networkType,
-                networkStrength = uiState.networkStrength,
                 highUsageApps = uiState.highUsageApps,
                 onOptimize = {
                     // Call API with exact prompt "Optimize data"
                     Log.d("PROMPT_DEBUG", "Button Pressed Optimize Data")
                     viewModel.submitPrompt("Optimize Data")
                     onShowAnalysisDialog(true, true) // Show dialog in analyzing state
-                },
-                viewModel = viewModel
+                }
             )
             
             // Add bottom padding
@@ -459,10 +453,8 @@ fun BatteryStatusCard(
 @Composable
 fun NetworkUsageCard(
     networkType: String,
-    networkStrength: Int,
     highUsageApps: List<String>,
-    onOptimize: () -> Unit,
-    viewModel: DashboardViewModel? = null
+    onOptimize: () -> Unit
 ) {
     var networkSectionExpanded by remember { mutableStateOf(false) }
     val arrowRotation by animateFloatAsState(targetValue = if (networkSectionExpanded) 180f else 0f)
@@ -584,8 +576,7 @@ fun PromptCard(
     onPromptChange: (String) -> Unit,
     onSubmit: () -> Unit,
     focusRequester: FocusRequester,
-    isLoading: Boolean = false,
-    viewModel: DashboardViewModel? = null
+    isLoading: Boolean = false
 ) {
     // Create a list of rotating placeholder texts
     val placeholders = listOf(

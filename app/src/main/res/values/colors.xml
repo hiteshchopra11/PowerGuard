@@ -9,9 +9,5 @@
     <color name="white">#FFFFFFFF</color>
     
     <!-- Widget Colors -->
-    <color name="colorPrimary">#FF6200EE</color>
-    <color name="colorBackground">#FFFFFFFF</color>
-    <color name="textColor">#FF000000</color>
-    <color name="colorAccent">#FF03DAC5</color>
-    <color name="buttonTextColor">#FFFFFFFF</color>
+    <!-- Removed unused color resources: colorPrimary, colorBackground, textColor, colorAccent, buttonTextColor -->
 </resources>

@@ -53,7 +53,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.hackathon.powerguard.data.local.entity.DeviceInsightEntity
 import com.hackathon.powerguard.data.local.entity.DeviceActionableEntity
 import com.hackathon.powerguard.ui.viewmodels.HistoryViewModel
-import com.hackathon.powerguard.ui.viewmodels.getFormattedDate
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

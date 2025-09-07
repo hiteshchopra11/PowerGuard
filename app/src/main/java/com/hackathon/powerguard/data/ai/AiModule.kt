@@ -2,6 +2,9 @@ package com.hackathon.powerguard.data.ai
 
 import android.content.Context
 import android.util.Log
+import com.hackathon.powerguard.data.model.AnalysisRepository
+import com.hackathon.powerguard.data.network.PowerGuardBackendService
+import com.hackathon.powerguard.data.preferences.AnalysisPreferences
 import com.hackathon.powerguard.utils.PackageNameResolver
 import com.powerguard.llm.AiConfig
 import dagger.Module
@@ -9,6 +12,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Named
 import javax.inject.Singleton
 
 /**
@@ -43,7 +47,50 @@ object AiModule {
     }
 
     /**
-     * Provides the AiRepository
+     * Provides the Firebase AI service implementation
+     */
+    @Provides
+    @Singleton
+    @Named("firebase")
+    fun provideFirebaseAnalysisService(
+        @ApplicationContext context: Context,
+        config: AiConfig,
+        packageNameResolver: PackageNameResolver
+    ): PowerGuardAnalysisService {
+        return PowerGuardFirebaseService(context, config, packageNameResolver)
+    }
+
+    /**
+     * Provides the Backend API service implementation
+     */
+    @Provides
+    @Singleton
+    @Named("backend")
+    fun provideBackendAnalysisService(
+        backendService: PowerGuardBackendService
+    ): PowerGuardAnalysisService {
+        return backendService
+    }
+
+    /**
+     * Provides the AnalysisRepository interface
+     * Uses factory to get the current service at runtime
+     */
+    @Provides
+    @Singleton
+    fun provideAnalysisRepository(
+        factory: AnalysisServiceFactory
+    ): AnalysisRepository {
+        return object : AnalysisRepository {
+            override suspend fun analyzeDeviceData(deviceData: com.hackathon.powerguard.data.model.DeviceData): Result<com.hackathon.powerguard.data.model.AnalysisResponse> {
+                return factory.getCurrentService().analyzeDeviceData(deviceData)
+            }
+        }
+    }
+
+    /**
+     * Legacy AiRepository for backward compatibility
+     * @deprecated Use PowerGuardAnalysisService instead
      */
     @Provides
     @Singleton

@@ -96,6 +96,12 @@ dependencies {
     
     // Gson for JSON serialization
     implementation(libs.gson)
+    
+    // Networking for backend API
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
 
 
     // Room Database

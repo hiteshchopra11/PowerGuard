@@ -27,14 +27,24 @@ class ResponseParser(private val config: AiConfig) {
             return null
         }
         
+        logDebug("Raw LLM response: $llmResponse")
+        
         try {
             // First, try parsing as-is
             return JSONObject(llmResponse)
         } catch (e: JSONException) {
-            logError("Failed to parse response as JSON", e)
+            logError("Failed to parse response as JSON (direct): ${e.message}")
             
             // Try to extract JSON from a response that might contain extra text
-            return extractJsonFromText(llmResponse)
+            val extracted = extractJsonFromText(llmResponse)
+            if (extracted != null) {
+                logDebug("Successfully extracted JSON from text")
+                return extracted
+            } else {
+                logError("Failed to extract JSON from text")
+                logError("Original response content: $llmResponse")
+            }
+            return null
         }
     }
     
@@ -79,26 +89,48 @@ class ResponseParser(private val config: AiConfig) {
      */
     private fun extractJsonFromText(text: String): JSONObject? {
         try {
-            // Check if the response is wrapped in markdown code blocks
-            val markdownPattern = "```(?:json)?([\\s\\S]*?)```"
-            val markdownMatcher = Regex(markdownPattern).find(text)
-
-            // If markdown pattern is found, extract the content between code blocks
-            val processedText = if (markdownMatcher != null) {
-                markdownMatcher.groupValues[1].trim()
-            } else {
-                text
+            logDebug("Attempting to extract JSON from text of length: ${text.length}")
+            
+            // Clean up common response artifacts
+            var cleanedText = text.trim()
+            
+            // Remove various markdown code block patterns
+            val patterns = listOf(
+                "```json\\s*([\\s\\S]*?)\\s*```",  // ```json ... ```
+                "```([\\s\\S]*?)```",             // ``` ... ```
+                "`([\\s\\S]*?)`"                  // ` ... `
+            )
+            
+            for (pattern in patterns) {
+                val matcher = Regex(pattern, RegexOption.DOT_MATCHES_ALL).find(cleanedText)
+                if (matcher != null) {
+                    cleanedText = matcher.groupValues[1].trim()
+                    logDebug("Extracted from markdown pattern: $pattern")
+                    break
+                }
+            }
+            
+            // Try parsing the cleaned text first
+            try {
+                val testJson = JSONObject(cleanedText)
+                logDebug("Successfully parsed cleaned text as JSON")
+                return testJson
+            } catch (e: JSONException) {
+                logDebug("Cleaned text is not valid JSON, extracting braces content")
             }
 
             // Look for text between { and } (with nested braces)
-            val startIndex = processedText.indexOf('{')
-            if (startIndex == -1) return null
+            val startIndex = cleanedText.indexOf('{')
+            if (startIndex == -1) {
+                logDebug("No opening brace found in text")
+                return null
+            }
 
             var openBraces = 0
             var endIndex = -1
 
-            for (i in startIndex until processedText.length) {
-                when (processedText[i]) {
+            for (i in startIndex until cleanedText.length) {
+                when (cleanedText[i]) {
                     '{' -> openBraces++
                     '}' -> {
                         openBraces--
@@ -110,10 +142,17 @@ class ResponseParser(private val config: AiConfig) {
                 }
             }
 
-            if (endIndex == -1) return null
+            if (endIndex == -1) {
+                logDebug("No matching closing brace found")
+                return null
+            }
 
-            val jsonCandidate = processedText.substring(startIndex, endIndex)
-            return JSONObject(jsonCandidate)
+            val jsonCandidate = cleanedText.substring(startIndex, endIndex)
+            logDebug("Extracted JSON candidate of length: ${jsonCandidate.length}")
+            
+            val result = JSONObject(jsonCandidate)
+            logDebug("Successfully created JSONObject from extracted text")
+            return result
         } catch (e: Exception) {
             logError("JSON extraction failed", e)
             return null
@@ -164,6 +203,12 @@ class ResponseParser(private val config: AiConfig) {
             } else {
                 Log.e(tag, message)
             }
+        }
+    }
+    
+    private fun logDebug(message: String) {
+        if (config.enableLogging) {
+            Log.d(tag, message)
         }
     }
 } 

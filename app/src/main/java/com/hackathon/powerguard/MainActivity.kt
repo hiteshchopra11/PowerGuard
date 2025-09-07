@@ -50,11 +50,16 @@ import com.hackathon.powerguard.theme.PowerGuardTheme
 import com.hackathon.powerguard.ui.AppNavHost
 import com.hackathon.powerguard.ui.BottomNavBar
 import com.hackathon.powerguard.ui.navigation.Screen
+import com.hackathon.powerguard.data.preferences.AnalysisPreferences
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    
+    @Inject
+    lateinit var analysisPreferences: AnalysisPreferences
     
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -83,7 +88,8 @@ class MainActivity : ComponentActivity() {
             PowerGuardTheme { 
                 PowerGuardAppUI(
                     openPromptInput = openDashboard,
-                    onRefreshData = { refreshDeviceData() }
+                    onRefreshData = { refreshDeviceData() },
+                    analysisPreferences = analysisPreferences
                 ) 
             } 
         }
@@ -196,7 +202,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun PowerGuardAppUI(
     openPromptInput: Boolean = false,
-    onRefreshData: () -> Unit
+    onRefreshData: () -> Unit,
+    analysisPreferences: AnalysisPreferences
 ) {
     // Store NavController in a variable so we can use it
     val navController = rememberNavController()
@@ -220,7 +227,7 @@ fun PowerGuardAppUI(
     val coroutineScope = rememberCoroutineScope()
 
     // Inference mode switch state: false = AI (default), true = Backend
-    var useBackend by remember { mutableStateOf(false) }
+    var useBackend by remember { mutableStateOf(analysisPreferences.useBackendApi()) }
 
     // If openPromptInput is true, we navigate to the dashboard
     LaunchedEffect(openPromptInput) {
@@ -296,9 +303,11 @@ fun PowerGuardAppUI(
                                 text = { Text("Use backend (cloud)") },
                                 onClick = {
                                     useBackend = !useBackend
+                                    analysisPreferences.setUseBackendApi(useBackend)
+                                    showMenu = false
                                     coroutineScope.launch {
                                         snackbarHostState.showSnackbar(
-                                            if (useBackend) "Switched to Backend" else "Switched to AI (on-device)"
+                                            if (useBackend) "Switched to Backend API" else "Switched to Firebase AI"
                                         )
                                     }
                                 },
@@ -307,9 +316,11 @@ fun PowerGuardAppUI(
                                         checked = useBackend,
                                         onCheckedChange = { checked ->
                                             useBackend = checked
+                                            analysisPreferences.setUseBackendApi(useBackend)
+                                            showMenu = false
                                             coroutineScope.launch {
                                                 snackbarHostState.showSnackbar(
-                                                    if (useBackend) "Switched to Backend" else "Switched to AI (on-device)"
+                                                    if (useBackend) "Switched to Backend API" else "Switched to Firebase AI"
                                                 )
                                             }
                                         }
